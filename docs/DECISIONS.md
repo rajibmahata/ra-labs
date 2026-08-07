@@ -25,7 +25,41 @@ What this makes easier, what it makes harder, and any follow-up it requires.
 
 ## Records
 
-<!-- Add decision records below using the format above -->
+## ADR-006 - SQL Server Express (Windows auth) over PostgreSQL — supersedes ADR-001
+Date: 2026-08-07
+Status: accepted (supersedes ADR-001)
+Owner: solution-architect
+
+### Context
+ADR-001 chose PostgreSQL to avoid SQL Server Express's 10GB database cap and
+1-core/1GB buffer-pool limit. At implementation time the owner directed that
+the platform use the existing local SQL Server Express instance
+(`RAJIB\SQLEXPRESS`) with Windows Authentication for day-to-day development,
+and a containerized SQL Server (SA auth) for the Docker demo path — the same
+dual pattern already proven on the PestFlow reference. This platform's launch
+scale does not approach Express's limits.
+
+### Decision
+Use **SQL Server Express** as the database engine. Dev connection string:
+`Server=RAJIB\SQLEXPRESS;Database=RALabsDb;Trusted_Connection=True;
+TrustServerCertificate=True;MultipleActiveResultSets=True;` (Windows auth).
+The Docker Compose demo path uses a containerized SQL Server 2022 with SQL
+auth. EF Core SqlServer provider with migrations (ADR: migrations, not
+`EnsureCreated`). An empty connection string falls back to the EF in-memory
+provider for CI and zero-setup dev. ADR-001 is superseded.
+
+### Consequences
+- **Easier**: matches the owner's existing SQL Express + Windows auth
+  tooling; no separate Postgres container for daily dev; in-memory fallback
+  keeps CI/tests provider-agnostic.
+- **Harder**: the 10GB / 1-core / 1GB limits apply if data grows
+  unexpectedly; Windows-auth connection only works when the API runs on the
+  Windows host (the Docker path must use SQL auth + a containerized server).
+- **Follow-up**: keep the production deployment's SQL Server connection via
+  `DB_*` env vars (RMEnterpriseCMS pattern) so the containerized path is
+  first-class.
+
+
 
 ## ADR-001 - PostgreSQL over SQL Server Express
 Date: 2026-08-06
