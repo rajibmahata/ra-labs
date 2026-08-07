@@ -1,0 +1,28 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# Env / secrets — never committed
+.env
+.env.*
+!.env.example
+*.pem
+
+# Build output / tooling
+.DS_Store
+Thumbs.db
+coverage/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+logs/

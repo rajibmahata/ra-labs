@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R&amp;A Labs — page and screen sketches</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#F3F3F1;color:#2B2B2B;margin:0;}
+  .page-nav{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:12px 24px;
+    display:flex;gap:18px;overflow-x:auto;z-index:10;}
+  .page-nav a{color:#555;text-decoration:none;font-size:12.5px;white-space:nowrap;}
+  .page-nav a:hover{color:#111;}
+  .intro{padding:28px 24px 6px;max-width:960px;margin:0 auto;}
+  .intro h1{font-size:20px;margin:0 0 6px;}
+  .intro p{font-size:13px;color:#777;margin:0;}
+  .section{padding:40px 24px;border-bottom:1px dashed #ccc;}
+  .section .frame{max-width:960px;margin:0 auto;}
+  .section h2{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin:0 0 4px;}
+  .section .sub{font-size:12px;color:#aaa;margin:0 0 16px;}
+  .sketch{background:#fff;border:1px solid #ddd;border-radius:6px;padding:20px;}
+
+  .wire-box{border:1.5px dashed #9aa0a6;border-radius:4px;padding:12px;background:#fafafa;}
+  .line{height:8px;background:#dcdde0;border-radius:2px;margin:6px 0;}
+  .line.w80{width:80%;} .line.w60{width:60%;} .line.w40{width:40%;} .line.w30{width:30%;}
+  .img-ph{background-image:repeating-linear-gradient(45deg,#e2e3e5,#e2e3e5 6px,#eceded 6px,#eceded 12px);
+    border:1px dashed #9aa0a6;display:flex;align-items:center;justify-content:center;color:#9aa0a6;font-size:11px;}
+  .btn-ph{display:inline-block;border:1px solid #9aa0a6;border-radius:4px;padding:6px 14px;font-size:11px;color:#777;background:#fff;margin-right:8px;}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+
+  .nav-row{display:flex;justify-content:space-between;align-items:center;border:1px dashed #9aa0a6;border-radius:4px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#888;}
+  .nav-row .links{display:flex;gap:14px;}
+
+  .admin-layout{display:grid;grid-template-columns:170px 1fr;gap:0;border:1px dashed #9aa0a6;border-radius:6px;overflow:hidden;}
+  .admin-sidebar{border-right:1px dashed #9aa0a6;padding:16px 10px;background:#fbfbfa;}
+  .admin-sidebar .item{padding:8px 8px;font-size:11.5px;color:#666;border-radius:4px;margin-bottom:4px;}
+  .admin-sidebar .item.active{background:#eef0f2;color:#222;font-weight:600;}
+  .admin-main{padding:20px;}
+
+  table.wire-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  table.wire-table th{text-align:left;color:#999;font-weight:500;padding:8px;border-bottom:1px solid #ddd;}
+  table.wire-table td{padding:8px;border-bottom:1px dashed #ddd;color:#555;}
+  .flag{font-size:10px;border-radius:10px;padding:2px 8px;background:#fbe9e4;color:#c9694a;}
+  .flag.ok{background:#e7f3e5;color:#4a8a4d;}
+
+  label.field{display:block;font-size:11px;color:#888;margin:14px 0 5px;}
+  .input-ph{border:1px solid #ccc;border-radius:4px;height:30px;background:#fff;}
+  .textarea-ph{border:1px solid #ccc;border-radius:4px;height:64px;background:#fff;}
+  .upload-ph{border:1.5px dashed #9aa0a6;border-radius:4px;height:80px;display:flex;align-items:center;justify-content:center;color:#9aa0a6;font-size:11px;background:#fafafa;}
+
+  .stat-card{border:1px solid #ddd;border-radius:6px;padding:14px;}
+  .stat-card .num{font-size:20px;font-weight:600;color:#333;}
+  .stat-card .label{font-size:11px;color:#999;margin-top:4px;}
+
+  svg text{font-family:-apple-system,Segoe UI,Roboto,sans-serif;}
+</style>
+</head>
+<body>
+
+<div class="page-nav">
+  <a href="#home">Home page</a>
+  <a href="#portfolio-detail">Portfolio detail</a>
+  <a href="#admin-dashboard">Admin dashboard</a>
+  <a href="#admin-add-project">Admin — add project</a>
+  <a href="#admin-add-team">Admin — add team member</a>
+  <a href="#admin-leads">Admin — leads &amp; interactions</a>
+  <a href="#architecture">Architecture diagram</a>
+</div>
+
+<div class="intro">
+  <h1>R&amp;A Labs — page and screen sketches</h1>
+  <p>Low-fidelity structural reference. Regions and content are placeholders — visual styling follows the homepage sample (index.html) once built.</p>
+</div>
+
+<!-- HOME PAGE -->
+<section class="section" id="home">
+  <div class="frame">
+    <h2>Public site</h2>
+    <p class="sub">Home page — regions top to bottom</p>
+    <div class="sketch">
+      <div class="nav-row"><span>logo</span><span class="links"><span>work</span><span>process</span><span>team</span><span>contact</span></span></div>
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w60" style="height:16px;"></div>
+        <div class="line w80" style="height:16px;"></div>
+        <div class="line w40"></div>
+        <div style="margin-top:14px;"><span class="btn-ph">start a project</span><span class="btn-ph">see the work</span></div>
+      </div>
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w30"></div>
+        <div class="grid2" style="margin-top:8px;">
+          <div class="line"></div><div class="line"></div>
+          <div class="line"></div><div class="line"></div>
+          <div class="line"></div><div class="line"></div>
+        </div>
+        <div class="line w30" style="margin-top:4px;"></div>
+      </div>
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w30"></div>
+        <div class="grid3" style="margin-top:10px;">
+          <div><div class="img-ph" style="height:80px;">project cover</div><div class="line w80" style="margin-top:8px;"></div><div class="line w60"></div></div>
+          <div><div class="img-ph" style="height:80px;">project cover</div><div class="line w80" style="margin-top:8px;"></div><div class="line w60"></div></div>
+          <div><div class="img-ph" style="height:80px;">project cover</div><div class="line w80" style="margin-top:8px;"></div><div class="line w60"></div></div>
+        </div>
+      </div>
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w30"></div>
+        <div class="grid2" style="margin-top:10px;">
+          <div><div class="img-ph" style="height:56px;">avatar</div><div class="line w60" style="margin-top:8px;"></div></div>
+          <div><div class="img-ph" style="height:56px;">avatar</div><div class="line w60" style="margin-top:8px;"></div></div>
+        </div>
+      </div>
+      <div class="wire-box"><div class="line w60"></div><span class="btn-ph" style="margin-top:8px;display:inline-block;">start a conversation</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PORTFOLIO DETAIL -->
+<section class="section" id="portfolio-detail">
+  <div class="frame">
+    <h2>Public site</h2>
+    <p class="sub">Portfolio detail page — /work/:slug</p>
+    <div class="sketch">
+      <div class="nav-row"><span>logo</span><span class="links"><span>work</span><span>process</span><span>team</span><span>contact</span></span></div>
+      <div class="line w40" style="height:18px;margin-top:12px;"></div>
+      <div style="margin:8px 0;"><span class="flag ok">live</span> <span class="flag" style="background:#eee;color:#888;">.net</span> <span class="flag" style="background:#eee;color:#888;">azure</span></div>
+      <div class="img-ph" style="height:180px;margin:14px 0;">cover screenshot</div>
+      <div class="grid2">
+        <div>
+          <div class="line w80"></div><div class="line w80"></div><div class="line w60"></div>
+        </div>
+        <div class="wire-box">
+          <div class="line w40"></div><div class="line w60"></div><div class="line w40"></div>
+          <span class="btn-ph" style="margin-top:10px;">view on github</span>
+        </div>
+      </div>
+      <div class="line w30" style="margin-top:20px;"></div>
+      <div class="grid3" style="margin-top:8px;">
+        <div><div class="img-ph" style="height:60px;">related</div></div>
+        <div><div class="img-ph" style="height:60px;">related</div></div>
+        <div><div class="img-ph" style="height:60px;">related</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN DASHBOARD -->
+<section class="section" id="admin-dashboard">
+  <div class="frame">
+    <h2>Admin CMS</h2>
+    <p class="sub">Dashboard — overview on login</p>
+    <div class="sketch">
+      <div class="admin-layout">
+        <div class="admin-sidebar">
+          <div class="item active">Dashboard</div>
+          <div class="item">Leads</div>
+          <div class="item">Projects</div>
+          <div class="item">Portfolio</div>
+          <div class="item">Team</div>
+          <div class="item">Content</div>
+          <div class="item">Settings</div>
+        </div>
+        <div class="admin-main">
+          <div class="grid4" style="margin-bottom:16px;">
+            <div class="stat-card"><div class="num">12</div><div class="label">new leads</div></div>
+            <div class="stat-card"><div class="num">5</div><div class="label">active projects</div></div>
+            <div class="stat-card"><div class="num">2</div><div class="label">invoices pending</div></div>
+            <div class="stat-card"><div class="num">4m</div><div class="label">last github commit</div></div>
+          </div>
+          <div class="line w30"></div>
+          <table class="wire-table" style="margin-top:8px;">
+            <tr><th>type</th><th>summary</th><th>status</th><th></th></tr>
+            <tr><td>lead</td><td>chatbot conversation — pricing question</td><td><span class="flag">needs reply</span></td><td class="btn-ph">open</td></tr>
+            <tr><td>project</td><td>Returns fraud copilot — client uploaded a document</td><td><span class="flag ok">on track</span></td><td class="btn-ph">open</td></tr>
+            <tr><td>github</td><td>sync agent — nightly snapshot complete</td><td><span class="flag ok">done</span></td><td class="btn-ph">view</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN ADD PROJECT -->
+<section class="section" id="admin-add-project">
+  <div class="frame">
+    <h2>Admin CMS</h2>
+    <p class="sub">Add / edit portfolio project</p>
+    <div class="sketch">
+      <div class="admin-layout">
+        <div class="admin-sidebar">
+          <div class="item">Dashboard</div>
+          <div class="item">Leads</div>
+          <div class="item">Projects</div>
+          <div class="item active">Portfolio</div>
+          <div class="item">Team</div>
+          <div class="item">Content</div>
+          <div class="item">Settings</div>
+        </div>
+        <div class="admin-main">
+          <div class="line w40" style="height:16px;"></div>
+          <div class="grid2">
+            <div>
+              <label class="field">title</label><div class="input-ph"></div>
+              <label class="field">summary</label><div class="input-ph"></div>
+              <label class="field">stack tags</label><div class="input-ph"></div>
+              <label class="field">status</label><div class="input-ph" style="width:140px;"></div>
+              <label class="field">github url</label><div class="input-ph"></div>
+            </div>
+            <div>
+              <label class="field">cover image</label><div class="upload-ph">drop image or browse</div>
+              <label class="field">case study body</label><div class="textarea-ph"></div>
+            </div>
+          </div>
+          <div style="margin-top:18px;"><span class="btn-ph">save draft</span><span class="btn-ph">publish</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN ADD TEAM MEMBER -->
+<section class="section" id="admin-add-team">
+  <div class="frame">
+    <h2>Admin CMS</h2>
+    <p class="sub">Add / edit team member</p>
+    <div class="sketch">
+      <div class="admin-layout">
+        <div class="admin-sidebar">
+          <div class="item">Dashboard</div>
+          <div class="item">Leads</div>
+          <div class="item">Projects</div>
+          <div class="item">Portfolio</div>
+          <div class="item active">Team</div>
+          <div class="item">Content</div>
+          <div class="item">Settings</div>
+        </div>
+        <div class="admin-main">
+          <div class="line w40" style="height:16px;"></div>
+          <div class="grid2">
+            <div>
+              <label class="field">name</label><div class="input-ph"></div>
+              <label class="field">role</label><div class="input-ph"></div>
+              <label class="field">github username</label><div class="input-ph"></div>
+              <label class="field">bio</label><div class="textarea-ph"></div>
+            </div>
+            <div>
+              <label class="field">avatar</label><div class="upload-ph">drop image or browse</div>
+              <div class="wire-box" style="margin-top:16px;">
+                <div class="line w40"></div>
+                <div class="line w60" style="margin-top:8px;"></div>
+                <div class="line w40"></div>
+                <div style="font-size:10px;color:#aaa;margin-top:6px;">github snapshot — pulled automatically, not editable</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:18px;"><span class="btn-ph">save</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN LEADS / INTERACTIONS -->
+<section class="section" id="admin-leads">
+  <div class="frame">
+    <h2>Admin CMS</h2>
+    <p class="sub">Leads &amp; user interactions inbox</p>
+    <div class="sketch">
+      <div class="admin-layout">
+        <div class="admin-sidebar">
+          <div class="item">Dashboard</div>
+          <div class="item active">Leads</div>
+          <div class="item">Projects</div>
+          <div class="item">Portfolio</div>
+          <div class="item">Team</div>
+          <div class="item">Content</div>
+          <div class="item">Settings</div>
+        </div>
+        <div class="admin-main">
+          <div class="input-ph" style="width:240px;margin-bottom:14px;"></div>
+          <table class="wire-table">
+            <tr><th>name</th><th>source</th><th>message</th><th>status</th><th></th></tr>
+            <tr><td>—</td><td>chatbot</td><td>asking about timeline for a returns tool</td><td><span class="flag">needs reply</span></td><td class="btn-ph">open thread</td></tr>
+            <tr><td>—</td><td>contact form</td><td>pharmacy automation inquiry</td><td><span class="flag ok">replied</span></td><td class="btn-ph">open thread</td></tr>
+            <tr><td>—</td><td>chatbot</td><td>general question, agent answered</td><td><span class="flag ok">resolved</span></td><td class="btn-ph">open thread</td></tr>
+          </table>
+          <div class="wire-box" style="margin-top:18px;">
+            <div style="font-size:10px;color:#aaa;margin-bottom:8px;">thread preview</div>
+            <div class="line w60"></div>
+            <div class="line w40" style="margin-left:20%;"></div>
+            <div class="line w60"></div>
+            <span class="btn-ph" style="margin-top:8px;">convert to customer project</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="section" id="architecture">
+  <div class="frame">
+    <h2>System architecture</h2>
+    <p class="sub">PWA frontends, API + MCP server layer, and data/integrations tier (incl. RAG vector store)</p>
+    <div class="sketch">
+      <svg width="100%" viewBox="0 0 680 640">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+
+        <rect x="150" y="30" width="380" height="44" rx="8" fill="#F4F4F2" stroke="#9aa0a6" stroke-width="1"/>
+        <text x="340" y="56" text-anchor="middle" font-size="13" fill="#333">Visitors, customers, admin &amp; MCP agents</text>
+        <line x1="340" y1="78" x2="340" y2="110" stroke="#9aa0a6" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="60" y="120" width="170" height="56" rx="8" fill="#DCEEF7" stroke="#4C8FB0" stroke-width="1"/>
+        <text x="145" y="142" text-anchor="middle" font-size="13" fill="#215170">Public site</text>
+        <text x="145" y="160" text-anchor="middle" font-size="10.5" fill="#4C8FB0">web-public · PWA</text>
+
+        <rect x="255" y="120" width="170" height="56" rx="8" fill="#DCEEF7" stroke="#4C8FB0" stroke-width="1"/>
+        <text x="340" y="142" text-anchor="middle" font-size="13" fill="#215170">Customer portal</text>
+        <text x="340" y="160" text-anchor="middle" font-size="10.5" fill="#4C8FB0">web-customer · PWA</text>
+
+        <rect x="450" y="120" width="170" height="56" rx="8" fill="#DCEEF7" stroke="#4C8FB0" stroke-width="1"/>
+        <text x="535" y="142" text-anchor="middle" font-size="13" fill="#215170">Admin CMS</text>
+        <text x="535" y="160" text-anchor="middle" font-size="11" fill="#4C8FB0">web-admin</text>
+
+        <line x1="340" y1="180" x2="340" y2="214" stroke="#9aa0a6" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="60" y="224" width="560" height="190" rx="16" fill="none" stroke="#9aa0a6" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="80" y="256" font-size="14" fill="#333">.NET API layer</text>
+
+        <rect x="90" y="280" width="155" height="100" rx="12" fill="#E4F3EF" stroke="#3F9C86" stroke-width="1"/>
+        <text x="167.5" y="312" text-anchor="middle" font-size="13" fill="#1F5C4D">Core services</text>
+        <text x="167.5" y="344" text-anchor="middle" font-size="10.5" fill="#3F9C86">CMS, PRD, billing</text>
+
+        <rect x="262.5" y="280" width="155" height="100" rx="12" fill="#EFE7F9" stroke="#8C6FC9" stroke-width="1"/>
+        <text x="340" y="312" text-anchor="middle" font-size="13" fill="#4B3878">AI agent layer</text>
+        <text x="340" y="344" text-anchor="middle" font-size="10.5" fill="#8C6FC9">Chatbot, RAG, sync</text>
+
+        <rect x="435" y="280" width="155" height="100" rx="12" fill="#FDEFF3" stroke="#C4638E" stroke-width="1"/>
+        <text x="512.5" y="312" text-anchor="middle" font-size="13" fill="#7A2F4C">MCP server</text>
+        <text x="512.5" y="344" text-anchor="middle" font-size="10.5" fill="#C4638E">API exposed as tools</text>
+
+        <line x1="340" y1="418" x2="340" y2="444" stroke="#9aa0a6" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="60" y="450" width="560" height="150" rx="16" fill="none" stroke="#9aa0a6" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="80" y="482" font-size="14" fill="#333">Data &amp; integrations</text>
+
+        <rect x="90" y="514" width="155" height="60" rx="12" fill="#FBE9E4" stroke="#C9694A" stroke-width="1"/>
+        <text x="167.5" y="533" text-anchor="middle" font-size="13" fill="#7A3520">Database</text>
+        <text x="167.5" y="552" text-anchor="middle" font-size="10.5" fill="#C9694A">Postgres / SQL</text>
+
+        <rect x="262.5" y="514" width="155" height="60" rx="12" fill="#E8F0FC" stroke="#4C6FB0" stroke-width="1"/>
+        <text x="340" y="533" text-anchor="middle" font-size="13" fill="#243E7A">Vector store</text>
+        <text x="340" y="552" text-anchor="middle" font-size="10.5" fill="#4C6FB0">Qdrant embeddings</text>
+
+        <rect x="435" y="514" width="155" height="60" rx="12" fill="#FCEFDD" stroke="#C98A2E" stroke-width="1"/>
+        <text x="512.5" y="533" text-anchor="middle" font-size="13" fill="#7A551A">Integrations</text>
+        <text x="512.5" y="552" text-anchor="middle" font-size="10.5" fill="#C98A2E">GitHub, email API</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
