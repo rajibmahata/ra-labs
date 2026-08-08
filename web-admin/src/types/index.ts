@@ -166,3 +166,82 @@ export interface TeamProfileUpdate {
   location?: string;
   isPublished?: boolean;
 }
+
+// Customer-Project Management
+
+export type CustomerProjectStatus =
+  | 'intake'
+  | 'prd_draft'
+  | 'prd_signed'
+  | 'in_build'
+  | 'demo'
+  | 'delivered'
+  | 'closed';
+
+export interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  projectCount: number;
+}
+
+export interface CustomerProject {
+  id: string;
+  customerId: string;
+  title: string;
+  status: CustomerProjectStatus;
+  chatThreadId: string | null;
+  documentCount: number;
+  prdStatus: string | null;
+  latestDemoId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  adminNotes: string | null;
+}
+
+export interface CustomerProjectDetail extends CustomerProject {
+  thread?: ChatThreadDetail | null;
+}
+
+export interface CustomerDocument {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  uploadedBy: string;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface ClientPrd {
+  id: string;
+  content: string;
+  status: string;
+  signerNameCustomer: string | null;
+  signedAtCustomer: string | null;
+  signerNameAdmin: string | null;
+  signedAtAdmin: string | null;
+}
+
+export interface Demo {
+  type: 'screenshot' | 'url';
+  urlOrAsset: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface Invoice {
+  amount: number;
+  currency: string;
+  status: 'unpaid' | 'paid_cash';
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface Feedback {
+  rating: number;
+  comment: string;
+  consentToPublish: boolean;
+  isPublished: boolean;
+  createdAt: string;
+}
