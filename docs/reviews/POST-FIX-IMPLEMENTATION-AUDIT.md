@@ -30,6 +30,16 @@ and admin workflows were exercised against the live API.
 | N+1 queries | Present | Fixed (batch snapshot load) |
 
 ## Fixed Issues (highlights)
+- **P0 — Guard concurrency bug (found during verification)**: the shared `Errors`
+  static list meant concurrent requests could corrupt each other's validation.
+  Fixed with `AsyncLocal` isolation; verified under 50-way parallel validation
+  (56 tests, stable across repeated runs). The earlier "55 pass" masked this
+  because xUnit parallelism only intermittently exposed it.
+- **P0 — MCP argument errors returned 500 and leaked details**: `ArgumentException`
+  from MCP argument checks now maps to 400 VALIDATION_ERROR; the generic MCP 500
+  no longer echoes the exception message.
+- **P0 — seed default**: `Seed:DemoOnStartup` default is now `false`; seeding is
+  explicit via `/seed/full` (prevents production auto-seeding default credentials).
 - Customer portal built from scratch (register/login/forgot/reset/dashboard/project/chat/docs/PRD/demo/invoice/feedback).
 - Customer workflow backend + business rules (BR-003 cash-only, BR-004 feedback-before-close, BR-005 publish-on-approval, ADR-005 transitions).
 - `RequireRole("admin")` on all admin REST endpoints; `RequireRole("customer")` on customer group.
@@ -39,7 +49,7 @@ and admin workflows were exercised against the live API.
 - web-public redesigned to index-v2.html (tokens, typography, gradient covers, em-dash stats, badge pulse).
 - N+1 team snapshot queries batched.
 - Customer workflow deadlock fixed (feedback at delivered, close requires it).
-- 55 tests (customer workflow, auth security, chatbot matrix, state machine, validation).
+- 56 tests (customer workflow, auth security, chatbot matrix, state machine, validation, concurrency isolation).
 
 ## Remaining Issues
 - Qdrant real vector embeddings not wired (in-app scoring used). [M2/M5]
@@ -94,7 +104,9 @@ N+1 fixed, pagination on admin lists, chat payloads bounded, chatbot scans
 capped to public chunks. No premature optimization.
 
 ## Testing Health — GOOD
-55 xUnit (unit + integration-style) + Playwright scaffold. No meaningless tests.
+56 xUnit (unit + integration-style, incl. a Guard concurrency-isolation test)
++ Playwright scaffold. No meaningless tests. Verified stable across repeated
+parallel runs.
 
 ## Documentation Health — GOOD
 PRE-FIX + DESIGN-GAP + POST-FIX audits, FEATURE_INDEX, CHANGELOG, MEMORY,
