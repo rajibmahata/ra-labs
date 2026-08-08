@@ -130,7 +130,11 @@ app.MapPost("/api/v1/chat/threads", async (IChatService svc, RALabs.Domain.Enums
 app.MapPost("/api/v1/chat/{threadId}/messages", async (Guid threadId, SendMessageRequest req, IChatService svc, HttpContext ctx) =>
 {
     var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+    if (role == "customer")
+        return Results.Forbid();
     var isAdmin = role == "admin";
+    if (!isAdmin)
+        await svc.GetThreadAsync(threadId, isCustomerThread: true, isAdmin: false);
     var sender = isAdmin ? "admin" : "visitor";
     var senderName = isAdmin ? ctx.User.FindFirst(ClaimTypes.Name)?.Value : null;
     var result = await svc.SendMessageAsync(threadId, req, sender, senderName);
@@ -219,6 +223,22 @@ customer.MapGet("/projects/{id}", async (Guid id, HttpContext ctx, ICustomerProj
     var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
     return Results.Ok(new { data = await svc.GetMyProjectAsync(customerId, id) });
 }).WithOpenApi();
+
+customer.MapGet("/projects/{id}/chat", async (Guid id, HttpContext ctx, ICustomerProjectService projects, IChatService chat) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    var project = await projects.GetMyProjectAsync(customerId, id);
+    return Results.Ok(new { data = await chat.GetThreadAsync(project.ChatThreadId, isCustomerThread: false, isAdmin: false) });
+}).WithOpenApi();
+
+customer.MapPost("/projects/{id}/chat/messages", async (Guid id, SendMessageRequest req, HttpContext ctx, ICustomerProjectService projects, IChatService chat) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    var project = await projects.GetMyProjectAsync(customerId, id);
+    var senderName = ctx.User.FindFirst(ClaimTypes.Name)?.Value;
+    var result = await chat.SendMessageAsync(project.ChatThreadId, req, "customer", senderName);
+    return Results.Created($"/api/v1/customer/projects/{id}/chat", new { data = result });
+}).RequireRateLimiting("chat").WithOpenApi();
 
 customer.MapGet("/projects/{id}/documents", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
 {

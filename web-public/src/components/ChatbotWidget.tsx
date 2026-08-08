@@ -29,6 +29,12 @@ export default function ChatbotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const showRegistrationCta = messages.some(
+    (message) =>
+      message.senderType === 'agent' &&
+      message.content.toLowerCase().includes('private workspace')
+  );
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -246,6 +252,16 @@ export default function ChatbotWidget() {
                 {msg.content}
               </div>
             ))}
+
+            {showRegistrationCta && (
+              <div className="chatbot-registration-cta">
+                <strong>Ready to shape the idea?</strong>
+                <span>Create a private workspace for your brief and project conversation.</span>
+                <a href="/customer/register" className="cta primary">
+                  Create private workspace
+                </a>
+              </div>
+            )}
 
             {error && (
               <div

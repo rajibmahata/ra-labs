@@ -27,7 +27,7 @@ export default function Chat() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [threadId, setThreadId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +59,7 @@ export default function Chat() {
       setError('');
       try {
         const res = await api.getProject(id);
-        setThreadId(res.data.chatThreadId);
+        setProjectId(id);
         setProjectTitle(res.data.title);
       } catch (err) {
         setError(
@@ -74,10 +74,10 @@ export default function Chat() {
 
   // Load messages when we have threadId
   const loadMessages = useCallback(async () => {
-    if (!threadId) return;
+    if (!projectId) return;
 
     try {
-      const res = await api.getChatThread(threadId);
+      const res = await api.getProjectChat(projectId);
       setMessages(res.data.messages ?? []);
       setLoading(false);
     } catch (err) {
@@ -90,18 +90,18 @@ export default function Chat() {
         setLoading(false);
       }
     }
-  }, [threadId, loading]);
+  }, [projectId, loading]);
 
   // Initial load
   useEffect(() => {
-    if (threadId) {
+    if (projectId) {
       loadMessages();
     }
-  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll for new messages
   useEffect(() => {
-    if (!threadId) return;
+    if (!projectId) return;
 
     pollRef.current = setInterval(() => {
       loadMessages();
@@ -110,12 +110,12 @@ export default function Chat() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [threadId, loadMessages]);
+  }, [projectId, loadMessages]);
 
   const flushQueue = useCallback(async () => {
     if (!navigator.onLine) return;
-    await flushQueuedChatMessages(async (queuedThreadId, content) => {
-      const response = await api.sendChatMessage(queuedThreadId, {
+    await flushQueuedChatMessages(async (queuedProjectId, content) => {
+      const response = await api.sendProjectChatMessage(queuedProjectId, {
         content,
         attachmentUrl: null,
       });
@@ -141,17 +141,17 @@ export default function Chat() {
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!threadId || !input.trim()) return;
+    if (!projectId || !input.trim()) return;
 
     setSending(true);
     setSendError('');
     try {
       const content = input.trim();
       if (!navigator.onLine) {
-        await queueChatMessage(threadId, content);
+        await queueChatMessage(projectId, content);
         setQueuedCount(await countQueuedChatMessages());
       } else {
-        await api.sendChatMessage(threadId, {
+        await api.sendProjectChatMessage(projectId, {
           content,
           attachmentUrl: null,
         });
@@ -162,7 +162,7 @@ export default function Chat() {
     } catch (err) {
       if (!navigator.onLine && !(err instanceof ApiClientError)) {
         try {
-          await queueChatMessage(threadId, input.trim());
+          await queueChatMessage(projectId, input.trim());
           setQueuedCount(await countQueuedChatMessages());
           setInput('');
           setSendError('Message saved on this device and will send when you are back online.');
@@ -256,7 +256,7 @@ export default function Chat() {
     );
   }
 
-  if (!threadId) {
+  if (!projectId) {
     return (
       <div className="project-detail">
         <Link to={`/projects/${id}`} className="back-link">

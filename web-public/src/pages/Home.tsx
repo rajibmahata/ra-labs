@@ -93,6 +93,19 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="assistant-entry" aria-labelledby="assistant-entry-heading">
+        <div className="wrap assistant-entry-layout">
+          <div>
+            <div className="eyebrow">A better first step</div>
+            <h2 id="assistant-entry-heading">Start with a conversation, then keep the useful parts.</h2>
+            <p>
+              Tell the assistant what you want to build. When the direction is clear, create a private workspace to complete your brief and discuss it securely with the team.
+            </p>
+          </div>
+          <a href="/customer/register" className="cta primary">Create a private workspace</a>
+        </div>
+      </section>
+
       {/* Portfolio preview */}
       <section id="work" className="alt" aria-labelledby="portfolio-heading">
         <div className="wrap">

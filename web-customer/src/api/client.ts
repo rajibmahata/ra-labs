@@ -366,25 +366,25 @@ export const api = {
   },
 
   /* Chat */
-  async getChatThread(
-    threadId: string
+  async getProjectChat(
+    projectId: string
   ): Promise<ApiResponse<ChatThread>> {
     const response = await authFetch(
-      `/api/v1/chat/${encodeURIComponent(threadId)}`
+      `/api/v1/customer/projects/${encodeURIComponent(projectId)}/chat`
     );
     return parseResponse<ChatThread>(response);
   },
 
-  async sendChatMessage(
-    threadId: string,
+  async sendProjectChatMessage(
+    projectId: string,
     body: { content: string; attachmentUrl: string | null }
   ): Promise<ApiResponse<ChatMessage>> {
     const response = await authFetch(
-      `/api/v1/chat/${encodeURIComponent(threadId)}/messages`,
+      `/api/v1/customer/projects/${encodeURIComponent(projectId)}/chat/messages`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, sender: 'customer' }),
+        body: JSON.stringify(body),
       }
     );
     return parseResponse<ChatMessage>(response);

@@ -93,7 +93,7 @@ public class ChatbotService : IChatbotService
             if (ProjectIntentPattern.IsMatch(normalized))
             {
                 return new ChatbotReply(
-                "Absolutely — we'd love to explore it with you. What are you hoping to build, who is it for, and what should it help them do? A rough idea is enough to start.",
+                "Absolutely — we'd love to explore it with you. What are you hoping to build, who is it for, and what should it help them do? A rough idea is enough to start. When you are ready, create a private workspace so we can keep your brief and project conversation together.",
                 NeedsManualIntervention: false);
             }
 

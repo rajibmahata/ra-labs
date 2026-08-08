@@ -51,6 +51,7 @@ public class ChatbotServiceTests
         Assert.False(reply.NeedsManualIntervention);
         Assert.Contains("what are you hoping to build", reply.Content, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("who is it for", reply.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("private workspace", reply.Content, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("I don't have enough information", reply.Content);
     }
 

@@ -609,6 +609,33 @@ a.cta.on-dark:hover {
   font-size: 11px;
 }
 
+.assistant-entry {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.assistant-entry-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+}
+
+.assistant-entry h2 {
+  max-width: 20ch;
+  margin-top: 10px;
+  color: var(--surface);
+}
+
+.assistant-entry p {
+  max-width: 58ch;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.assistant-entry .cta {
+  flex: 0 0 auto;
+}
+
 /* ===== Chatbot Widget ===== */
 .chatbot-trigger {
   position: fixed;
@@ -730,6 +757,31 @@ a.cta.on-dark:hover {
   color: var(--ink-dim);
   margin-bottom: 4px;
   font-weight: 500;
+}
+
+.chatbot-registration-cta {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 90%;
+  padding: 12px 14px;
+  background: rgba(181, 139, 65, 0.1);
+  border: 1px solid rgba(181, 139, 65, 0.35);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.chatbot-registration-cta span {
+  color: var(--ink-dim);
+}
+
+.chatbot-registration-cta .cta {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 8px 11px;
+  font-size: 11px;
 }
 
 .chatbot-input {
@@ -1365,9 +1417,14 @@ footer.site-footer .footer-tagline {
   }
 
   .process-bridge,
-  .brief-prep-layout {
+  .brief-prep-layout,
+  .assistant-entry-layout {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  .assistant-entry-layout {
+    display: grid;
   }
 
   .brief-checklist {
