@@ -14,6 +14,8 @@ public static class DependencyInjection
         services.AddScoped<ILeadService, LeadService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ICustomerAuthService, CustomerAuthService>();
+        services.AddScoped<ICustomerProjectService, CustomerProjectService>();
         services.AddScoped<IChatbotService, ChatbotService>();
         services.AddScoped<IGithubSyncService>(sp =>
             new GithubSyncService(
