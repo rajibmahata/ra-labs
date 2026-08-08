@@ -3,14 +3,15 @@ import type { TeamMember } from '../api/client';
 
 interface Props {
   member: TeamMember;
+  /** Card index in the grid, used for round-robin avatar gradient assignment (0-based). */
+  index?: number;
 }
 
-const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #00d4a8, #008566)',
-  'linear-gradient(135deg, #e2b04a, #8b6914)',
-  'linear-gradient(135deg, #4a90d9, #2a5f8f)',
-  'linear-gradient(135deg, #e85d75, #9b2a3e)',
-];
+const AVATAR_CLASSES = ['a1', 'a2'] as const;
+
+function avatarClassForIndex(index: number): string {
+  return AVATAR_CLASSES[index % AVATAR_CLASSES.length];
+}
 
 function getInitials(name: string): string {
   return name
@@ -37,73 +38,50 @@ function formatRelativeTime(isoString: string): string {
   return new Date(isoString).toLocaleDateString();
 }
 
-export default function TeamCard({ member }: Props) {
+export default function TeamCard({ member, index = 0 }: Props) {
   const snapshot = member.githubSnapshot;
+
+  const stats = snapshot
+    ? [
+        { value: snapshot.commits90d.toLocaleString(), label: 'commits, 90d' },
+        { value: String(snapshot.activeRepos), label: 'active repos' },
+        { value: formatRelativeTime(snapshot.lastCommitAt), label: 'last commit' },
+      ]
+    : [
+        { value: '\u2014', label: 'commits, 90d' },
+        { value: '\u2014', label: 'active repos' },
+        { value: '\u2014', label: 'last commit' },
+      ];
 
   return (
     <Link
       to={`/team/${encodeURIComponent(member.slug)}`}
-      className="card"
-      style={{ textDecoration: 'none', color: 'inherit', overflow: 'visible' }}
+      className="person"
+      style={{ textDecoration: 'none', color: 'inherit' }}
       aria-label={`View profile: ${member.name}`}
     >
       <div
-        className="body"
-        style={{ flexDirection: 'row', gap: '18px', alignItems: 'flex-start', padding: '26px' }}
+        className={`avatar ${avatarClassForIndex(index)}`}
+        aria-hidden="true"
       >
-        <div
-          className="avatar team-avatar-large"
-          style={{
-            width: '56px',
-            height: '56px',
-            fontSize: '18px',
-            background:
-              AVATAR_GRADIENTS[
-                member.name.length % AVATAR_GRADIENTS.length
-              ],
-          }}
-          aria-hidden="true"
-        >
-          {member.avatarUrl ? (
-            <img
-              src={member.avatarUrl}
-              alt=""
-              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-            />
-          ) : (
-            getInitials(member.name)
-          )}
-        </div>
+        {member.avatarUrl ? (
+          <img src={member.avatarUrl} alt="" />
+        ) : (
+          getInitials(member.name)
+        )}
+      </div>
 
-        <div style={{ flex: 1 }}>
-          <h3 style={{ margin: 0, fontSize: '17px' }}>{member.name}</h3>
-          <div
-            style={{
-              fontSize: '12.5px',
-              color: 'var(--brass)',
-              fontWeight: 600,
-              marginTop: '3px',
-            }}
-          >
-            {member.role}
-          </div>
+      <div style={{ flex: 1 }}>
+        <h3>{member.name}</h3>
+        <div className="role">{member.role}</div>
 
-          {snapshot && (
-            <div className="team-stats" style={{ marginTop: '14px', gap: '18px' }}>
-              <div className="team-stat">
-                <b>{snapshot.commits90d.toLocaleString()}</b>
-                <span>commits, 90d</span>
-              </div>
-              <div className="team-stat">
-                <b>{snapshot.activeRepos}</b>
-                <span>active repos</span>
-              </div>
-              <div className="team-stat">
-                <b>{formatRelativeTime(snapshot.lastCommitAt)}</b>
-                <span>last commit</span>
-              </div>
+        <div className="team-stats">
+          {stats.map((stat, i) => (
+            <div className="team-stat" key={i}>
+              <b>{stat.value}</b>
+              <span>{stat.label}</span>
             </div>
-          )}
+          ))}
         </div>
       </div>
     </Link>
@@ -111,4 +89,4 @@ export default function TeamCard({ member }: Props) {
 }
 
 // Export helpers for TeamDetail reuse
-export { getInitials, formatRelativeTime, AVATAR_GRADIENTS };
+export { getInitials, formatRelativeTime, AVATAR_CLASSES, avatarClassForIndex };

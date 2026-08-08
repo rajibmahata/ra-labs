@@ -3,21 +3,32 @@ import type { ProjectSummary } from '../api/client';
 
 interface Props {
   project: ProjectSummary;
+  /** Card index in the grid, used for round-robin gradient assignment (0-based). */
+  index?: number;
 }
 
-const GRADIENT_PALETTES = [
-  'linear-gradient(135deg, #00d4a8, #006b52)',
-  'linear-gradient(135deg, #008566, #003d2e)',
-  'linear-gradient(135deg, #00b894, #009b7a)',
-  'linear-gradient(135deg, #e2b04a, #8b6914)',
-  'linear-gradient(135deg, #00d4a8, #8b6914)',
-];
+const GRADIENT_CLASSES = ['g1', 'g2', 'g3'] as const;
 
-function gradientForIndex(index: number): string {
-  return GRADIENT_PALETTES[index % GRADIENT_PALETTES.length];
+function gradientClassForIndex(index: number): string {
+  return GRADIENT_CLASSES[index % GRADIENT_CLASSES.length];
 }
 
-export default function ProjectCard({ project }: Props) {
+/**
+ * Formats a build-time string. Returns the value if truthy,
+ * otherwise "in progress" as a fallback.
+ */
+function formatBuildTime(project: ProjectSummary): string {
+  if (project.createdAt) {
+    const date = new Date(project.createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMonths = Math.max(1, Math.round(diffMs / (30 * 24 * 60 * 60 * 1000)));
+    return `${diffMonths} mo build`;
+  }
+  return 'in progress';
+}
+
+export default function ProjectCard({ project, index = 0 }: Props) {
   return (
     <Link
       to={`/work/${encodeURIComponent(project.slug)}`}
@@ -34,21 +45,16 @@ export default function ProjectCard({ project }: Props) {
           />
         ) : (
           <div
-            className="cover-gradient"
-            style={{ background: gradientForIndex(0) }}
+            className={`cover-gradient ${gradientClassForIndex(index)}`}
             aria-hidden="true"
           />
         )}
       </div>
 
       <div className="body">
-        <div className="status-row">
-          <span
-            className={`status-badge ${project.status === 'live' ? 'live' : project.status === 'in_build' ? 'in_build' : 'draft'}`}
-          >
-            {project.status === 'in_build' ? 'In Build' : project.status}
-          </span>
-        </div>
+        <span className="status-badge">
+          {project.status === 'in_build' ? 'In Build' : project.status}
+        </span>
 
         <h3>{project.title}</h3>
         <p className="summary">{project.summary}</p>
@@ -64,17 +70,13 @@ export default function ProjectCard({ project }: Props) {
         )}
 
         <div className="meta">
-          <span>
-            {project.createdAt
-              ? new Date(project.createdAt).toLocaleDateString()
-              : ''}
-          </span>
-          <span aria-hidden="true">view &rarr;</span>
+          <span>{formatBuildTime(project)}</span>
+          <span>github &nearr;</span>
         </div>
       </div>
     </Link>
   );
 }
 
-// Named export for the gradient helper (used by WorkDetail)
-export { gradientForIndex };
+// Named export for the gradient helper (used by WorkDetail if needed)
+export { gradientClassForIndex };

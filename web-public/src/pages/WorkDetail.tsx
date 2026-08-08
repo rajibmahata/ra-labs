@@ -169,7 +169,7 @@ export default function WorkDetail() {
                 )}
               </div>
 
-              <p style={{ color: 'var(--text-dim)', fontSize: '15px', maxWidth: '60ch' }}>
+              <p style={{ color: 'var(--ink-dim)', fontSize: '15px', maxWidth: '60ch' }}>
                 {project.summary}
               </p>
 

@@ -135,9 +135,9 @@ export default function Work() {
         {/* State: populated */}
         {!loading && !error && projects.length > 0 && (
           <div className="card-grid">
-            {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
+              {projects.map((project, i) => (
+                <ProjectCard key={project.id} project={project} index={i} />
+              ))}
           </div>
         )}
       </div>

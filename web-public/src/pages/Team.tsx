@@ -74,9 +74,9 @@ export default function Team() {
         {/* State: populated */}
         {!loading && !error && members.length > 0 && (
           <div className="team-grid">
-            {members.map((member) => (
-              <TeamCard key={member.id} member={member} />
-            ))}
+              {members.map((member, i) => (
+                <TeamCard key={member.id} member={member} index={i} />
+              ))}
           </div>
         )}
       </div>
