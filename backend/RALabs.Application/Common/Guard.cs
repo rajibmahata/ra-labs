@@ -17,7 +17,12 @@ public static class Guard
         @"^[a-z0-9]+(?:-[a-z0-9]+)*$",
         RegexOptions.Compiled);
 
-    private static readonly List<string> Errors = new();
+    /// <summary>Per-logical-execution validation buffer. AsyncLocal keeps
+    /// concurrent requests isolated (a static list would let one request clear
+    /// or read another's errors — a real concurrency bug).</summary>
+    private static readonly AsyncLocal<List<string>> _errors = new();
+
+    private static List<string> Errors => _errors.Value ??= new List<string>();
 
     public static void Reset() => Errors.Clear();
 

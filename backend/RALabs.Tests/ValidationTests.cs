@@ -108,3 +108,48 @@ public class CustomerProjectStateMachineTests
         }
     }
 }
+
+public class GuardConcurrencyTests
+{
+    [Fact]
+    public async Task ConcurrentValidation_IsIsolated_PerCall()
+    {
+        var tasks = new List<Task<RALabs.Application.Exceptions.ValidationException?>>();
+        for (var i = 0; i < 50; i++)
+        {
+            var index = i;
+            tasks.Add(Task.Run(() =>
+            {
+                try
+                {
+                    Guard.Reset();
+                    if (index % 2 == 0)
+                    {
+                        // Invalid: too-long title must fail with its own error.
+                        Guard.Required(new string('a', 201), "title", 200);
+                        Guard.ThrowIfAny("project");
+                    }
+                    else
+                    {
+                        // Valid: a short title must pass.
+                        Guard.Required("ok", "title", 200);
+                        Guard.ThrowIfAny("project");
+                    }
+                    return null;
+                }
+                catch (RALabs.Application.Exceptions.ValidationException ex)
+                {
+                    return ex;
+                }
+            }));
+        }
+        var results = await Task.WhenAll(tasks);
+        for (var i = 0; i < 50; i++)
+        {
+            if (i % 2 == 0)
+                Assert.Contains("title must be at most 200", results[i]!.Message);
+            else
+                Assert.Null(results[i]);
+        }
+    }
+}
