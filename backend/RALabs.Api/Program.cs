@@ -34,6 +34,9 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 builder.Services.Configure<RALabs.Api.Jobs.GithubSyncOptions>(builder.Configuration.GetSection(RALabs.Api.Jobs.GithubSyncOptions.SectionName));
@@ -50,6 +53,7 @@ var seedDemo = app.Configuration.GetValue<bool>("Seed:DemoOnStartup");
 await DbInitializer.InitializeAsync(app.Services, seedDemo);
 
 app.UseMiddleware<RALabs.Api.Middleware.ExceptionHandlingMiddleware>();
+app.UseMiddleware<RALabs.Api.Middleware.SecurityHeadersMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -127,7 +131,7 @@ app.MapGet("/api/v1/chat/{threadId}", async (Guid threadId, IChatService svc, Ht
 // ── Admin: Auth ──
 app.MapPost("/api/v1/auth/login", async (LoginRequest req, IAuthService svc) =>
     Results.Ok(new { data = await svc.LoginAsync(req) }))
-   .RequireRateLimiting("auth").WithOpenApi();
+   .RequireRateLimiting("login").WithOpenApi();
 
 app.MapPost("/api/v1/auth/refresh", async (RefreshTokenRequest req, IAuthService svc) =>
     Results.Ok(new { data = await svc.RefreshAsync(req) }))
@@ -152,7 +156,7 @@ app.MapPost("/api/v1/customer/auth/register", async (CustomerRegisterRequest req
 
 app.MapPost("/api/v1/customer/auth/login", async (LoginRequest req, ICustomerAuthService svc) =>
     Results.Ok(new { data = await svc.LoginAsync(req) }))
-   .RequireRateLimiting("auth").WithOpenApi();
+   .RequireRateLimiting("login").WithOpenApi();
 
 app.MapPost("/api/v1/customer/auth/refresh", async (RefreshTokenRequest req, ICustomerAuthService svc) =>
     Results.Ok(new { data = await svc.RefreshAsync(req) }))
@@ -294,12 +298,16 @@ admin.MapGet("/customer-projects/{id}/feedback", async (Guid id, ICustomerProjec
 admin.MapPost("/customer-projects/{id}/feedback/approve", async (Guid id, ICustomerProjectService svc) =>
     Results.Ok(new { data = await svc.ApproveFeedbackAsync(id) })).WithOpenApi();
 
-admin.MapGet("/projects", async (bool? includeUnpublished, IProjectRepository repo) =>
+admin.MapGet("/projects", async (bool? includeUnpublished, int? page, int? pageSize, IProjectRepository repo) =>
 {
-    var items = await repo.GetAllAsync(includeUnpublished ?? true);
-    return Results.Ok(new { data = items.Select(p => new ProjectDto(p.Id, p.Slug, p.Title, p.Summary, p.StackTags,
-        p.Status.ToString().ToLowerInvariant(), p.GithubUrl, p.CaseStudyBody, p.CoverImageUrl,
-        p.SortOrder, p.IsPublished, p.CreatedAt, p.UpdatedAt)).ToList() });
+    var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
+    var all = await repo.GetAllAsync(includeUnpublished ?? true);
+    var total = all.Count;
+    var items = all.OrderBy(x => x.SortOrder).Skip((p - 1) * ps).Take(ps);
+    return Results.Ok(new { data = items.Select(x => new ProjectDto(x.Id, x.Slug, x.Title, x.Summary, x.StackTags,
+        x.Status.ToString().ToLowerInvariant(), x.GithubUrl, x.CaseStudyBody, x.CoverImageUrl,
+        x.SortOrder, x.IsPublished, x.CreatedAt, x.UpdatedAt)).ToList(),
+        pagination = new { page = p, pageSize = ps, totalCount = total } });
 }).WithOpenApi();
 
 admin.MapPost("/projects", async (CreateProjectRequest req, IProjectService svc) =>
@@ -445,6 +453,28 @@ public record McpCallRequest(string Tool, Dictionary<string, object?>? Arguments
 
 namespace RALabs.Api.Middleware
 {
+    public class SecurityHeadersMiddleware
+    {
+        private readonly RequestDelegate _next;
+        public SecurityHeadersMiddleware(RequestDelegate next) => _next = next;
+
+        public Task InvokeAsync(HttpContext context)
+        {
+            var h = context.Response.Headers;
+            h["X-Content-Type-Options"] = "nosniff";
+            h["X-Frame-Options"] = "SAMEORIGIN";
+            h["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+            h["Content-Security-Policy"] =
+                "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; " +
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                "font-src 'self' https://fonts.gstatic.com data:; " +
+                "img-src 'self' data: https:; connect-src 'self' https://api.github.com https://www.google-analytics.com; " +
+                "frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
+            return _next(context);
+        }
+    }
+
     public class ExceptionHandlingMiddleware
     {
         private readonly RequestDelegate _next;
