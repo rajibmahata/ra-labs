@@ -1,0 +1,12 @@
+.git
+.github
+docs
+**/node_modules
+**/bin
+**/obj
+**/dist
+.env
+.env.*
+!.env.example
+deploy
+*.log
