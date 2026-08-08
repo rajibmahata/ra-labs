@@ -65,7 +65,13 @@ public class ChatService : IChatService
         // asks flag the thread for manual intervention (BR-002).
         if (ParseSender(senderType) == ChatSenderType.Visitor)
         {
-            var reply = await _chatbot.AnswerAsync(request.Content, locale: null);
+            var prior = thread.Messages
+                .Where(m => m.SenderType != ChatSenderType.Agent)
+                .OrderByDescending(m => m.CreatedAt)
+                .Take(3)
+                .Select(m => m.Content)
+                .ToList();
+            var reply = await _chatbot.AnswerAsync(request.Content, locale: null, prior);
             await _repo.AddMessageAsync(new ChatMessage
             {
                 Id = Guid.NewGuid(),
