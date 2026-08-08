@@ -21,7 +21,7 @@ The four tiers are:
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
 │  web-public   │   │ web-customer  │   │  web-admin    │
 │  React · PWA  │   │ React · PWA   │   │  React · SPA  │
-│  (port 3000)  │   │ (port 3001)   │   │ (port 3002)   │
+│  (port 3004)  │   │ (port 3005)   │   │ (port 3002)   │
 └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
         │   REST            │   REST            │   REST
         └───────────────────┼───────────────────┘

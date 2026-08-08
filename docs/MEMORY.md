@@ -47,3 +47,16 @@ Living project state. Updated as part of finishing a task, not after.
 - Frontend: React 18 + TS strict + Vite; portal-namespaced storage keys
   (`admin.*`, `ralabs-public.*`); error envelope parsing in the API client.
 - Git: conventional commits; task-* → develop (gates) → main (release).
+
+## Local Dev Ports (canonical — change nothing without updating every doc below)
+- **Backend API**: `http://localhost:5002` (Swagger at `/swagger`; health at `/health`)
+- **web-public** (PWA): `http://localhost:3004`
+- **web-admin** (CMS): `http://localhost:3005`
+- Vite dev servers proxy `/api` and `/mcp` → `http://localhost:5002`.
+- Default ports are also baked into: `backend/RALabs.Api/appsettings.json`
+  (CORS origins), `backend/RALabs.Api/Properties/launchSettings.json`,
+  `web-public/vite.config.ts`, `web-admin/vite.config.ts`,
+  `web-admin/package.json` (`--port 3005`), `scripts/smoke.sh`,
+  `README.md`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`,
+  `docs/checkpoints/*`. Keep them in sync together.
+- Docker Compose production path is unchanged (api :8080 internal, gateway 80/443).

@@ -28,13 +28,13 @@ Gate: Code Review + QA sign-off
   content CRUD, leads, threads, admins, github_sync, rag_ingest.
 
 ### Frontends
-- **web-public** (PWA, port 3000): dark blueprint theme (Fraunces + DM
+- **web-public** (PWA, port 3004): dark blueprint theme (Fraunces + DM
   Sans + IBM Plex Mono), 11-locale switcher via `GET /locales` +
   `GET /content`, home/hero + 5-step process + portfolio + team + contact,
   ChatbotWidget (thread persisted in `ralabs-public.chat.thread`), manifest +
   service worker (cache-first shell, network-first API), offline indicator.
   All copy data-driven — nothing hardcoded.
-- **web-admin** (port 3001): login, sidebar layout (Dashboard, Leads,
+- **web-admin** (port 3005): login, sidebar layout (Dashboard, Leads,
   Portfolio, Team, My Profile, Content, Chat, Settings), namespaced
   `admin.*` storage, 401→logout, **MyProfile self-edit via PUT
   /admin/team/me** (key feature — team members update their own details →
