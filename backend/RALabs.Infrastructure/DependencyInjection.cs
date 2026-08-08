@@ -55,9 +55,12 @@ public static class DependencyInjection
         services.AddScoped<IAgentTaskRepository, AgentTaskRepository>();
         services.AddScoped<IAdminUserRepository, AdminUserRepository>();
         services.AddScoped<IKnowledgeChunkRepository, KnowledgeChunkRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ICustomerProjectRepository, CustomerProjectRepository>();
 
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtService>(_ => new JwtService(jwtSecret, issuer, audience));
+        services.AddScoped<IEmailSender, EmailSender>();
 
         return services;
     }

@@ -28,13 +28,13 @@ export default function Contact() {
                 padding: 20,
                 background: 'var(--surface)',
                 borderRadius: 'var(--radius)',
-                border: '1px solid var(--line-subtle)',
+                border: '1px solid var(--line)',
                 fontSize: '13.5px',
-                color: 'var(--text-dim)',
+                color: 'var(--ink-dim)',
                 lineHeight: 1.7,
               }}
             >
-              <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
                 What happens next:
               </div>
               <ol style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>

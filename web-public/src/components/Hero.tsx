@@ -11,7 +11,11 @@ export default function Hero() {
           {t('hero.eyebrow', 'Engineering studio')}
         </div>
         <h1 id="hero-headline">
-          {t('hero.headline', 'We build software that ships.')}
+          {t('hero.headline', 'We build the parts of your business that used to need')}{' '}
+          <span className="hl">
+            {t('hero.headlineHighlight', 'a bigger team')}
+          </span>
+          .
         </h1>
         <p className="lede">
           {t(
@@ -40,7 +44,7 @@ export default function Hero() {
             cy="140"
             r="90"
             fill="none"
-            stroke="rgba(0, 212, 168, 0.18)"
+            stroke="rgba(255,255,255,0.18)"
             strokeWidth="1.5"
           />
           <circle
@@ -48,13 +52,13 @@ export default function Hero() {
             cy="260"
             r="120"
             fill="none"
-            stroke="rgba(0, 212, 168, 0.12)"
+            stroke="rgba(255,255,255,0.14)"
             strokeWidth="1.5"
           />
           <path
             d="M40,320 C120,260 180,340 260,270 S 360,180 380,120"
             fill="none"
-            stroke="rgba(0, 212, 168, 0.45)"
+            stroke="rgba(233,214,174,0.55)"
             strokeWidth="2"
           />
         </svg>

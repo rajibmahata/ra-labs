@@ -24,11 +24,9 @@ public class TeamService : ITeamService
 
     public async Task<List<TeamMemberDto>> GetPublishedAsync()
     {
-        var members = await _repo.GetPublishedAsync();
-        var result = new List<TeamMemberDto>();
-        foreach (var m in members.OrderBy(x => x.Name))
-            result.Add(await ToDto(m));
-        return result;
+        var members = (await _repo.GetPublishedAsync()).OrderBy(x => x.Name).ToList();
+        var snapshots = await _repo.GetLatestSnapshotsAsync(members.Select(m => m.Id));
+        return members.Select(m => ToDto(m, snapshots.GetValueOrDefault(m.Id))).ToList();
     }
 
     public async Task<TeamMemberDto> GetBySlugAsync(string slug)
@@ -159,11 +157,10 @@ public class TeamService : ITeamService
     }
 
     private async Task<TeamMemberDto> ToDto(TeamMember m)
-    {
-        var snap = await _repo.GetLatestSnapshotAsync(m.Id);
-        return new TeamMemberDto(
-            m.Id, m.Slug, m.Name, m.Role, m.Bio, m.GithubUsername, m.AvatarUrl,
+        => ToDto(m, await _repo.GetLatestSnapshotAsync(m.Id));
+
+    private static TeamMemberDto ToDto(TeamMember m, GithubSnapshot? snap) =>
+        new(m.Id, m.Slug, m.Name, m.Role, m.Bio, m.GithubUsername, m.AvatarUrl,
             m.Email, m.LinkedinUrl, m.Location, m.IsPublished,
             snap is null ? null : new GithubSnapshotDto(snap.Commits90d, snap.ActiveRepos, snap.LastCommitAt, snap.CapturedAt));
-    }
 }

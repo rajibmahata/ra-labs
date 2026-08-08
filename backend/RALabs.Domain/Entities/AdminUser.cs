@@ -11,4 +11,12 @@ public class AdminUser
     public DateTime? UpdatedAt { get; set; }
     public Guid? TeamMemberId { get; set; }
     public TeamMember? TeamMember { get; set; }
+
+    // Refresh-token rotation (single active refresh token per account).
+    public string? RefreshTokenHash { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
+
+    // Password reset (time-limited code, delivered by email).
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpiresAt { get; set; }
 }

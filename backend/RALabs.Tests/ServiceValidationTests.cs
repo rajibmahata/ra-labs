@@ -95,7 +95,7 @@ public class ServiceValidationTests : IDisposable
     {
         await SeedBaselineAsync();
         var admins = new AdminUserRepository(_db);
-        var svc = new AuthService(admins, _hasher, new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"));
+        var svc = new AuthService(admins, _hasher, new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
         await Assert.ThrowsAsync<RALabs.Application.Exceptions.UnauthorizedAccessException>(() =>
             svc.LoginAsync(new LoginRequest("rajib@ralabs.dev", "wrong-password")));
     }
@@ -105,7 +105,7 @@ public class ServiceValidationTests : IDisposable
     {
         await SeedBaselineAsync();
         var svc = new AuthService(new AdminUserRepository(_db), _hasher,
-            new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"));
+            new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
         var result = await svc.LoginAsync(new LoginRequest("rajib@ralabs.dev", "Admin@1234"));
         Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
         Assert.Equal("admin", result.User.Role);
@@ -116,7 +116,7 @@ public class ServiceValidationTests : IDisposable
     {
         await SeedBaselineAsync();
         var svc = new AuthService(new AdminUserRepository(_db), _hasher,
-            new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"));
+            new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
         await Assert.ThrowsAsync<ConflictException>(() =>
             svc.CreateAdminAsync(new CreateAdminRequest("X", "rajib@ralabs.dev", "Password123!", null), Guid.NewGuid()));
     }
@@ -149,5 +149,15 @@ public class ServiceValidationTests : IDisposable
 
         var result = await svc.SendMessageAsync(thread.Id, new SendMessageRequest("What is the price?", null), "visitor", null);
         Assert.True(result.NeedsManualIntervention);
+    }
+}
+
+internal sealed class FakeEmailSender : RALabs.Domain.Interfaces.IEmailSender
+{
+    public List<string> Sent { get; } = new();
+    public Task SendAsync(string to, string toName, string subject, string htmlBody)
+    {
+        Sent.Add($"{to}|{subject}|{htmlBody}");
+        return Task.CompletedTask;
     }
 }

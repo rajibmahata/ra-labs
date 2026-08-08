@@ -114,6 +114,18 @@ public class TeamRepository : ITeamRepository
             .Where(s => s.TeamMemberId == teamMemberId)
             .OrderByDescending(s => s.CapturedAt)
             .FirstOrDefaultAsync();
+
+    public async Task<Dictionary<Guid, GithubSnapshot>> GetLatestSnapshotsAsync(IEnumerable<Guid> teamMemberIds)
+    {
+        var ids = teamMemberIds.ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, GithubSnapshot>();
+        var rows = await _db.GithubSnapshots
+            .Where(s => ids.Contains(s.TeamMemberId))
+            .OrderBy(s => s.CapturedAt)
+            .ToListAsync();
+        return rows.GroupBy(s => s.TeamMemberId)
+            .ToDictionary(g => g.Key, g => g.Last());
+    }
 }
 
 public class ContentRepository : IContentRepository
@@ -297,6 +309,9 @@ public class AdminUserRepository : IAdminUserRepository
 
     public Task<AdminUser?> GetByIdAsync(Guid id) => _db.AdminUsers.FirstOrDefaultAsync(u => u.Id == id);
 
+    public Task<AdminUser?> GetByRefreshTokenHashAsync(string hash) =>
+        _db.AdminUsers.FirstOrDefaultAsync(u => u.RefreshTokenHash == hash);
+
     public async Task<Guid> AddAsync(AdminUser user)
     {
         _db.AdminUsers.Add(user);
@@ -343,4 +358,134 @@ public class KnowledgeChunkRepository : IKnowledgeChunkRepository
 
     public async Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId) =>
         await _db.KnowledgeChunks.Where(k => k.CustomerProjectId == customerProjectId).ToListAsync();
+}
+
+public class CustomerRepository : ICustomerRepository
+{
+    private readonly RALabsDbContext _db;
+    public CustomerRepository(RALabsDbContext db) => _db = db;
+
+    public Task<Customer?> GetByIdAsync(Guid id) => _db.Customers.FirstOrDefaultAsync(c => c.Id == id);
+    public Task<Customer?> GetByEmailAsync(string email) => _db.Customers.FirstOrDefaultAsync(c => c.Email == email);
+    public Task<Customer?> GetByRefreshTokenHashAsync(string hash) => _db.Customers.FirstOrDefaultAsync(c => c.RefreshTokenHash == hash);
+    public Task<bool> EmailExistsAsync(string email) => _db.Customers.AnyAsync(c => c.Email == email);
+
+    public async Task<Guid> AddAsync(Customer customer)
+    {
+        _db.Customers.Add(customer);
+        await _db.SaveChangesAsync();
+        return customer.Id;
+    }
+
+    public Task UpdateAsync(Customer customer)
+    {
+        _db.Customers.Update(customer);
+        return _db.SaveChangesAsync();
+    }
+
+    public async Task<List<Customer>> GetAllAsync(int page, int pageSize) =>
+        await _db.Customers.OrderByDescending(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+    public Task<int> CountAllAsync() => _db.Customers.CountAsync();
+}
+
+public class CustomerProjectRepository : ICustomerProjectRepository
+{
+    private readonly RALabsDbContext _db;
+    public CustomerProjectRepository(RALabsDbContext db) => _db = db;
+
+    public Task<CustomerProject?> GetByIdAsync(Guid id) =>
+        _db.CustomerProjects.FirstOrDefaultAsync(p => p.Id == id);
+
+    public Task<CustomerProject?> GetByIdIncludingAsync(Guid id) =>
+        _db.CustomerProjects
+            .Include(p => p.Threads)
+            .Include(p => p.Documents)
+            .Include(p => p.ClientPrd)
+            .Include(p => p.Demos)
+            .Include(p => p.Invoices)
+            .Include(p => p.Feedback)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+    public async Task<List<CustomerProject>> GetByCustomerAsync(Guid customerId, int page, int pageSize) =>
+        await _db.CustomerProjects.Where(p => p.CustomerId == customerId)
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+    public Task<int> CountByCustomerAsync(Guid customerId) =>
+        _db.CustomerProjects.CountAsync(p => p.CustomerId == customerId);
+
+    public async Task<List<CustomerProject>> GetAllAsync(int page, int pageSize) =>
+        await _db.CustomerProjects.OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+    public Task<int> CountAllAsync() => _db.CustomerProjects.CountAsync();
+
+    public async Task<Guid> AddAsync(CustomerProject project)
+    {
+        _db.CustomerProjects.Add(project);
+        await _db.SaveChangesAsync();
+        return project.Id;
+    }
+
+    public Task UpdateAsync(CustomerProject project)
+    {
+        _db.CustomerProjects.Update(project);
+        return _db.SaveChangesAsync();
+    }
+
+    public async Task<Document> AddDocumentAsync(Document document)
+    {
+        _db.Documents.Add(document);
+        await _db.SaveChangesAsync();
+        return document;
+    }
+
+    public async Task<List<Document>> GetDocumentsAsync(Guid projectId) =>
+        await _db.Documents.Where(d => d.CustomerProjectId == projectId).OrderByDescending(d => d.CreatedAt).ToListAsync();
+
+    public Task<ClientPrd?> GetPrdAsync(Guid projectId) =>
+        _db.ClientPrds.FirstOrDefaultAsync(p => p.CustomerProjectId == projectId);
+
+    public async Task<ClientPrd> SavePrdAsync(ClientPrd prd)
+    {
+        var existing = await _db.ClientPrds.FirstOrDefaultAsync(p => p.Id == prd.Id);
+        if (existing is null) _db.ClientPrds.Add(prd);
+        else _db.ClientPrds.Update(prd);
+        await _db.SaveChangesAsync();
+        return existing ?? prd;
+    }
+
+    public async Task<Demo> AddDemoAsync(Demo demo)
+    {
+        _db.Demos.Add(demo);
+        await _db.SaveChangesAsync();
+        return demo;
+    }
+
+    public Task<Demo?> GetLatestDemoAsync(Guid projectId) =>
+        _db.Demos.Where(d => d.CustomerProjectId == projectId).OrderByDescending(d => d.CreatedAt).FirstOrDefaultAsync();
+
+    public async Task<Invoice> AddInvoiceAsync(Invoice invoice)
+    {
+        _db.Invoices.Add(invoice);
+        await _db.SaveChangesAsync();
+        return invoice;
+    }
+
+    public async Task<List<Invoice>> GetInvoicesAsync(Guid projectId) =>
+        await _db.Invoices.Where(i => i.CustomerProjectId == projectId).OrderByDescending(i => i.CreatedAt).ToListAsync();
+
+    public Task<Feedback?> GetFeedbackAsync(Guid projectId) =>
+        _db.Feedbacks.FirstOrDefaultAsync(f => f.CustomerProjectId == projectId);
+
+    public async Task<Feedback> SaveFeedbackAsync(Feedback feedback)
+    {
+        var existing = await _db.Feedbacks.FirstOrDefaultAsync(f => f.CustomerProjectId == feedback.CustomerProjectId);
+        if (existing is null) _db.Feedbacks.Add(feedback);
+        else _db.Feedbacks.Update(feedback);
+        await _db.SaveChangesAsync();
+        return existing ?? feedback;
+    }
 }

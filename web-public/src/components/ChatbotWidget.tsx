@@ -227,7 +227,7 @@ export default function ChatbotWidget() {
             {messages.length === 0 && !error && (
               <div
                 style={{
-                  color: 'var(--text-dim)',
+                  color: 'var(--ink-dim)',
                   fontSize: '13.5px',
                   textAlign: 'center',
                   padding: '24px 8px',
@@ -254,11 +254,11 @@ export default function ChatbotWidget() {
                 role="alert"
                 style={{
                   fontSize: '12px',
-                  color: 'var(--error)',
+                  color: '#c44',
                   textAlign: 'center',
                   padding: '8px',
-                  background: 'var(--error-bg)',
-                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(204,68,68,0.08)',
+                  borderRadius: '10px',
                 }}
               >
                 {error}

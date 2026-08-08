@@ -115,8 +115,8 @@ export default function Home() {
 
           {!projectsLoading && !projectsError && projects.length > 0 && (
             <div className="card-grid">
-              {projects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
+              {projects.map((project, i) => (
+                <ProjectCard key={project.id} project={project} index={i} />
               ))}
             </div>
           )}
@@ -160,8 +160,8 @@ export default function Home() {
 
         {!teamLoading && !teamError && team.length > 0 && (
           <div className="team-grid">
-            {team.map((member) => (
-              <TeamCard key={member.id} member={member} />
+            {team.map((member, i) => (
+              <TeamCard key={member.id} member={member} index={i} />
             ))}
           </div>
         )}
@@ -201,13 +201,13 @@ export default function Home() {
             <h2>
               {t(
                 'contact.cta.panel',
-                'Ready to start? Send us a message.'
+                'Tell us the problem. We\'ll sketch the first version.'
               )}
             </h2>
             <p>
               {t(
                 'contact.cta.subtext',
-                'No pressure — just a conversation about what you need.'
+                'Usually a reply within one business day.'
               )}
             </p>
           </div>

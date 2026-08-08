@@ -43,15 +43,18 @@ public class JwtService : IJwtService
         _audience = audience;
     }
 
-    public string GenerateToken(AdminUser user, string role)
+    public string GenerateToken(AdminUser user, string role) =>
+        GenerateToken(user.Id, user.Name, user.Email, role);
+
+    public string GenerateToken(Guid userId, string name, string email, string role)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(ClaimTypes.Name, user.Name),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim(ClaimTypes.Name, name),
             new Claim(ClaimTypes.Role, role)
         };
         var token = new JwtSecurityToken(

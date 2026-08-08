@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RALabs.Application;
@@ -33,6 +34,9 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 builder.Services.Configure<RALabs.Api.Jobs.GithubSyncOptions>(builder.Configuration.GetSection(RALabs.Api.Jobs.GithubSyncOptions.SectionName));
@@ -49,6 +53,7 @@ var seedDemo = app.Configuration.GetValue<bool>("Seed:DemoOnStartup");
 await DbInitializer.InitializeAsync(app.Services, seedDemo);
 
 app.UseMiddleware<RALabs.Api.Middleware.ExceptionHandlingMiddleware>();
+app.UseMiddleware<RALabs.Api.Middleware.SecurityHeadersMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -126,17 +131,183 @@ app.MapGet("/api/v1/chat/{threadId}", async (Guid threadId, IChatService svc, Ht
 // ── Admin: Auth ──
 app.MapPost("/api/v1/auth/login", async (LoginRequest req, IAuthService svc) =>
     Results.Ok(new { data = await svc.LoginAsync(req) }))
+   .RequireRateLimiting("login").WithOpenApi();
+
+app.MapPost("/api/v1/auth/refresh", async (RefreshTokenRequest req, IAuthService svc) =>
+    Results.Ok(new { data = await svc.RefreshAsync(req) }))
    .RequireRateLimiting("auth").WithOpenApi();
 
-// ── Admin group ──
-var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
-
-admin.MapGet("/projects", async (bool? includeUnpublished, IProjectRepository repo) =>
+app.MapPost("/api/v1/auth/forgot-password", async (ForgotPasswordRequest req, IAuthService svc) =>
 {
-    var items = await repo.GetAllAsync(includeUnpublished ?? true);
-    return Results.Ok(new { data = items.Select(p => new ProjectDto(p.Id, p.Slug, p.Title, p.Summary, p.StackTags,
-        p.Status.ToString().ToLowerInvariant(), p.GithubUrl, p.CaseStudyBody, p.CoverImageUrl,
-        p.SortOrder, p.IsPublished, p.CreatedAt, p.UpdatedAt)).ToList() });
+    await svc.ForgotPasswordAsync(req);
+    return Results.Ok(new { message = "If this email is registered, a reset code has been sent." });
+}).RequireRateLimiting("auth").WithOpenApi();
+
+app.MapPost("/api/v1/auth/reset-password", async (ResetPasswordRequest req, IAuthService svc) =>
+{
+    await svc.ResetPasswordAsync(req);
+    return Results.Ok(new { message = "Password has been reset. You can now log in." });
+}).RequireRateLimiting("auth").WithOpenApi();
+
+// ── Customer: Auth ──
+app.MapPost("/api/v1/customer/auth/register", async (CustomerRegisterRequest req, ICustomerAuthService svc) =>
+    Results.Created("/api/v1/customer/auth/login", new { data = await svc.RegisterAsync(req) }))
+   .RequireRateLimiting("auth").WithOpenApi();
+
+app.MapPost("/api/v1/customer/auth/login", async (LoginRequest req, ICustomerAuthService svc) =>
+    Results.Ok(new { data = await svc.LoginAsync(req) }))
+   .RequireRateLimiting("login").WithOpenApi();
+
+app.MapPost("/api/v1/customer/auth/refresh", async (RefreshTokenRequest req, ICustomerAuthService svc) =>
+    Results.Ok(new { data = await svc.RefreshAsync(req) }))
+   .RequireRateLimiting("auth").WithOpenApi();
+
+app.MapPost("/api/v1/customer/auth/forgot-password", async (ForgotPasswordRequest req, ICustomerAuthService svc) =>
+{
+    await svc.ForgotPasswordAsync(req);
+    return Results.Ok(new { message = "If this email is registered, a reset code has been sent." });
+}).RequireRateLimiting("auth").WithOpenApi();
+
+app.MapPost("/api/v1/customer/auth/reset-password", async (ResetPasswordRequest req, ICustomerAuthService svc) =>
+{
+    await svc.ResetPasswordAsync(req);
+    return Results.Ok(new { message = "Password has been reset. You can now log in." });
+}).RequireRateLimiting("auth").WithOpenApi();
+
+// ── Customer group (JWT role: customer) ──
+var customer = app.MapGroup("/api/v1/customer").RequireAuthorization(policy => policy.RequireRole("customer"));
+
+customer.MapGet("/me", async (HttpContext ctx, ICustomerRepository repo) =>
+{
+    var id = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    var c = await repo.GetByIdAsync(id) ?? throw new RALabs.Application.Exceptions.NotFoundException("Customer not found.");
+    return Results.Ok(new { data = new CustomerDto(c.Id, c.Name, c.Email) });
+}).WithOpenApi();
+
+customer.MapGet("/projects", async (int? page, int? pageSize, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var id = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    var items = await svc.GetMyProjectsAsync(id, page, pageSize);
+    return Results.Ok(new { data = items });
+}).WithOpenApi();
+
+customer.MapPost("/projects", async (CreateCustomerProjectRequest req, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var id = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    var project = await svc.CreateAsync(id, req);
+    return Results.Created($"/api/v1/customer/projects/{project.Id}", new { data = project });
+}).WithOpenApi();
+
+customer.MapGet("/projects/{id}", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.GetMyProjectAsync(customerId, id) });
+}).WithOpenApi();
+
+customer.MapGet("/projects/{id}/documents", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetDocumentsAsync(id) })).WithOpenApi();
+
+customer.MapPost("/projects/{id}/documents", async (Guid id, HttpContext ctx, ICustomerProjectService svc, IFormFile file) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    if (file is null || file.Length == 0)
+        return Results.BadRequest(new { error = new { code = "VALIDATION_ERROR", message = "A file is required." } });
+    // Store as a data-URI placeholder via a simple local path naming (production uses object storage).
+    var url = $"/media/{id}/{Guid.NewGuid():N}-{file.FileName}";
+    var doc = await svc.UploadDocumentAsync(customerId, id, file.FileName, url, "uploaded via portal");
+    return Results.Created($"/api/v1/customer/projects/{id}/documents", new { data = doc });
+}).DisableAntiforgery().WithOpenApi();
+
+customer.MapGet("/projects/{id}/prd", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetPrdAsync(id) })).WithOpenApi();
+
+customer.MapPost("/projects/{id}/prd/sign", async (Guid id, SignPrdRequest req, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.SignPrdAsync(customerId, id, req) });
+}).WithOpenApi();
+
+customer.MapGet("/projects/{id}/demo", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetDemoAsync(id) })).WithOpenApi();
+
+customer.MapGet("/projects/{id}/invoice", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetInvoicesAsync(id) })).WithOpenApi();
+
+customer.MapPost("/projects/{id}/feedback", async (Guid id, SubmitFeedbackRequest req, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Created($"/api/v1/customer/projects/{id}/feedback", new { data = await svc.SubmitFeedbackAsync(customerId, id, req) });
+}).WithOpenApi();
+
+// ── Admin: customer projects ──
+var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("admin"));
+
+// ── Admin: customers ──
+admin.MapGet("/customers", async (int? page, int? pageSize, ICustomerRepository repo) =>
+{
+    var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
+    var items = await repo.GetAllAsync(p, ps);
+    var total = await repo.CountAllAsync();
+    return Results.Ok(new { data = items.Select(c => new { c.Id, c.Name, c.Email, c.CreatedAt, projectCount = c.Projects.Count }),
+        pagination = new { page = p, pageSize = ps, totalCount = total } });
+}).WithOpenApi();
+
+// ── Admin: customer projects ──
+admin.MapGet("/customer-projects", async (int? page, int? pageSize, string? status, ICustomerProjectService svc) =>
+{
+    var items = await svc.GetAllForAdminAsync(page, pageSize, status);
+    return Results.Ok(new { data = items });
+}).WithOpenApi();
+
+admin.MapGet("/customer-projects/{id}", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetForAdminAsync(id) })).WithOpenApi();
+
+admin.MapPatch("/customer-projects/{id}", async (Guid id, UpdateCustomerProjectRequest req, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.UpdateStatusAsync(id, req) })).WithOpenApi();
+
+admin.MapGet("/customer-projects/{id}/documents", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetDocumentsAsync(id) })).WithOpenApi();
+
+admin.MapPut("/customer-projects/{id}/prd", async (Guid id, SavePrdRequest req, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.SavePrdAsync(id, req) })).WithOpenApi();
+
+admin.MapGet("/customer-projects/{id}/prd", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetPrdAsync(id) })).WithOpenApi();
+
+admin.MapPost("/customer-projects/{id}/prd/sign", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var adminName = ctx.User.FindFirst(ClaimTypes.Name)?.Value ?? "Admin";
+    return Results.Ok(new { data = await svc.AdminSignPrdAsync(id, adminName) });
+}).WithOpenApi();
+
+admin.MapPost("/customer-projects/{id}/demo", async (Guid id, AddDemoRequest req, ICustomerProjectService svc) =>
+    Results.Created($"/api/v1/admin/customer-projects/{id}/demo", new { data = await svc.AddDemoAsync(id, req) })).WithOpenApi();
+
+admin.MapGet("/customer-projects/{id}/demo", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetDemoAsync(id) })).WithOpenApi();
+
+admin.MapGet("/customer-projects/{id}/invoice", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetInvoicesAsync(id) })).WithOpenApi();
+
+admin.MapPost("/customer-projects/{id}/invoice", async (Guid id, CreateInvoiceRequest req, ICustomerProjectService svc) =>
+    Results.Created($"/api/v1/admin/customer-projects/{id}/invoice", new { data = await svc.CreateInvoiceAsync(id, req) })).WithOpenApi();
+
+admin.MapGet("/customer-projects/{id}/feedback", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.GetFeedbackAsync(id) })).WithOpenApi();
+
+admin.MapPost("/customer-projects/{id}/feedback/approve", async (Guid id, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.ApproveFeedbackAsync(id) })).WithOpenApi();
+
+admin.MapGet("/projects", async (bool? includeUnpublished, int? page, int? pageSize, IProjectRepository repo) =>
+{
+    var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
+    var all = await repo.GetAllAsync(includeUnpublished ?? true);
+    var total = all.Count;
+    var items = all.OrderBy(x => x.SortOrder).Skip((p - 1) * ps).Take(ps);
+    return Results.Ok(new { data = items.Select(x => new ProjectDto(x.Id, x.Slug, x.Title, x.Summary, x.StackTags,
+        x.Status.ToString().ToLowerInvariant(), x.GithubUrl, x.CaseStudyBody, x.CoverImageUrl,
+        x.SortOrder, x.IsPublished, x.CreatedAt, x.UpdatedAt)).ToList(),
+        pagination = new { page = p, pageSize = ps, totalCount = total } });
 }).WithOpenApi();
 
 admin.MapPost("/projects", async (CreateProjectRequest req, IProjectService svc) =>
@@ -250,16 +421,16 @@ app.MapGet("/mcp/tools", (McpToolRegistry registry) =>
 app.MapPost("/mcp/call", async (McpCallRequest req, McpToolRegistry registry, HttpContext ctx) =>
 {
     var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
-    Guid? adminUserId = null;
-    if (role == "admin")
+    Guid? callerId = null;
+    if (role is "admin" or "customer")
     {
         var sub = ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-        if (Guid.TryParse(sub, out var uid)) adminUserId = uid;
+        if (Guid.TryParse(sub, out var uid)) callerId = uid;
     }
 
     try
     {
-        var result = await registry.DispatchAsync(req.Tool, req.Arguments ?? new Dictionary<string, object?>(), role, adminUserId);
+        var result = await registry.DispatchAsync(req.Tool, req.Arguments ?? new Dictionary<string, object?>(), role, callerId);
         return Results.Ok(new { data = new { tool = req.Tool, result } });
     }
     catch (ForbiddenMcpException ex)
@@ -282,6 +453,28 @@ public record McpCallRequest(string Tool, Dictionary<string, object?>? Arguments
 
 namespace RALabs.Api.Middleware
 {
+    public class SecurityHeadersMiddleware
+    {
+        private readonly RequestDelegate _next;
+        public SecurityHeadersMiddleware(RequestDelegate next) => _next = next;
+
+        public Task InvokeAsync(HttpContext context)
+        {
+            var h = context.Response.Headers;
+            h["X-Content-Type-Options"] = "nosniff";
+            h["X-Frame-Options"] = "SAMEORIGIN";
+            h["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+            h["Content-Security-Policy"] =
+                "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; " +
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                "font-src 'self' https://fonts.gstatic.com data:; " +
+                "img-src 'self' data: https:; connect-src 'self' https://api.github.com https://www.google-analytics.com; " +
+                "frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
+            return _next(context);
+        }
+    }
+
     public class ExceptionHandlingMiddleware
     {
         private readonly RequestDelegate _next;
