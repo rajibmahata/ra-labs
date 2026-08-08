@@ -2,7 +2,7 @@
 # RALabs smoke.sh — verify core endpoints across roles.
 # Requires the API running (e.g. dotnet run --project RALabs.Api).
 set -euo pipefail
-BASE="${1:-http://localhost:5000}"
+BASE="${1:-http://localhost:5002}"
 
 say() { printf "\n== %s ==\n" "$*"; }
 check() { # check <label> <expected_code> <curl...>

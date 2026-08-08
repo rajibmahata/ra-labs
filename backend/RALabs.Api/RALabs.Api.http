@@ -1,6 +1,6 @@
-@RALabs.Api_HostAddress = http://localhost:5169
+@RALabs.Api_HostAddress = http://localhost:5002
 
-GET {{RALabs.Api_HostAddress}}/weatherforecast/
+GET {{RALabs.Api_HostAddress}}/health
 Accept: application/json
 
 ###
