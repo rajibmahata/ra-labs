@@ -76,14 +76,18 @@ public class TeamService : ITeamService
         var member = await _repo.GetByIdAsync(id)
             ?? throw new Exceptions.NotFoundException("Team member not found.");
 
-        var slug = string.IsNullOrWhiteSpace(r.Slug) ? Guard.Slugify(r.Name!) : r.Slug.Trim().ToLowerInvariant();
+        // Validation (Validate + ThrowIfAny) guarantees these are non-null.
+        var name = r.Name!.Trim();
+        var role = r.Role!.Trim();
+        var bio = r.Bio!.Trim();
+        var slug = string.IsNullOrWhiteSpace(r.Slug) ? Guard.Slugify(name) : r.Slug.Trim().ToLowerInvariant();
         if (await _repo.SlugExistsAsync(slug, id))
             throw new Exceptions.ConflictException($"A team member with slug '{slug}' already exists.");
 
-        member.Name = r.Name.Trim();
+        member.Name = name;
         member.Slug = slug;
-        member.Role = r.Role.Trim();
-        member.Bio = r.Bio.Trim();
+        member.Role = role;
+        member.Bio = bio;
         member.GithubUsername = r.GithubUsername;
         member.AvatarUrl = r.AvatarUrl;
         member.Email = r.Email;
