@@ -114,6 +114,18 @@ public class TeamRepository : ITeamRepository
             .Where(s => s.TeamMemberId == teamMemberId)
             .OrderByDescending(s => s.CapturedAt)
             .FirstOrDefaultAsync();
+
+    public async Task<Dictionary<Guid, GithubSnapshot>> GetLatestSnapshotsAsync(IEnumerable<Guid> teamMemberIds)
+    {
+        var ids = teamMemberIds.ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, GithubSnapshot>();
+        var rows = await _db.GithubSnapshots
+            .Where(s => ids.Contains(s.TeamMemberId))
+            .OrderBy(s => s.CapturedAt)
+            .ToListAsync();
+        return rows.GroupBy(s => s.TeamMemberId)
+            .ToDictionary(g => g.Key, g => g.Last());
+    }
 }
 
 public class ContentRepository : IContentRepository
@@ -296,6 +308,9 @@ public class AdminUserRepository : IAdminUserRepository
         _db.AdminUsers.FirstOrDefaultAsync(u => u.Email == email);
 
     public Task<AdminUser?> GetByIdAsync(Guid id) => _db.AdminUsers.FirstOrDefaultAsync(u => u.Id == id);
+
+    public Task<AdminUser?> GetByRefreshTokenHashAsync(string hash) =>
+        _db.AdminUsers.FirstOrDefaultAsync(u => u.RefreshTokenHash == hash);
 
     public async Task<Guid> AddAsync(AdminUser user)
     {

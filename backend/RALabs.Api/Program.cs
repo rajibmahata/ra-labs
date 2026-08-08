@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RALabs.Application;
@@ -128,8 +129,24 @@ app.MapPost("/api/v1/auth/login", async (LoginRequest req, IAuthService svc) =>
     Results.Ok(new { data = await svc.LoginAsync(req) }))
    .RequireRateLimiting("auth").WithOpenApi();
 
+app.MapPost("/api/v1/auth/refresh", async (RefreshTokenRequest req, IAuthService svc) =>
+    Results.Ok(new { data = await svc.RefreshAsync(req) }))
+   .RequireRateLimiting("auth").WithOpenApi();
+
+app.MapPost("/api/v1/auth/forgot-password", async (ForgotPasswordRequest req, IAuthService svc) =>
+{
+    await svc.ForgotPasswordAsync(req);
+    return Results.Ok(new { message = "If this email is registered, a reset code has been sent." });
+}).RequireRateLimiting("auth").WithOpenApi();
+
+app.MapPost("/api/v1/auth/reset-password", async (ResetPasswordRequest req, IAuthService svc) =>
+{
+    await svc.ResetPasswordAsync(req);
+    return Results.Ok(new { message = "Password has been reset. You can now log in." });
+}).RequireRateLimiting("auth").WithOpenApi();
+
 // ── Admin group ──
-var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("admin"));
 
 admin.MapGet("/projects", async (bool? includeUnpublished, IProjectRepository repo) =>
 {

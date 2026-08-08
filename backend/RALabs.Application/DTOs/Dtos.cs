@@ -3,6 +3,9 @@ namespace RALabs.Application.DTOs;
 // ── Auth ──
 public record LoginRequest(string Email, string Password);
 public record LoginResponse(string AccessToken, string RefreshToken, DateTime ExpiresAt, AdminUserDto User);
+public record RefreshTokenRequest(string RefreshToken);
+public record ForgotPasswordRequest(string Email);
+public record ResetPasswordRequest(string Email, string Token, string NewPassword);
 public record AdminUserDto(Guid Id, string Name, string Email, string Role, Guid? TeamMemberId);
 
 // ── Portfolio ──

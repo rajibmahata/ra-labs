@@ -37,6 +37,8 @@ public class RALabsDbContext : DbContext
             e.Property(x => x.Email).HasMaxLength(200).IsRequired();
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.PasswordHash).IsRequired();
+            e.Property(x => x.RefreshTokenHash).HasMaxLength(500);
+            e.Property(x => x.PasswordResetToken).HasMaxLength(100);
             e.HasOne(x => x.TeamMember).WithOne().HasForeignKey<AdminUser>(x => x.TeamMemberId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
