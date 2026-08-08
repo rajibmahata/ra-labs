@@ -4,7 +4,7 @@
 
 | Environment | Purpose | Host | Access |
 |---|---|---|---|
-| Local | Primary dev: API via `dotnet run` on **port 5002** (Windows auth to `RAJIB\SQLEXPRESS`), frontends via Vite (**3004** public, **3005** admin) | Developer machine | localhost |
+| Local | Primary dev: API via `dotnet run` on **port 5002** (Windows auth to `RAJIB\SQLEXPRESS`), frontends via Vite (**3004** public, **3005** admin, **3002** customer) | Developer machine | localhost |
 | Docker demo | Full stack via `docker compose up` (containerized SQL Server SA auth) | Any Docker host | localhost |
 | Production | Live deploy on the VPS (same host as RMEnterpriseCMS) | VPS `/opt/ralabs` | public domain |
 
