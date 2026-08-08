@@ -13,18 +13,26 @@ public class CustomerProjectService : ICustomerProjectService
     private readonly ICustomerProjectRepository _repo;
     private readonly ICustomerRepository _customers;
     private readonly IChatService _chat;
+    private readonly IPrivateFileStorage? _fileStorage;
 
-    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatService chat)
+    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatService chat, IPrivateFileStorage? fileStorage = null)
     {
         _repo = repo;
         _customers = customers;
         _chat = chat;
+        _fileStorage = fileStorage;
     }
 
     public async Task<CustomerProjectDto> CreateAsync(Guid customerId, CreateCustomerProjectRequest request)
     {
         Guard.Reset();
         Guard.Required(request.Title, "title", 200);
+        Guard.MaxLength(request.Goal, "goal", 5000);
+        Guard.MaxLength(request.Audience, "audience", 1000);
+        Guard.MaxLength(request.Requirements, "requirements", 10000);
+        Guard.MaxLength(request.Timeline, "timeline", 500);
+        Guard.MaxLength(request.BudgetOrConstraints, "budgetOrConstraints", 1000);
+        Guard.MaxLength(request.ReferenceLinks, "referenceLinks", 3000);
         Guard.ThrowIfAny("project");
 
         var thread = await _chat.CreateThreadAsync(ChatThreadType.CustomerProject, null);
@@ -33,6 +41,12 @@ public class CustomerProjectService : ICustomerProjectService
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             Title = request.Title.Trim(),
+            Goal = request.Goal?.Trim(),
+            Audience = request.Audience?.Trim(),
+            Requirements = request.Requirements?.Trim(),
+            Timeline = request.Timeline?.Trim(),
+            BudgetOrConstraints = request.BudgetOrConstraints?.Trim(),
+            ReferenceLinks = request.ReferenceLinks?.Trim(),
             Status = CustomerProjectStatus.Intake,
             CreatedAt = DateTime.UtcNow
         };
@@ -116,28 +130,62 @@ public class CustomerProjectService : ICustomerProjectService
         return await ToDtoAsync(project, null);
     }
 
-    public async Task<DocumentDto> UploadDocumentAsync(Guid customerId, Guid projectId, string fileName, string fileUrl, string? description)
+    public async Task<DocumentDto> UploadDocumentAsync(Guid customerId, Guid projectId, string fileName, Stream content, string contentType, long fileSize, string? description)
     {
-        Guard.MaxLength(fileName, "fileName", 255);
-        Guard.Required(fileUrl, "fileUrl", 1000);
+        var safeFileName = Path.GetFileName(fileName).Trim();
+        Guard.Required(safeFileName, "fileName", 255);
+        Guard.MaxLength(description, "description", 2000);
         Guard.ThrowIfAny("document");
+
+        var allowedTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".pdf"] = "application/pdf",
+            [".png"] = "image/png",
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg",
+            [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        };
+        var extension = Path.GetExtension(safeFileName);
+        if (!allowedTypes.TryGetValue(extension, out var expectedType) || !contentType.Equals(expectedType, StringComparison.OrdinalIgnoreCase))
+            throw new ValidationException("Only PDF, PNG, JPEG, and DOCX files are supported.");
+        if (fileSize <= 0 || fileSize > 10 * 1024 * 1024)
+            throw new ValidationException("Documents must be between 1 byte and 10 MB.");
+        if (_fileStorage is null)
+            throw new InvalidOperationException("Private file storage is not configured.");
 
         var project = await _repo.GetByIdAsync(projectId)
             ?? throw new NotFoundException("Project not found.");
         if (project.CustomerId != customerId)
             throw new NotFoundException("Project not found.");
 
+        var documentId = Guid.NewGuid();
+        var storageKey = $"projects/{projectId:N}/{documentId:N}{extension.ToLowerInvariant()}";
+        await _fileStorage.SaveAsync(storageKey, content);
         var doc = await _repo.AddDocumentAsync(new Document
         {
-            Id = Guid.NewGuid(),
+            Id = documentId,
             CustomerProjectId = projectId,
-            FileName = fileName,
-            FileUrl = fileUrl,
+            FileName = safeFileName,
+            FileUrl = $"/api/v1/customer/projects/{projectId}/documents/{documentId}/download",
+            StorageKey = storageKey,
+            ContentType = expectedType,
+            FileSize = fileSize,
             UploadedBy = "customer",
             Description = description,
             CreatedAt = DateTime.UtcNow
         });
         return new DocumentDto(doc.Id, doc.CustomerProjectId, doc.FileName, doc.FileUrl, doc.UploadedBy, doc.Description, doc.CreatedAt);
+    }
+
+    public async Task<StoredDocumentDownload> DownloadDocumentAsync(Guid customerId, Guid projectId, Guid documentId)
+    {
+        await EnsureCustomerProjectAsync(customerId, projectId);
+        var document = await _repo.GetDocumentAsync(projectId, documentId)
+            ?? throw new NotFoundException("Document not found.");
+        if (_fileStorage is null)
+            throw new InvalidOperationException("Private file storage is not configured.");
+        return new StoredDocumentDownload(
+            await _fileStorage.OpenReadAsync(document.StorageKey), document.FileName, document.ContentType);
     }
 
     public async Task<List<DocumentDto>> GetDocumentsAsync(Guid projectId)
@@ -146,11 +194,23 @@ public class CustomerProjectService : ICustomerProjectService
         return docs.Select(d => new DocumentDto(d.Id, d.CustomerProjectId, d.FileName, d.FileUrl, d.UploadedBy, d.Description, d.CreatedAt)).ToList();
     }
 
+    public async Task<List<DocumentDto>> GetMyDocumentsAsync(Guid customerId, Guid projectId)
+    {
+        await EnsureCustomerProjectAsync(customerId, projectId);
+        return await GetDocumentsAsync(projectId);
+    }
+
     public async Task<ClientPrdDto> GetPrdAsync(Guid id)
     {
         var prd = await _repo.GetPrdAsync(id)
             ?? throw new NotFoundException("No PRD exists for this project yet.");
         return ToPrdDto(prd);
+    }
+
+    public async Task<ClientPrdDto> GetMyPrdAsync(Guid customerId, Guid projectId)
+    {
+        await EnsureCustomerProjectAsync(customerId, projectId);
+        return await GetPrdAsync(projectId);
     }
 
     public async Task<ClientPrdDto> SavePrdAsync(Guid id, SavePrdRequest request)
@@ -288,6 +348,12 @@ public class CustomerProjectService : ICustomerProjectService
         return demo is null ? null : new DemoDto(demo.Id, demo.CustomerProjectId, demo.Type, demo.UrlOrAsset, demo.Notes, demo.CreatedAt);
     }
 
+    public async Task<DemoDto?> GetMyDemoAsync(Guid customerId, Guid projectId)
+    {
+        await EnsureCustomerProjectAsync(customerId, projectId);
+        return await GetDemoAsync(projectId);
+    }
+
     public async Task<InvoiceDto> CreateInvoiceAsync(Guid id, CreateInvoiceRequest request)
     {
         Guard.GreaterThan(request.Amount, "amount", 0);
@@ -317,6 +383,19 @@ public class CustomerProjectService : ICustomerProjectService
     {
         var invoices = await _repo.GetInvoicesAsync(id);
         return invoices.Select(i => new InvoiceDto(i.Id, i.CustomerProjectId, i.Amount, i.Currency, i.Status.ToString().ToLowerInvariant(), i.Notes, i.CreatedAt)).ToList();
+    }
+
+    public async Task<List<InvoiceDto>> GetMyInvoicesAsync(Guid customerId, Guid projectId)
+    {
+        await EnsureCustomerProjectAsync(customerId, projectId);
+        return await GetInvoicesAsync(projectId);
+    }
+
+    private async Task EnsureCustomerProjectAsync(Guid customerId, Guid projectId)
+    {
+        var project = await _repo.GetByIdAsync(projectId);
+        if (project is null || project.CustomerId != customerId)
+            throw new NotFoundException("Project not found.");
     }
 
     public async Task<FeedbackDto> SubmitFeedbackAsync(Guid customerId, Guid id, SubmitFeedbackRequest request)
@@ -377,7 +456,8 @@ public class CustomerProjectService : ICustomerProjectService
             p.Id, p.CustomerId, p.Title, StatusName(p.Status), thread,
             p.Documents.Count, p.ClientPrd?.Status.ToString().ToLowerInvariant(),
             p.Demos.OrderByDescending(d => d.CreatedAt).FirstOrDefault()?.Id,
-            p.CreatedAt, p.UpdatedAt, p.AdminNotes);
+            p.CreatedAt, p.UpdatedAt, p.AdminNotes, p.Goal, p.Audience, p.Requirements,
+            p.Timeline, p.BudgetOrConstraints, p.ReferenceLinks);
     }
 
     private static string StatusName(CustomerProjectStatus s) => s switch

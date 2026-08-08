@@ -20,6 +20,8 @@ services:
       Jwt__Issuer: ${JWT_ISSUER:-RALabs}
       Jwt__Audience: ${JWT_AUDIENCE:-RALabs}
       Github__Token: ${GITHUB_TOKEN:-}
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      OpenAI__Model: ${OPENAI_MODEL:-gpt-4o-mini}
       Email__SmtpHost: ${SMTP_HOST:-}
       Email__SmtpPort: ${SMTP_PORT:-587}
       Email__Username: ${SMTP_USERNAME:-}

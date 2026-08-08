@@ -7,7 +7,10 @@ namespace RALabs.Application.Services;
 public interface IRagIngestionService
 {
     Task<int> IngestPublicContentAsync(CancellationToken ct);
+    Task<List<RagQueryResult>> QueryAsync(string query, Guid? customerProjectId, CancellationToken ct);
 }
+
+public sealed record RagQueryResult(Guid Id, string SourceType, string SourceId, string Text, double Score);
 
 /// <summary>
 /// Ingests published public content (portfolio summaries + case studies,
@@ -122,4 +125,40 @@ public class RagIngestionService : IRagIngestionService
 
         return count;
     }
+
+    public async Task<List<RagQueryResult>> QueryAsync(string query, Guid? customerProjectId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return new List<RagQueryResult>();
+
+        var chunks = customerProjectId.HasValue
+            ? await _chunks.GetChunksByProjectAsync(customerProjectId.Value)
+            : await _chunks.GetPublicChunksAsync();
+        var terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeTerm)
+            .Where(term => term.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (terms.Length == 0)
+            return new List<RagQueryResult>();
+
+        return chunks
+            .Select(chunk =>
+            {
+                var text = NormalizeTerm(chunk.ChunkText);
+                var matched = terms.Count(text.Contains);
+                var score = (double)matched / terms.Length;
+                return new RagQueryResult(chunk.Id, chunk.SourceType.ToString(), chunk.SourceId, chunk.ChunkText, score);
+            })
+            .Where(result => result.Score > 0)
+            .OrderByDescending(result => result.Score)
+            .ThenBy(result => result.SourceId)
+            .Take(8)
+            .ToList();
+    }
+
+    private static string NormalizeTerm(string value) => new(value
+        .ToLowerInvariant()
+        .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+        .ToArray());
 }

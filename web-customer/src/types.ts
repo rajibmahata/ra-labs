@@ -33,10 +33,26 @@ export interface ProjectSummary {
   latestDemoId: string | null;
   createdAt: string;
   updatedAt: string;
+  goal: string | null;
+  audience: string | null;
+  requirements: string | null;
+  timeline: string | null;
+  budgetOrConstraints: string | null;
+  referenceLinks: string | null;
 }
 
 export interface ProjectDetail extends ProjectSummary {
   adminNotes: string | null;
+}
+
+export interface ProjectBriefInput {
+  title: string;
+  goal: string;
+  audience?: string;
+  requirements?: string;
+  timeline?: string;
+  budgetOrConstraints?: string;
+  referenceLinks?: string;
 }
 
 export interface Document {

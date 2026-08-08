@@ -21,9 +21,20 @@ public static class DependencyInjection
             new GithubSyncService(
                 sp.GetRequiredService<Domain.Interfaces.ITeamRepository>(),
                 sp.GetRequiredService<Domain.Interfaces.IAgentTaskRepository>(),
+                sp.GetRequiredService<Domain.Interfaces.IGithubRepositoryRepository>(),
                 sp.GetRequiredService<IHttpClientFactory>(),
-                config?["Github:Token"]));
+                config?["Github:Token"],
+                sp.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>()));
         services.AddScoped<IRagIngestionService, RagIngestionService>();
+        services.AddHttpClient("openai", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddScoped<IAiDraftService>(sp => new AiDraftService(
+            sp.GetRequiredService<Domain.Interfaces.IContentDraftRepository>(),
+            sp.GetRequiredService<IHttpClientFactory>(),
+            config?["OpenAI:ApiKey"], config?["OpenAI:Model"] ?? "gpt-4o-mini"));
+        services.AddScoped<ITranslationAgentService>(sp => new TranslationAgentService(
+            sp.GetRequiredService<Domain.Interfaces.IContentRepository>(),
+            sp.GetRequiredService<IHttpClientFactory>(),
+            config?["OpenAI:ApiKey"], config?["OpenAI:Model"] ?? "gpt-4o-mini"));
         services.AddHttpClient("github", c =>
         {
             c.Timeout = TimeSpan.FromSeconds(30);

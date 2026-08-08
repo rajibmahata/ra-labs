@@ -299,6 +299,56 @@ public class AgentTaskRepository : IAgentTaskRepository
     }
 }
 
+public class ContentDraftRepository : IContentDraftRepository
+{
+    private readonly RALabsDbContext _db;
+    public ContentDraftRepository(RALabsDbContext db) => _db = db;
+    public Task<ContentDraft?> GetByIdAsync(Guid id) => _db.ContentDrafts.FirstOrDefaultAsync(x => x.Id == id);
+    public Task<List<ContentDraft>> ListAsync(string? status, int page, int pageSize)
+    {
+        var query = _db.ContentDrafts.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status);
+        return query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+    public async Task<Guid> AddAsync(ContentDraft draft) { _db.ContentDrafts.Add(draft); await _db.SaveChangesAsync(); return draft.Id; }
+    public Task UpdateAsync(ContentDraft draft) { _db.ContentDrafts.Update(draft); return _db.SaveChangesAsync(); }
+}
+
+public class GithubRepositoryRepository : IGithubRepositoryRepository
+{
+    private readonly RALabsDbContext _db;
+    public GithubRepositoryRepository(RALabsDbContext db) => _db = db;
+    public Task<GithubRepository?> GetByFullNameAsync(string fullName) => _db.GithubRepositories.FirstOrDefaultAsync(x => x.FullName == fullName);
+    public async Task UpsertAsync(GithubRepository repository)
+    {
+        var existing = await GetByFullNameAsync(repository.FullName);
+        if (existing is null) _db.GithubRepositories.Add(repository);
+        else
+        {
+            repository.Id = existing.Id;
+            _db.Entry(existing).CurrentValues.SetValues(repository);
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<GithubRepository>> GetAllAsync(int page, int pageSize, string? technology)
+    {
+        var query = _db.GithubRepositories.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(technology))
+            query = query.Where(x => x.TechnologiesJson.Contains(technology) || x.PrimaryLanguage == technology);
+        return await query.OrderByDescending(x => x.PushedAt).ThenBy(x => x.FullName)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public Task<int> CountAsync(string? technology)
+    {
+        var query = _db.GithubRepositories.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(technology))
+            query = query.Where(x => x.TechnologiesJson.Contains(technology) || x.PrimaryLanguage == technology);
+        return query.CountAsync();
+    }
+}
+
 public class AdminUserRepository : IAdminUserRepository
 {
     private readonly RALabsDbContext _db;
@@ -441,6 +491,9 @@ public class CustomerProjectRepository : ICustomerProjectRepository
         await _db.SaveChangesAsync();
         return document;
     }
+
+    public Task<Document?> GetDocumentAsync(Guid projectId, Guid documentId) =>
+        _db.Documents.FirstOrDefaultAsync(d => d.CustomerProjectId == projectId && d.Id == documentId);
 
     public async Task<List<Document>> GetDocumentsAsync(Guid projectId) =>
         await _db.Documents.Where(d => d.CustomerProjectId == projectId).OrderByDescending(d => d.CreatedAt).ToListAsync();

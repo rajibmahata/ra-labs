@@ -21,16 +21,38 @@ public class ContentService : IContentService
         { "en", "hi", "bn", "fr", "es", "ar", "zh", "pt", "de", "ja", "ru" };
 
     private readonly IContentRepository _repo;
+    private readonly ITranslationAgentService _translations;
 
-    public ContentService(IContentRepository repo) => _repo = repo;
+    public ContentService(IContentRepository repo, ITranslationAgentService translations)
+    {
+        _repo = repo;
+        _translations = translations;
+    }
 
     public async Task<ContentResponse> GetByLocaleAsync(string locale)
     {
         Guard.Reset();
         Guard.InSet(locale, "locale", SupportedLocales);
         Guard.ThrowIfAny("content request");
-        var items = await _repo.GetByLocaleAsync(locale.ToLowerInvariant());
-        return new ContentResponse(locale.ToLowerInvariant(), items.ToDictionary(x => x.Key, x => x.Value));
+        locale = locale.ToLowerInvariant();
+
+        if (locale == "en")
+        {
+            var english = await _repo.GetByLocaleAsync(locale);
+            return new ContentResponse(locale, english.ToDictionary(x => x.Key, x => x.Value));
+        }
+
+        // Language change: the LLM translation agent fills the requested locale
+        // on demand; keys it could not produce yet fall back to English so the
+        // site never renders raw content keys.
+        await _translations.EnsureTranslatedAsync(locale, CancellationToken.None);
+        // Both queries use the same scoped EF DbContext, so they must not run concurrently.
+        var translated = await _repo.GetByLocaleAsync(locale);
+        var englishRows = await _repo.GetByLocaleAsync("en");
+        var merged = translated.ToDictionary(x => x.Key, x => x.Value);
+        foreach (var item in englishRows)
+            merged.TryAdd(item.Key, item.Value);
+        return new ContentResponse(locale, merged);
     }
 
     public async Task<List<ContentDto>> GetAllAsync(string? locale)

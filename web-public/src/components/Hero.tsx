@@ -6,6 +6,7 @@ export default function Hero() {
 
   return (
     <section className="hero" aria-labelledby="hero-headline">
+      <div className="wrap">
       <div>
         <div className="eyebrow">
           {t('hero.eyebrow', 'Engineering studio')}
@@ -24,13 +25,14 @@ export default function Hero() {
           )}
         </p>
         <div className="cta-row">
-          <Link to="/contact" className="cta primary">
-            {t('hero.cta.primary', 'Start a project')}
-          </Link>
-          <Link to="/work" className="cta ghost">
-            {t('hero.cta.secondary', 'See the work')}
+          <a href="/customer/register" className="cta primary">
+            {t('hero.cta.primary', 'Create your project workspace')}
+          </a>
+          <Link to="#process" className="cta ghost">
+            {t('hero.cta.secondary', 'See how we work')}
           </Link>
         </div>
+        <p className="hero-note">{t('hero.cta.note', 'Create a private workspace, share the shape of the problem, and bring the first conversation into focus.')}</p>
       </div>
 
       <div
@@ -62,6 +64,7 @@ export default function Hero() {
             strokeWidth="2"
           />
         </svg>
+      </div>
       </div>
     </section>
   );

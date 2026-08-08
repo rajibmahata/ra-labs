@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { team as teamApi, ApiClientError } from '../api/client';
+import { team as teamApi, github as githubApi, ApiClientError } from '../api/client';
 import { Modal, ConfirmDialog } from '../components/Modal';
 import { useToast } from '../components/useToast';
 import type { TeamMember, TeamMemberForm } from '../types';
@@ -9,6 +9,8 @@ const emptyForm: TeamMemberForm = {
   role: '',
   bio: '',
   githubUsername: '',
+  githubAccountUrl: '',
+  githubToken: '',
   avatarUrl: '',
   email: '',
   linkedinUrl: '',
@@ -28,6 +30,7 @@ export default function Team() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -58,6 +61,8 @@ export default function Team() {
       role: m.role,
       bio: m.bio,
       githubUsername: m.githubUsername ?? '',
+      githubAccountUrl: m.githubAccountUrl ?? '',
+      githubToken: '',
       avatarUrl: m.avatarUrl ?? '',
       email: m.email ?? '',
       linkedinUrl: m.linkedinUrl ?? '',
@@ -89,6 +94,8 @@ export default function Team() {
         role: form.role.trim(),
         bio: form.bio.trim(),
         githubUsername: form.githubUsername || null,
+        githubAccountUrl: form.githubAccountUrl || null,
+        ...(form.githubToken ? { githubToken: form.githubToken } : {}),
         avatarUrl: form.avatarUrl || null,
         email: form.email || null,
         linkedinUrl: form.linkedinUrl || null,
@@ -134,6 +141,19 @@ export default function Team() {
     }
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await githubApi.sync();
+      addToast(result.data.error ?? 'GitHub repositories synced. They are now available in Work.', result.data.status === 'failed' ? 'error' : 'success');
+      await fetchMembers();
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'GitHub sync failed', 'error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div>
       <ToastContainer />
@@ -142,7 +162,10 @@ export default function Team() {
           <h1 className="page-title">Team</h1>
           <p className="page-subtitle">Manage team member profiles shown on the public site.</p>
         </div>
-        <button className="btn btn--primary" onClick={openCreate}>Add Member</button>
+        <div className="form-inline">
+          <button className="btn btn--outline" onClick={() => void handleSync()} disabled={syncing}>{syncing ? 'Syncing...' : 'Sync GitHub'}</button>
+          <button className="btn btn--primary" onClick={openCreate}>Add Member</button>
+        </div>
       </div>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
@@ -221,6 +244,17 @@ export default function Team() {
               <label className="form-label">GitHub Username</label>
               <input className="form-input" value={form.githubUsername} onChange={(e) => setForm((p) => ({ ...p, githubUsername: e.target.value }))} placeholder="rajibmahata" maxLength={100} />
             </div>
+            <div className="form-group">
+              <label className="form-label">GitHub Account URL</label>
+              <input className="form-input" type="url" value={form.githubAccountUrl} onChange={(e) => setForm((p) => ({ ...p, githubAccountUrl: e.target.value }))} placeholder="https://github.com/username" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">GitHub Personal Access Token</label>
+            <input className="form-input" type="password" value={form.githubToken} onChange={(e) => setForm((p) => ({ ...p, githubToken: e.target.value }))} placeholder={editingId ? 'Leave blank to keep the saved token' : 'Token used by the repository sync agent'} autoComplete="new-password" />
+            {editingId && <div className="form-hint">{members.find((member) => member.id === editingId)?.hasGithubToken ? 'A token is saved securely.' : 'No token saved yet.'}</div>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div className="form-group">
               <label className="form-label">Email</label>
               <input className="form-input" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="name@ralabs.com" />

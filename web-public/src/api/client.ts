@@ -175,6 +175,19 @@ export interface ProjectDetail {
   updatedAt: string;
 }
 
+export interface GithubRepositorySummary {
+  id: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  htmlUrl: string;
+  description: string | null;
+  primaryLanguage: string | null;
+  technologies: string[];
+  pushedAt: string | null;
+  syncedAt: string;
+}
+
 export interface TeamMember {
   id: string;
   slug: string;
@@ -220,6 +233,16 @@ export interface ChatThread {
   messages: ChatMessage[];
 }
 
+export interface ChatThreadSummary {
+  id: string;
+  type: string;
+  needsManualIntervention: boolean;
+  customerProjectId: string | null;
+  lastMessageAt: string | null;
+  messageCount: number;
+  createdAt: string;
+}
+
 export interface LocaleInfo {
   code: string;
   name: string;
@@ -241,6 +264,14 @@ export const api = {
 
   getProject(slug: string): Promise<ApiResponse<ProjectDetail>> {
     return apiGet<ProjectDetail>(`/api/v1/projects/${encodeURIComponent(slug)}`);
+  },
+
+  getGithubRepositories(params?: { page?: number; pageSize?: number; technology?: string }): Promise<ApiResponse<GithubRepositorySummary[]>> {
+    return apiGet<GithubRepositorySummary[]>('/api/v1/github/repositories', {
+      page: params?.page?.toString(),
+      pageSize: params?.pageSize?.toString(),
+      technology: params?.technology,
+    });
   },
 
   getTeam(): Promise<ApiResponse<TeamMember[]>> {
@@ -274,11 +305,15 @@ export const api = {
     return apiGet<ChatThread>(`/api/v1/chat/${encodeURIComponent(threadId)}`);
   },
 
+  createChatThread(): Promise<ApiResponse<{ id: string; type: string }>> {
+    return apiPost<{ id: string; type: string }>('/api/v1/chat/threads', {});
+  },
+
   sendChatMessage(
     threadId: string,
     body: { content: string; attachmentUrl: string | null }
-  ): Promise<ApiResponse<ChatMessage>> {
-    return apiPost<ChatMessage>(
+  ): Promise<ApiResponse<ChatThreadSummary>> {
+    return apiPost<ChatThreadSummary>(
       `/api/v1/chat/${encodeURIComponent(threadId)}/messages`,
       body
     );

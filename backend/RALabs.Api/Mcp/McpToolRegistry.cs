@@ -131,7 +131,8 @@ public class McpToolRegistry
         new McpToolDef("create_team_member", "Create a team member (admin).", new()
         {
             ["name"] = "string", ["slug"] = "string?", ["role"] = "string", ["bio"] = "string",
-            ["githubUsername"] = "string?", ["avatarUrl"] = "string?", ["email"] = "string?",
+            ["githubUsername"] = "string?", ["githubAccountUrl"] = "string?", ["githubToken"] = "string?",
+            ["avatarUrl"] = "string?", ["email"] = "string?",
             ["linkedinUrl"] = "string?", ["location"] = "string?", ["isPublished"] = "bool?"
         }, "admin"),
         new McpToolDef("update_team_member", "Update a team member (admin).", new() { ["id"] = "string" }, "admin"),
@@ -140,6 +141,7 @@ public class McpToolRegistry
         new McpToolDef("update_my_team_profile", "Self-edit the authenticated admin's team profile (shown on public site).", new()
         {
             ["name"] = "string?", ["role"] = "string?", ["bio"] = "string?", ["githubUsername"] = "string?",
+            ["githubAccountUrl"] = "string?", ["githubToken"] = "string?",
             ["avatarUrl"] = "string?", ["email"] = "string?", ["linkedinUrl"] = "string?", ["location"] = "string?",
             ["isPublished"] = "bool?"
         }, "admin"),
@@ -177,7 +179,23 @@ public class McpToolRegistry
             ["name"] = "string", ["email"] = "string", ["password"] = "string", ["teamMemberId"] = "string?"
         }, "admin"),
         new McpToolDef("github_sync", "Run the GitHub sync for all team members (admin).", new(), "admin"),
-        new McpToolDef("rag_ingest", "Ingest public content into the RAG knowledge base (admin).", new(), "admin")
+        new McpToolDef("rag_ingest", "Ingest public content into the RAG knowledge base (admin).", new(), "admin"),
+        new McpToolDef("list_content_drafts", "List AI-generated content drafts for review (admin).", new()
+        {
+            ["status"] = "string?", ["page"] = "int?", ["pageSize"] = "int?"
+        }, "admin"),
+        new McpToolDef("generate_project_draft", "Generate a factual project draft from repository source (admin).", new()
+        {
+            ["sourceUrl"] = "string", ["sourceText"] = "string"
+        }, "admin"),
+        new McpToolDef("review_content_draft", "Approve or reject an AI-generated content draft (admin).", new()
+        {
+            ["id"] = "string", ["decision"] = "string", ["note"] = "string?"
+        }, "admin"),
+        new McpToolDef("rag_query", "Search permitted SQL-backed knowledge chunks for grounded context.", new()
+        {
+            ["query"] = "string", ["customerProjectId"] = "string?"
+        }, "anonymous")
     };
 
     /// <summary>Dispatch a tool call; returns an ApiResult-shaped object or throws.</summary>
@@ -185,6 +203,7 @@ public class McpToolRegistry
     {
         using var scope = _sp.CreateScope();
         var prj = scope.ServiceProvider.GetRequiredService<IProjectService>();
+        var projectRepository = scope.ServiceProvider.GetRequiredService<RALabs.Domain.Interfaces.IProjectRepository>();
         var team = scope.ServiceProvider.GetRequiredService<ITeamService>();
         var content = scope.ServiceProvider.GetRequiredService<IContentService>();
         var leads = scope.ServiceProvider.GetRequiredService<ILeadService>();
@@ -192,6 +211,7 @@ public class McpToolRegistry
         var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
         var github = scope.ServiceProvider.GetRequiredService<IGithubSyncService>();
         var rag = scope.ServiceProvider.GetRequiredService<IRagIngestionService>();
+        var drafts = scope.ServiceProvider.GetRequiredService<IAiDraftService>();
         var customerAuth = scope.ServiceProvider.GetRequiredService<ICustomerAuthService>();
         var customerProjects = scope.ServiceProvider.GetRequiredService<ICustomerProjectService>();
         var customerRepo = scope.ServiceProvider.GetRequiredService<RALabs.Domain.Interfaces.ICustomerRepository>();
@@ -221,14 +241,17 @@ public class McpToolRegistry
             "customer_list_projects" => EnsureRole(role, "customer",
                 await customerProjects.GetMyProjectsAsync(RequireCaller(callerId), GetInt(args, "page"), GetInt(args, "pageSize"))),
             "customer_create_project" => EnsureRole(role, "customer",
-                await customerProjects.CreateAsync(RequireCaller(callerId), new CreateCustomerProjectRequest(RequireStr(args, "title")))),
+                await customerProjects.CreateAsync(RequireCaller(callerId), new CreateCustomerProjectRequest(
+                    RequireStr(args, "title"), GetStr(args, "goal"), GetStr(args, "audience"),
+                    GetStr(args, "requirements"), GetStr(args, "timeline"),
+                    GetStr(args, "budgetOrConstraints"), GetStr(args, "referenceLinks")))),
             "customer_get_project" => EnsureRole(role, "customer",
                 await customerProjects.GetMyProjectAsync(RequireCaller(callerId), ParseGuid(RequireStr(args, "id")))),
-            "customer_get_prd" => EnsureRole(role, "customer", await customerProjects.GetPrdAsync(ParseGuid(RequireStr(args, "id")))),
+            "customer_get_prd" => EnsureRole(role, "customer", await customerProjects.GetMyPrdAsync(RequireCaller(callerId), ParseGuid(RequireStr(args, "id")))),
             "customer_sign_prd" => EnsureRole(role, "customer", await customerProjects.SignPrdAsync(RequireCaller(callerId),
                 ParseGuid(RequireStr(args, "id")), new SignPrdRequest(RequireStr(args, "confirmName")))),
             "customer_get_invoices" => EnsureRole(role, "customer",
-                await customerProjects.GetInvoicesAsync(ParseGuid(RequireStr(args, "id")))),
+                await customerProjects.GetMyInvoicesAsync(RequireCaller(callerId), ParseGuid(RequireStr(args, "id")))),
             "customer_submit_feedback" => EnsureRole(role, "customer", await customerProjects.SubmitFeedbackAsync(RequireCaller(callerId),
                 ParseGuid(RequireStr(args, "id")),
                 new SubmitFeedbackRequest(GetInt(args, "rating") ?? 5, RequireStr(args, "comment"), GetBool(args, "consentToPublish") ?? false))),
@@ -261,17 +284,20 @@ public class McpToolRegistry
             "delete_project" => await DeleteProjectAsync(role, args, prj),
             "create_team_member" => EnsureAdmin(role, await team.CreateAsync(new CreateTeamRequest(
                 RequireStr(args, "name"), GetStr(args, "slug"), RequireStr(args, "role"), RequireStr(args, "bio"),
-                GetStr(args, "githubUsername"), GetStr(args, "avatarUrl"), GetStr(args, "email"),
+                GetStr(args, "githubUsername"), GetStr(args, "githubAccountUrl"), GetStr(args, "githubToken"),
+                GetStr(args, "avatarUrl"), GetStr(args, "email"),
                 GetStr(args, "linkedinUrl"), GetStr(args, "location"), GetBool(args, "isPublished")))),
             "update_team_member" => EnsureAdmin(role, await team.UpdateAsync(ParseGuid(RequireStr(args, "id")),
                 new UpdateTeamRequest(GetStr(args, "name"), GetStr(args, "slug"), GetStr(args, "role"), GetStr(args, "bio"),
-                    GetStr(args, "githubUsername"), GetStr(args, "avatarUrl"), GetStr(args, "email"),
+                    GetStr(args, "githubUsername"), GetStr(args, "githubAccountUrl"), GetStr(args, "githubToken"),
+                    GetStr(args, "avatarUrl"), GetStr(args, "email"),
                     GetStr(args, "linkedinUrl"), GetStr(args, "location"), GetBool(args, "isPublished")))),
             "delete_team_member" => await DeleteTeamMemberAsync(role, args, team),
             "get_my_team_profile" => EnsureAdmin(role, await team.GetByAdminUserIdAsync(callerId!.Value)),
             "update_my_team_profile" => EnsureAdmin(role, await team.UpdateProfileAsync(callerId!.Value,
                 new UpdateTeamRequest(GetStr(args, "name"), null, GetStr(args, "role"), GetStr(args, "bio"),
-                    GetStr(args, "githubUsername"), GetStr(args, "avatarUrl"), GetStr(args, "email"),
+                    GetStr(args, "githubUsername"), GetStr(args, "githubAccountUrl"), GetStr(args, "githubToken"),
+                    GetStr(args, "avatarUrl"), GetStr(args, "email"),
                     GetStr(args, "linkedinUrl"), GetStr(args, "location"), GetBool(args, "isPublished")))),
             "create_content" => EnsureAdmin(role, await content.CreateAsync(new CreateContentRequest(
                 RequireStr(args, "key"), RequireStr(args, "locale"), RequireStr(args, "value")))),
@@ -291,6 +317,12 @@ public class McpToolRegistry
                 GetGuid(args, "teamMemberId")), callerId!.Value)),
             "github_sync" => EnsureAdmin(role, await github.SyncAllAsync(CancellationToken.None)),
             "rag_ingest" => EnsureAdmin(role, await rag.IngestPublicContentAsync(CancellationToken.None)),
+            "list_content_drafts" => EnsureAdmin(role, await drafts.ListAsync(GetStr(args, "status"), GetInt(args, "page") ?? 1, GetInt(args, "pageSize") ?? 20)),
+            "generate_project_draft" => EnsureAdmin(role, await drafts.GenerateProjectDraftAsync(
+                RequireStr(args, "sourceUrl"), RequireStr(args, "sourceText"), CancellationToken.None)),
+            "review_content_draft" => EnsureAdmin(role, await drafts.ReviewAsync(
+                ParseGuid(RequireStr(args, "id")), RequireStr(args, "decision").Trim().ToLowerInvariant(), GetStr(args, "note"), projectRepository)),
+            "rag_query" => await QueryRagAsync(rag, role, args),
             _ => throw new ArgumentException($"Unknown MCP tool: {tool}")
         };
     }
@@ -331,6 +363,14 @@ public class McpToolRegistry
 
     private static Guid RequireCaller(Guid? callerId)
         => callerId ?? throw new ForbiddenMcpException("An authenticated caller id is required for this tool.");
+
+    private static Task<List<RagQueryResult>> QueryRagAsync(IRagIngestionService rag, string? role, IDictionary<string, object?> args)
+    {
+        var projectId = GetGuid(args, "customerProjectId");
+        if (projectId.HasValue)
+            EnsureAdmin(role, (object?)null);
+        return rag.QueryAsync(RequireStr(args, "query"), projectId, CancellationToken.None);
+    }
 
     private static async Task<object?> DeleteProjectAsync(string? role, IDictionary<string, object?> args, IProjectService prj)
     {

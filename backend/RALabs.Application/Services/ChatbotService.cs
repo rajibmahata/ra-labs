@@ -31,6 +31,10 @@ public class ChatbotService : IChatbotService
         "pay", "payment", "contract", "milestone", "deadline"
     };
 
+    private static readonly Regex ProjectIntentPattern = new(
+        @"\b(i|we|my|our)\b.*\b(project|app|application|website|platform|system|product|tool|idea)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "the", "a", "an", "and", "or", "but", "for", "nor", "on", "at", "to",
@@ -83,6 +87,15 @@ public class ChatbotService : IChatbotService
                 "Hello! I'm the R&A Labs assistant. Ask me about our projects, team, or how we work — or tell me about your project and we'll get back to you.",
                 NeedsManualIntervention: false);
         }
+
+            // Turn a vague project request into a useful next question instead of
+            // sending it through the knowledge fallback.
+            if (ProjectIntentPattern.IsMatch(normalized))
+            {
+                return new ChatbotReply(
+                "Absolutely — we'd love to explore it with you. What are you hoping to build, who is it for, and what should it help them do? A rough idea is enough to start. When you are ready, create a private workspace so we can keep your brief and project conversation together.",
+                NeedsManualIntervention: false);
+            }
 
         // RAG over public content only (CustomerProjectId == null) — no-leak guarantee.
         var chunks = await _chunks.GetPublicChunksAsync();

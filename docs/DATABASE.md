@@ -2,24 +2,18 @@
 
 ## Engine
 
-**PostgreSQL 16**, running in the Docker Compose stack alongside the API and
-frontend containers.
+**SQL Server**, using the EF Core SqlServer provider. Local development uses
+the owner-configured SQL Server Express instance with Windows authentication;
+Docker deployments use a containerized SQL Server instance.
 
-**Why PostgreSQL:** the project explicitly rules out SQL Server Express (see
-platform PRD section 4, recorded as ADR-001 rationale). SQL Server Express
-imposes a 10 GB database cap and a 1 core / 1 GB buffer pool limit. This
-platform accumulates chat history, documents, multi-language content, and
-scheduled GitHub sync snapshots continuously — it would outgrow Express
-quickly, and the 1 GB buffer pool limit would degrade query performance well
-before the 10 GB cap is reached.
-
-PostgreSQL has no such artificial limits, runs well under Docker on modest
-hardware, and is the default relational engine for the AI Workforce's .NET
-+ EF Core projects.
+The SQL Server choice is recorded in ADR-006 and supersedes the earlier
+PostgreSQL proposal in ADR-001. The implementation and deployment configuration
+must remain aligned with the EF Core SqlServer provider and the repository's
+owner-confirmed database decision.
 
 **Vector data lives separately:** embeddings and vector similarity search are
 handled by a Qdrant vector store (self-hosted via Docker Compose, consistent
-with LexVault). The `KnowledgeChunk` table in Postgres stores the metadata and
+with LexVault). The `KnowledgeChunk` table in SQL Server stores the metadata and
 source mapping; the actual `embedding_vector` is generated and indexed in
 Qdrant. See platform PRD v2 section 2 for the dual-pipeline design.
 
@@ -129,9 +123,9 @@ schema in sync with the deployed application version.
   follow a two-release cycle: first release adds the replacement and marks
   the old column as deprecated, second release removes it after confirming
   no code path still references it.
-- Index creation on large tables should use `CREATE INDEX CONCURRENTLY`
-  (applied via raw SQL in the migration, not EF Core's default synchronous
-  create) to avoid locking production tables.
+- Index creation on large tables should be planned and tested for SQL Server
+  locking behavior; use an online index option where the deployment tier
+  supports it rather than assuming PostgreSQL's `CREATE INDEX CONCURRENTLY`.
 
 ## Indexing Notes
 

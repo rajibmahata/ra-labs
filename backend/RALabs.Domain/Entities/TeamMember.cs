@@ -8,6 +8,8 @@ public class TeamMember
     public string Role { get; set; } = string.Empty;
     public string Bio { get; set; } = string.Empty;
     public string? GithubUsername { get; set; }
+    public string? GithubAccountUrl { get; set; }
+    public string? GithubTokenEncrypted { get; set; }
     public string? AvatarUrl { get; set; }
     public string? Email { get; set; }
     public string? LinkedinUrl { get; set; }

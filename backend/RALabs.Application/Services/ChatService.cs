@@ -63,7 +63,9 @@ public class ChatService : IChatService
 
         // Visitor messages get a chatbot reply appended (agent). Transactional
         // asks flag the thread for manual intervention (BR-002).
-        if (ParseSender(senderType) == ChatSenderType.Visitor)
+        var parsedSender = ParseSender(senderType);
+        if (parsedSender == ChatSenderType.Visitor
+            || (parsedSender == ChatSenderType.Customer && thread.Type == ChatThreadType.CustomerProject))
         {
             var prior = thread.Messages
                 .Where(m => m.SenderType != ChatSenderType.Agent)

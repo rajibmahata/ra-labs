@@ -125,19 +125,19 @@ export const auth = {
 // Team (admin)
 export const team = {
   list: () =>
-    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string }[] }>(
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; githubAccountUrl?: string | null; hasGithubToken?: boolean; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string }[] }>(
       'GET',
       '/api/v1/admin/team',
     ),
 
   getMe: () =>
-    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string } }>(
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; githubAccountUrl?: string | null; hasGithubToken?: boolean; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string } }>(
       'GET',
       '/api/v1/admin/team/me',
     ),
 
   updateMe: (body: Record<string, unknown>) =>
-    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null } }>(
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; githubAccountUrl?: string | null; hasGithubToken?: boolean; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null } }>(
       'PUT',
       '/api/v1/admin/team/me',
       body,
@@ -159,6 +159,10 @@ export const team = {
 
   delete: (id: string) =>
     request<void>('DELETE', `/api/v1/admin/team/${id}`),
+};
+
+export const github = {
+  sync: () => request<{ data: { status: string; error?: string | null; changedRepositories?: number; analysisTasksQueued?: number } }>('POST', '/api/v1/admin/github/sync'),
 };
 
 // Projects (admin)
@@ -185,6 +189,17 @@ export const projects = {
 
   delete: (id: string) =>
     request<void>('DELETE', `/api/v1/admin/projects/${id}`),
+};
+
+export const drafts = {
+  list: (status = 'pending') =>
+    request<{ data: { id: string; title: string; summary: string; body?: string | null; sourceUrl?: string | null; status: string; createdAt: string }[] }>(
+      'GET', `/api/v1/admin/content-drafts?status=${encodeURIComponent(status)}`,
+    ),
+  review: (id: string, decision: 'approve' | 'reject', note?: string) =>
+    request<{ data: { id: string; status: string } }>(
+      'POST', `/api/v1/admin/content-drafts/${id}/review`, { decision, note },
+    ),
 };
 
 // Leads (admin)

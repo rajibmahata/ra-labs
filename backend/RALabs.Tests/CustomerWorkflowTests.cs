@@ -16,6 +16,7 @@ public class CustomerWorkflowTests : IDisposable
     private readonly CustomerAuthService _customerAuth;
     private readonly CustomerProjectService _projects;
     private readonly ChatService _chat;
+    private readonly string _storageRoot = Path.Combine(Path.GetTempPath(), "ralabs-tests", Guid.NewGuid().ToString("N"));
 
     public CustomerWorkflowTests()
     {
@@ -28,10 +29,14 @@ public class CustomerWorkflowTests : IDisposable
         _chat = new ChatService(chatRepo, chatbot, new LeadRepository(_db));
         _customerAuth = new CustomerAuthService(customers, _hasher,
             new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
-        _projects = new CustomerProjectService(projectRepo, customers, _chat);
+        _projects = new CustomerProjectService(projectRepo, customers, _chat, new LocalPrivateFileStorage(_storageRoot));
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        if (Directory.Exists(_storageRoot)) Directory.Delete(_storageRoot, recursive: true);
+    }
 
     private async Task<Guid> RegisterCustomerAsync(string name = "Priya Test", string email = "priya@example.com")
     {
@@ -80,6 +85,50 @@ public class CustomerWorkflowTests : IDisposable
         // B cannot read A's project — 404, not 403 (no existence leak).
         await Assert.ThrowsAsync<RALabs.Application.Exceptions.NotFoundException>(() =>
             _projects.GetMyProjectAsync(b, pa));
+    }
+
+    [Fact]
+    public async Task CustomerReadMethods_OtherCustomersProject_ThrowNotFound_NoLeak()
+    {
+        var owner = await RegisterCustomerAsync("Owner", "owner@example.com");
+        var other = await RegisterCustomerAsync("Other", "other@example.com");
+        var projectId = await CreateProjectAsync(owner);
+
+        await Assert.ThrowsAsync<RALabs.Application.Exceptions.NotFoundException>(() =>
+            _projects.GetMyDocumentsAsync(other, projectId));
+        await Assert.ThrowsAsync<RALabs.Application.Exceptions.NotFoundException>(() =>
+            _projects.GetMyPrdAsync(other, projectId));
+        await Assert.ThrowsAsync<RALabs.Application.Exceptions.NotFoundException>(() =>
+            _projects.GetMyDemoAsync(other, projectId));
+        await Assert.ThrowsAsync<RALabs.Application.Exceptions.NotFoundException>(() =>
+            _projects.GetMyInvoicesAsync(other, projectId));
+    }
+
+    [Fact]
+    public async Task DocumentUpload_ValidatesTypeAndEnforcesDownloadOwnership()
+    {
+        var owner = await RegisterCustomerAsync("Owner", "owner-files@example.com");
+        var other = await RegisterCustomerAsync("Other", "other-files@example.com");
+        var projectId = await CreateProjectAsync(owner);
+
+        await Assert.ThrowsAsync<RALabs.Application.Exceptions.ValidationException>(() =>
+            _projects.UploadDocumentAsync(owner, projectId, "evidence.pdf", new MemoryStream(new byte[] { 1 }), "image/png", 1, null));
+
+        await using var content = new MemoryStream(new byte[] { 1, 2, 3 });
+        var document = await _projects.UploadDocumentAsync(owner, projectId, "../evidence.pdf", content, "application/pdf", 3, null);
+        Assert.Equal("evidence.pdf", document.FileName);
+        Assert.Contains("/download", document.FileUrl);
+
+        await Assert.ThrowsAsync<RALabs.Application.Exceptions.NotFoundException>(() =>
+            _projects.DownloadDocumentAsync(other, projectId, document.Id));
+
+        var download = await _projects.DownloadDocumentAsync(owner, projectId, document.Id);
+        await using var downloadedContent = download.Content;
+        using var reader = new MemoryStream();
+        await downloadedContent.CopyToAsync(reader);
+        Assert.Equal(new byte[] { 1, 2, 3 }, reader.ToArray());
+        Assert.Equal("application/pdf", download.ContentType);
+        Assert.Equal("evidence.pdf", download.FileName);
     }
 
     [Fact]

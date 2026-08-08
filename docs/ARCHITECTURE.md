@@ -8,7 +8,7 @@ The four tiers are:
 1. **Actors** — visitors (anonymous), customers (authenticated), admins (founders — Rajib & Abhishek), and system agents (chatbot, project agent, GitHub sync agent, MCP clients including the founders' own OpenCode AI Workforce agents).
 2. **React frontends** — `web-public` (marketing site + PWA), `web-customer` (customer portal + PWA), and `web-admin` (admin CMS, standard web app).
 3. **.NET API tier** — `RALabs.Api` exposing REST controllers and an MCP tool-definition layer over three internal modules: Core Services, AI Agent Layer, and MCP Server. All three call the same `RALabs.Application` service layer; no business logic is duplicated.
-4. **Data & integrations** — PostgreSQL (primary relational store), Qdrant (vector store for RAG), GitHub API (team activity snapshots), and email/SMTP (lead notifications, account invites, status changes).
+4. **Data & integrations** — SQL Server (primary relational store), Qdrant (vector store for RAG), GitHub API (team activity snapshots), and email/SMTP (lead notifications, account invites, status changes).
 
 ## Component Diagram
 ```
@@ -48,7 +48,7 @@ The four tiers are:
               ┌──────────────┼──────────────┐
               ▼              ▼              ▼
 ┌─────────────────┐ ┌───────────────┐ ┌─────────────────────┐
-│  PostgreSQL      │ │  Qdrant       │ │  Integrations       │
+│  SQL Server      │ │  Qdrant       │ │  Integrations       │
 │  ─────────────── │ │  ──────────── │ │  ────────────────── │
 │  Projects, Team  │ │  vector store │ │  GitHub API (REST)  │
 │  Leads, Threads  │ │  embeddings   │ │  Email / SMTP       │
@@ -57,7 +57,7 @@ The four tiers are:
 └─────────────────┘ └───────────────┘ └─────────────────────┘
 ```
 
-All containers run under Docker Compose: PostgreSQL, Qdrant, and the .NET API. React frontends are served via a development proxy during local work and built as static assets in production. MCP tool definitions live alongside REST controllers in `RALabs.Api` and delegate to the same Application-layer services — there is no second copy of business logic.
+All containers run under Docker Compose: SQL Server, Qdrant, and the .NET API. React frontends are served via a development proxy during local work and built as static assets in production. MCP tool definitions live alongside REST controllers in `RALabs.Api` and delegate to the same Application-layer services — there is no second copy of business logic.
 
 ## Layering
 
@@ -97,7 +97,7 @@ All architectural decisions are recorded in [DECISIONS.md](./DECISIONS.md). The 
 
 | ADR | Decision | Impact |
 |-----|----------|--------|
-| ADR-001 | PostgreSQL over SQL Server Express | Relational store choice; no Express 10GB/1GB limits |
+| ADR-006 | SQL Server Express (Windows auth) over PostgreSQL | Owner-confirmed relational store choice |
 | ADR-002 | MCP server as thin layer over Application services | REST and MCP share one code path; no duplicated logic |
 | ADR-003 | Qdrant with customer_project_id hard filter at query layer | RAG retrieval isolation; tenant-boundary enforced by code, not prompt |
 | ADR-004 | Dual sign-off is recorded confirmation (name + timestamp) | No external e-signature vendor at launch |
@@ -129,7 +129,7 @@ All architectural decisions are recorded in [DECISIONS.md](./DECISIONS.md). The 
 
 ### Caching Strategy
 - **PWA service worker**: cache-first for static assets and the app shell; network-first for API calls. The shell loads offline and displays a clear offline indicator for live-data sections.
-- **Server-side**: no distributed cache at launch. EF Core change tracker and PostgreSQL query planning are the primary performance mechanisms. Future milestones may add output caching for public portfolio/team endpoints if load warrants it.
+- **Server-side**: no distributed cache at launch. EF Core change tracking and SQL Server query planning are the primary performance mechanisms. Future milestones may add output caching for public portfolio/team endpoints if load warrants it.
 - **`web-customer` PWA**: caches thread history and documents locally so a customer can read existing project content offline. New messages queue and send once back online.
 
 ### PWA and Service Worker Strategy
@@ -164,7 +164,7 @@ ChatService:
         ▼
 Infrastructure:
   - QdrantClient performs vector search on public KnowledgeChunks
-  - EF Core persists ChatMessage + Lead to PostgreSQL
+        - EF Core persists ChatMessage + Lead to SQL Server
   - EmailSender dispatches notification (SMTP or provider)
         │
         ▼
