@@ -27,6 +27,7 @@
 | api | RALabs.Api (REST + MCP + AI jobs) | 8080 (compose) |
 | web-public | React PWA (nginx) | 3004 (dev) |
 | web-admin | React admin CMS (nginx, `/admin/`) | 3005 (dev) |
+| web-customer | React customer portal PWA (nginx, `/customer/`) | 3002 (dev) |
 | gateway | nginx reverse proxy | 80/443 |
 
 ### Secrets (never committed)
@@ -50,8 +51,9 @@ dotnet run --project RALabs.Api
 # empty DefaultConnection → in-memory fallback
 
 # Frontends
-cd web-public && npm install && npm run dev   # :3004
-cd web-admin && npm install && npm run dev    # :3005
+cd web-public && npm install && npm run dev    # :3004
+cd web-admin && npm install && npm run dev     # :3005
+cd web-customer && npm install && npm run dev  # :3002
 
 # Smoke
 bash scripts/smoke.sh http://localhost:5002

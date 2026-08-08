@@ -1,38 +1,41 @@
 # CHANGELOG: ra-labs
 
-## [1.0.0] - 2026-08-08
+## [1.1.0] - 2026-08-08
 
 ### Added
-- **Backend foundation** (4-layer .NET 8): Domain entities/enums/state machine,
-  Application services with formalized PestFlow-pattern validation
-  (exception hierarchy → global middleware → `{error:{code,message}}`
-  envelope), EF Core SqlServer migrations + in-memory fallback, JWT admin
-  auth (24h), rate limiting (contact/chat/auth), `DbInitializer` seed.
-- **M1 API** (`/api/v1`): portfolio, team, content (11 locales), leads,
-  chat threads + chatbot, auth; admin CRUD under `/api/v1/admin`.
-- **MCP server**: 29 tools over the Application layer (ADR-002);
-  `GET /mcp/tools`, `POST /mcp/call`; role-scoped.
-- **AI layer**: RAG ingestion of public content; chatbot with deterministic
-  transactional guardrail (BR-002); GitHub sync hosted service + AgentTask
-  audit (BR-006).
-- **Frontends**: `web-public` PWA (dark blueprint theme, 11-locale switcher,
-  portfolio/team/contact, chatbot widget, service worker); `web-admin` CMS
-  (dashboard, leads, portfolio, team, My-Profile self-edit, content, chat,
-  settings) with portal-namespaced storage.
-- **Seed data**: 11 locales, 2 team members + 2 admin accounts (Rajib from
-  rajiblabs.com, Abhishek from LinkedIn), 10 GitHub portfolio projects, 27
-  English content keys. Nothing hardcoded — all data-driven.
-- **QA**: 26 xUnit tests, `scripts/smoke.sh` (16 checks).
-- **Deployment**: docker-compose, Dockerfiles, nginx gateway, deploy scripts,
-  `.github/workflows/deploy.yml` (RMEnterpriseCMS pattern).
+- **Customer portal (web-customer PWA)**: register/login/forgot/reset, dashboard,
+  project detail (status timeline, document upload, PRD view + sign, demo,
+  invoices, feedback), project chat, account; refresh-token auth client.
+- **Customer workflow backend**: customer auth (register/login/refresh/reset),
+  projects, documents, PRD draft + dual sign, demo, invoice, feedback; enforced
+  `CustomerProjectStateMachine` (ADR-005) + BR-003 (cash-only), BR-004
+  (feedback-before-close), BR-005 (publish-on-approval).
+- **Admin workflow**: Customers list, Projects kanban board, Project workspace
+  (status transitions, admin notes, PRD editor + admin sign, demo, invoice,
+  feedback approve), thread deep-link.
+- **Auth hardening**: admin `RequireRole("admin")`, customer
+  `RequireRole("customer")`, password reset (email code, expiry, hashed),
+  refresh-token rotation, `IEmailSender` (SMTP + dev console), strict login
+  rate limit (5/min), security headers (API + gateway), admin projects pagination.
+- **Chatbot/RAG**: punctuation normalization, lemmatization-light stemming,
+  stop-word filtering, conversation context, weighted scoring, rich studio
+  knowledge; answers the required question matrix; no false positives;
+  BR-002 transactional guardrail.
+- **Design**: `web-public` rebuilt to index-v2.html (light cream/emerald/brass,
+  Newsreader+Inter+IBM Plex Mono, gradient covers, em-dash stats, pulsing badge).
+- **Tests**: 55 xUnit (customer workflow, auth security, chatbot retrieval
+  matrix, state machine, validation) + Playwright scaffold (`e2e/`).
 
 ### Changed
-- ADR-001 superseded by ADR-006: SQL Server Express (`RAJIB\SQLEXPRESS`,
-  Windows auth) over PostgreSQL, with containerized SQL Server for the
-  Docker path.
+- Admin REST endpoints now require the `admin` role (was any authenticated user).
+- Customer project statuses use snake_case in the API (`prd_draft`, `prd_signed`,
+  `in_build`).
 
 ### Fixed
-- JWT `sub` claim mapping (MapInboundClaims=false) so `/admin/team/me`
-  resolves the authenticated admin.
-- AgentTask update EF tracking conflict.
-- MCP partial-update validation for team self-edit.
+- Customer workflow deadlock: feedback is captured at `delivered`, close requires it.
+- Chatbot keyword matching false positives / misses.
+- N+1 team snapshot queries (batch load).
+
+## [1.0.0] - 2026-08-08
+Initial release: public PWA, admin CMS, portfolio/team, leads+chatbot, MCP server,
+AI layer, deploy config. See earlier commits.

@@ -51,11 +51,22 @@ jobs:
       - name: Build
         run: cd web-admin && npm ci && npm run build
 
+  build-customer:
+    name: Build web-customer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        run: cd web-customer && npm ci && npm run build
+
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     environment: production
-    needs: [test, build-public, build-admin]
+    needs: [test, build-public, build-admin, build-customer]
     permissions:
       contents: read
     steps:
@@ -75,7 +86,8 @@ jobs:
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
             mkdir -p /opt/ralabs/deploy /opt/ralabs/gateway /opt/ralabs/backend \
-                     /opt/ralabs/web-public /opt/ralabs/web-admin /opt/ralabs/docs
+                     /opt/ralabs/web-public /opt/ralabs/web-admin /opt/ralabs/web-customer \
+                     /opt/ralabs/docs
 
       - name: Sync repository source to VPS
         env:

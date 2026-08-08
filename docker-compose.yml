@@ -63,6 +63,17 @@ services:
     depends_on:
       - api
 
+  web-customer:
+    image: ralabs-web-customer:${VERSION_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.web-customer
+    restart: unless-stopped
+    networks:
+      - ralabs-net
+    depends_on:
+      - api
+
   gateway:
     image: nginx:alpine
     restart: unless-stopped
@@ -77,6 +88,7 @@ services:
     depends_on:
       - web-public
       - web-admin
+      - web-customer
       - api
 
 networks:
