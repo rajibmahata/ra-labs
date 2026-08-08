@@ -26,6 +26,8 @@ public class RALabsDbContext : DbContext
     public DbSet<Demo> Demos => Set<Demo>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
+    public DbSet<ContentDraft> ContentDrafts => Set<ContentDraft>();
+    public DbSet<GithubRepository> GithubRepositories => Set<GithubRepository>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -57,6 +59,28 @@ public class RALabsDbContext : DbContext
             e.Property(x => x.CoverImageUrl).HasMaxLength(500);
         });
 
+        b.Entity<ContentDraft>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Kind).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Summary).HasMaxLength(500).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.Property(x => x.SourceUrl).HasMaxLength(500);
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+        });
+
+        b.Entity<GithubRepository>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Owner).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.FullName).HasMaxLength(300).IsRequired();
+            e.Property(x => x.HtmlUrl).HasMaxLength(500).IsRequired();
+            e.Property(x => x.PrimaryLanguage).HasMaxLength(100);
+            e.HasIndex(x => x.FullName).IsUnique();
+        });
+
         // TeamMember
         b.Entity<TeamMember>(e =>
         {
@@ -66,6 +90,8 @@ public class RALabsDbContext : DbContext
             e.HasIndex(x => x.Slug).IsUnique();
             e.Property(x => x.Role).HasMaxLength(100).IsRequired();
             e.Property(x => x.GithubUsername).HasMaxLength(100);
+            e.Property(x => x.GithubAccountUrl).HasMaxLength(500);
+            e.Property(x => x.GithubTokenEncrypted).HasMaxLength(4000);
             e.Property(x => x.AvatarUrl).HasMaxLength(500);
             e.Property(x => x.Email).HasMaxLength(200);
             e.Property(x => x.LinkedinUrl).HasMaxLength(500);
@@ -166,6 +192,12 @@ public class RALabsDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Goal).HasMaxLength(5000);
+            e.Property(x => x.Audience).HasMaxLength(1000);
+            e.Property(x => x.Requirements).HasMaxLength(10000);
+            e.Property(x => x.Timeline).HasMaxLength(500);
+            e.Property(x => x.BudgetOrConstraints).HasMaxLength(1000);
+            e.Property(x => x.ReferenceLinks).HasMaxLength(3000);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.HasOne(x => x.Customer).WithMany(c => c.Projects)
                 .HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Cascade);
@@ -181,6 +213,8 @@ public class RALabsDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.FileName).HasMaxLength(255).IsRequired();
             e.Property(x => x.FileUrl).HasMaxLength(1000).IsRequired();
+            e.Property(x => x.StorageKey).HasMaxLength(500).IsRequired();
+            e.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
             e.HasOne(x => x.CustomerProject).WithMany(p => p.Documents)
                 .HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
         });

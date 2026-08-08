@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, type ProjectSummary } from '../api/client';
+import { api, type ProjectSummary, type GithubRepositorySummary } from '../api/client';
 import { useI18n } from '../i18n';
 import ProjectCard from '../components/ProjectCard';
+import GithubRepositoryCard from '../components/GithubRepositoryCard';
 
 export default function Work() {
   const { t } = useI18n();
@@ -11,6 +12,7 @@ export default function Work() {
   const currentTag = searchParams.get('tag') || '';
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [repositories, setRepositories] = useState<GithubRepositorySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +22,14 @@ export default function Work() {
     setLoading(true);
     setError(null);
 
-    api
-      .getProjects({ pageSize: 50, tag: currentTag || undefined })
-      .then((res) => {
+    Promise.all([
+      api.getProjects({ pageSize: 50, tag: currentTag || undefined }),
+      api.getGithubRepositories({ pageSize: 50, technology: currentTag || undefined }),
+    ])
+      .then(([projectsRes, repositoriesRes]) => {
         if (!cancelled) {
-          setProjects(res.data ?? []);
+          setProjects(projectsRes.data ?? []);
+          setRepositories(repositoriesRes.data ?? []);
           setLoading(false);
         }
       })
@@ -48,8 +53,11 @@ export default function Work() {
         tagSet.add(tag);
       }
     }
+    for (const repository of repositories) {
+      for (const tag of repository.technologies) tagSet.add(tag);
+    }
     return Array.from(tagSet).sort();
-  }, [projects]);
+  }, [projects, repositories]);
 
   function handleTagClick(tag: string) {
     if (tag === currentTag) {
@@ -117,7 +125,7 @@ export default function Work() {
         )}
 
         {/* State: empty */}
-        {!loading && !error && projects.length === 0 && (
+        {!loading && !error && projects.length === 0 && repositories.length === 0 && (
           <div className="state-placeholder">
             <h3>
               {currentTag
@@ -133,11 +141,14 @@ export default function Work() {
         )}
 
         {/* State: populated */}
-        {!loading && !error && projects.length > 0 && (
+        {!loading && !error && (projects.length > 0 || repositories.length > 0) && (
           <div className="card-grid">
-              {projects.map((project, i) => (
-                <ProjectCard key={project.id} project={project} index={i} />
-              ))}
+            {projects.map((project, i) => (
+              <ProjectCard key={project.id} project={project} index={i} />
+            ))}
+            {repositories.map((repository, i) => (
+              <GithubRepositoryCard key={repository.id} repository={repository} index={projects.length + i} />
+            ))}
           </div>
         )}
       </div>

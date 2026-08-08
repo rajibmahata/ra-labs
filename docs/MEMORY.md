@@ -31,6 +31,9 @@ Living project state. Updated as part of finishing a task, not after.
 - Document uploads store a `/media/...` path reference; production object
   storage (S3/Azure Blob) integration pending.
 - GitHub commit counts use a heuristic cap for >100 commits per repo.
+- Locale content: only English seeded; other locales are filled on demand by
+  the LLM translation agent when `OpenAI:ApiKey` is set, otherwise served as
+  English fallback.
 
 ## Open Questions
 - Final brand name (placeholder "R&A Labs").

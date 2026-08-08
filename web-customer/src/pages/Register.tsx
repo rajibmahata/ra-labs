@@ -62,7 +62,7 @@ export default function Register() {
     <div className="auth-page">
       <div className="auth-card">
         <h1>Create your account</h1>
-        <p className="subtitle">Join the R&A Labs customer portal</p>
+        <p className="subtitle">Create a private workspace for your project brief and ongoing discussion.</p>
 
         {error && (
           <div className="error-banner" role="alert">

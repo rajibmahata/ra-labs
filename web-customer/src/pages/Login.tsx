@@ -57,7 +57,7 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <h1>Welcome back</h1>
-        <p className="subtitle">Log in to your customer portal</p>
+        <p className="subtitle">Open your private project workspace and continue the conversation.</p>
 
         {error && (
           <div className="error-banner" role="alert">

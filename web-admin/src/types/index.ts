@@ -41,6 +41,8 @@ export interface TeamMember {
   role: string;
   bio: string;
   githubUsername?: string | null;
+  githubAccountUrl?: string | null;
+  hasGithubToken?: boolean;
   avatarUrl?: string | null;
   email?: string | null;
   linkedinUrl?: string | null;
@@ -64,6 +66,8 @@ export interface TeamMemberForm {
   role: string;
   bio: string;
   githubUsername?: string;
+  githubAccountUrl?: string;
+  githubToken?: string;
   avatarUrl?: string;
   email?: string;
   linkedinUrl?: string;
@@ -198,6 +202,12 @@ export interface CustomerProject {
   createdAt: string;
   updatedAt: string;
   adminNotes: string | null;
+  goal: string | null;
+  audience: string | null;
+  requirements: string | null;
+  timeline: string | null;
+  budgetOrConstraints: string | null;
+  referenceLinks: string | null;
 }
 
 export interface CustomerProjectDetail extends CustomerProject {

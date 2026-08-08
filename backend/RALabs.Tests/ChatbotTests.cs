@@ -42,6 +42,19 @@ public class ChatbotServiceTests
     }
 
     [Fact]
+    public async Task VagueProjectIntent_AsksUsefulClarifyingQuestion()
+    {
+        var svc = new ChatbotService(new FakeKnowledgeChunkRepository(new()));
+
+        var reply = await svc.AnswerAsync("i wanted to do one project", null);
+
+        Assert.False(reply.NeedsManualIntervention);
+        Assert.Contains("what are you hoping to build", reply.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("who is it for", reply.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("I don't have enough information", reply.Content);
+    }
+
+    [Fact]
     public async Task GenericQuestion_UsesRetrieval()
     {
         var chunks = new FakeKnowledgeChunkRepository(new()

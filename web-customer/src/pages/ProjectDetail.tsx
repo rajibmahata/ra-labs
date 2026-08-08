@@ -218,6 +218,28 @@ export default function ProjectDetailPage() {
         </Link>
       </div>
 
+      <section className="detail-section project-brief" aria-labelledby="project-brief-heading">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Project context</span>
+            <h2 id="project-brief-heading">Your brief</h2>
+          </div>
+          <span className="section-note">Shared with the R&amp;A Labs team</span>
+        </div>
+        <div className="brief-grid">
+          <div className="brief-item brief-item-wide">
+            <span className="brief-label">Goal</span>
+            <p>{project.goal || 'No goal provided.'}</p>
+          </div>
+          {project.audience && <div className="brief-item"><span className="brief-label">Audience</span><p>{project.audience}</p></div>}
+          {project.timeline && <div className="brief-item"><span className="brief-label">Timeline</span><p>{project.timeline}</p></div>}
+          {project.requirements && <div className="brief-item brief-item-wide"><span className="brief-label">Requirements</span><p>{project.requirements}</p></div>}
+          {project.budgetOrConstraints && <div className="brief-item"><span className="brief-label">Budget or constraints</span><p>{project.budgetOrConstraints}</p></div>}
+          {project.referenceLinks && <div className="brief-item"><span className="brief-label">References</span><p>{project.referenceLinks}</p></div>}
+        </div>
+        <p className="brief-followup">Use the project chat to clarify details, respond to questions, and shape the next PRD step.</p>
+      </section>
+
       {/* Status Timeline */}
       <div className="status-timeline" aria-label="Project status timeline">
         {STATUS_ORDER.map((status, idx) => {

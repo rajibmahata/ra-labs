@@ -30,26 +30,47 @@ public interface ICustomerProjectService
     Task<CustomerProjectDto> GetForAdminAsync(Guid id);
     Task<List<CustomerProjectDto>> GetAllForAdminAsync(int? page, int? pageSize, string? status);
     Task<CustomerProjectDto> UpdateStatusAsync(Guid id, UpdateCustomerProjectRequest request);
-    Task<DocumentDto> UploadDocumentAsync(Guid customerId, Guid projectId, string fileName, string fileUrl, string? description);
+    Task<DocumentDto> UploadDocumentAsync(Guid customerId, Guid projectId, string fileName, Stream content, string contentType, long fileSize, string? description);
+    Task<StoredDocumentDownload> DownloadDocumentAsync(Guid customerId, Guid projectId, Guid documentId);
     Task<List<DocumentDto>> GetDocumentsAsync(Guid projectId);
+    Task<List<DocumentDto>> GetMyDocumentsAsync(Guid customerId, Guid projectId);
     Task<ClientPrdDto> GetPrdAsync(Guid id);
+    Task<ClientPrdDto> GetMyPrdAsync(Guid customerId, Guid projectId);
     Task<ClientPrdDto> SavePrdAsync(Guid id, SavePrdRequest request);
     Task<ClientPrdDto> SignPrdAsync(Guid customerId, Guid id, SignPrdRequest request);
     Task<ClientPrdDto> AdminSignPrdAsync(Guid id, string adminName);
     Task<DemoDto> AddDemoAsync(Guid id, AddDemoRequest request);
     Task<DemoDto?> GetDemoAsync(Guid id);
+    Task<DemoDto?> GetMyDemoAsync(Guid customerId, Guid projectId);
     Task<InvoiceDto> CreateInvoiceAsync(Guid id, CreateInvoiceRequest request);
     Task<List<InvoiceDto>> GetInvoicesAsync(Guid id);
+    Task<List<InvoiceDto>> GetMyInvoicesAsync(Guid customerId, Guid projectId);
     Task<FeedbackDto> SubmitFeedbackAsync(Guid customerId, Guid id, SubmitFeedbackRequest request);
     Task<FeedbackDto?> GetFeedbackAsync(Guid id);
     Task<FeedbackDto> ApproveFeedbackAsync(Guid id);
 }
 
-public record CreateCustomerProjectRequest(string Title);
+public record CreateCustomerProjectRequest(
+    string Title,
+    string? Goal = null,
+    string? Audience = null,
+    string? Requirements = null,
+    string? Timeline = null,
+    string? BudgetOrConstraints = null,
+    string? ReferenceLinks = null);
 public record CustomerProjectDto(Guid Id, Guid CustomerId, string Title, string Status, Guid ChatThreadId,
-    int DocumentCount, string? PrdStatus, Guid? LatestDemoId, DateTime CreatedAt, DateTime? UpdatedAt, string? AdminNotes);
+    int DocumentCount, string? PrdStatus, Guid? LatestDemoId, DateTime CreatedAt, DateTime? UpdatedAt, string? AdminNotes,
+    string? Goal = null, string? Audience = null, string? Requirements = null, string? Timeline = null,
+    string? BudgetOrConstraints = null, string? ReferenceLinks = null);
 public record UpdateCustomerProjectRequest(string? Status, string? AdminNotes);
 public record DocumentDto(Guid Id, Guid CustomerProjectId, string FileName, string FileUrl, string UploadedBy, string? Description, DateTime CreatedAt);
+public record StoredDocumentDownload(Stream Content, string FileName, string ContentType);
+
+public interface IPrivateFileStorage
+{
+    Task SaveAsync(string key, Stream content, CancellationToken cancellationToken = default);
+    Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default);
+}
 public record ClientPrdDto(Guid Id, Guid CustomerProjectId, string Content, string Status, string? SignerNameCustomer, DateTime? SignedAtCustomer, string? SignerNameAdmin, DateTime? SignedAtAdmin, DateTime CreatedAt, DateTime? UpdatedAt);
 public record SavePrdRequest(string Content);
 public record SignPrdRequest(string ConfirmName);

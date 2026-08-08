@@ -1,5 +1,20 @@
 # CHANGELOG: ra-labs
 
+## [Unreleased] - language fix + LLM translation agent (task-i18n-agent)
+
+### Added
+- **LLM translation agent** (`TranslationAgentService`): on a language change,
+  missing locale content is translated by the model on demand and persisted as
+  `PageContent` rows (cached — one model call per locale, serialized per
+  locale). Activates automatically when `OpenAI:ApiKey` is configured.
+
+### Fixed
+- **Language switcher was broken**: only English content was seeded, so every
+  other locale returned an empty content map and the site rendered raw content
+  keys. `GET /api/v1/content?locale=X` now merges English values for any keys
+  the translation agent has not produced yet — the UI never shows raw keys,
+  even with no API key configured.
+
 ## [1.1.1] - 2026-08-08 (verification pass)
 
 ### Fixed

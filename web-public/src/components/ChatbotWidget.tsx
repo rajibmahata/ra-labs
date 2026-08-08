@@ -8,15 +8,6 @@ import { getSessionItem, setSessionItem, removeSessionItem } from '../api/client
 
 const THREAD_STORAGE_KEY = 'chat.thread';
 
-function generateThreadId(): string {
-  // Simple UUID v4
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 function getStoredThreadId(): string | null {
   return getSessionItem(THREAD_STORAGE_KEY);
 }
@@ -107,20 +98,27 @@ export default function ChatbotWidget() {
 
       try {
         let threadId = getStoredThreadId();
-        if (!threadId) {
-          threadId = generateThreadId();
-          storeThreadId(threadId);
-        }
-
-        const res = await api.sendChatMessage(threadId, {
+        const send = (id: string) => api.sendChatMessage(id, {
           content: trimmed,
           attachmentUrl: null,
         });
 
-        // Replace optimistic message with real one
-        setMessages((prev) =>
-          prev.map((m) => (m.id === optimisticId ? res.data : m))
-        );
+        if (!threadId) {
+          const thread = await api.createChatThread();
+          threadId = thread.data.id;
+          storeThreadId(threadId);
+        }
+
+        try {
+          await send(threadId);
+        } catch (err) {
+          if (!(err instanceof ApiClientError) || err.status !== 404) throw err;
+
+          const thread = await api.createChatThread();
+          threadId = thread.data.id;
+          storeThreadId(threadId);
+          await send(threadId);
+        }
 
         // Poll for agent response (simple approach: fetch thread after short delay)
         setTimeout(async () => {

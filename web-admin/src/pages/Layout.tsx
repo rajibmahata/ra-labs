@@ -2,10 +2,11 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
-  { to: '/admin', label: 'Dashboard', icon: '📊', end: true },
+  { to: '/admin/', label: 'Dashboard', icon: '📊', end: true },
   { to: '/admin/leads', label: 'Leads', icon: '📬', end: true },
   { to: '/admin/customers', label: 'Customers', icon: '👥', end: false },
   { to: '/admin/projects', label: 'Projects', icon: '📋', end: false },
+  { to: '/admin/drafts', label: 'AI drafts', icon: '✦', end: false },
   { to: '/admin/portfolio', label: 'Portfolio', icon: '💼', end: false },
   { to: '/admin/team', label: 'Team', icon: '👥', end: false },
   { to: '/admin/my-profile', label: 'My Profile', icon: '👤', end: false },

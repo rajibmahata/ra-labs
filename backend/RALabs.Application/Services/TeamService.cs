@@ -2,6 +2,7 @@ using RALabs.Application.Common;
 using RALabs.Application.DTOs;
 using RALabs.Domain.Entities;
 using RALabs.Domain.Interfaces;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace RALabs.Application.Services;
 
@@ -19,8 +20,13 @@ public interface ITeamService
 public class TeamService : ITeamService
 {
     private readonly ITeamRepository _repo;
+    private readonly IDataProtector _githubProtector;
 
-    public TeamService(ITeamRepository repo) => _repo = repo;
+    public TeamService(ITeamRepository repo, IDataProtectionProvider protectionProvider)
+    {
+        _repo = repo;
+        _githubProtector = protectionProvider.CreateProtector("RALabs.TeamMember.GithubToken.v1");
+    }
 
     public async Task<List<TeamMemberDto>> GetPublishedAsync()
     {
@@ -42,7 +48,7 @@ public class TeamService : ITeamService
 
     public async Task<TeamMemberDto> CreateAsync(CreateTeamRequest r)
     {
-        Validate(r.Name, r.Role, r.Bio, r.Slug, r.GithubUsername, r.Email, r.LinkedinUrl, r.AvatarUrl);
+        Validate(r.Name, r.Role, r.Bio, r.Slug, r.GithubUsername, r.GithubAccountUrl, r.Email, r.LinkedinUrl, r.AvatarUrl);
         var slug = string.IsNullOrWhiteSpace(r.Slug) ? Guard.Slugify(r.Name) : r.Slug.Trim().ToLowerInvariant();
         if (await _repo.SlugExistsAsync(slug))
             throw new Exceptions.ConflictException($"A team member with slug '{slug}' already exists.");
@@ -55,6 +61,8 @@ public class TeamService : ITeamService
             Role = r.Role.Trim(),
             Bio = r.Bio.Trim(),
             GithubUsername = r.GithubUsername,
+            GithubAccountUrl = r.GithubAccountUrl,
+            GithubTokenEncrypted = ProtectToken(r.GithubToken),
             AvatarUrl = r.AvatarUrl,
             Email = r.Email,
             LinkedinUrl = r.LinkedinUrl,
@@ -70,7 +78,7 @@ public class TeamService : ITeamService
     public async Task<TeamMemberDto> UpdateAsync(Guid id, UpdateTeamRequest r)
     {
         Guard.NotDefault(id, "id");
-        Validate(r.Name, r.Role, r.Bio, r.Slug, r.GithubUsername, r.Email, r.LinkedinUrl, r.AvatarUrl);
+        Validate(r.Name, r.Role, r.Bio, r.Slug, r.GithubUsername, r.GithubAccountUrl, r.Email, r.LinkedinUrl, r.AvatarUrl);
         Guard.ThrowIfAny("team member update");
 
         var member = await _repo.GetByIdAsync(id)
@@ -89,6 +97,9 @@ public class TeamService : ITeamService
         member.Role = role;
         member.Bio = bio;
         member.GithubUsername = r.GithubUsername;
+        member.GithubAccountUrl = r.GithubAccountUrl;
+        if (r.GithubToken is not null)
+            member.GithubTokenEncrypted = ProtectToken(r.GithubToken);
         member.AvatarUrl = r.AvatarUrl;
         member.Email = r.Email;
         member.LinkedinUrl = r.LinkedinUrl;
@@ -125,6 +136,7 @@ public class TeamService : ITeamService
         if (request.Role is not null) { Guard.Required(request.Role, "role", 100); }
         if (request.Bio is not null) { Guard.Required(request.Bio, "bio", 5000); }
         if (request.GithubUsername is not null) Guard.MaxLength(request.GithubUsername, "githubUsername", 100);
+        if (request.GithubAccountUrl is not null) Guard.Url(request.GithubAccountUrl, "githubAccountUrl");
         if (request.Email is not null) Guard.Email(request.Email, "email", 200);
         if (request.LinkedinUrl is not null) Guard.Url(request.LinkedinUrl, "linkedinUrl");
         if (request.AvatarUrl is not null) Guard.Url(request.AvatarUrl, "avatarUrl");
@@ -135,6 +147,8 @@ public class TeamService : ITeamService
         if (request.Role is not null) member.Role = request.Role.Trim();
         if (request.Bio is not null) member.Bio = request.Bio.Trim();
         if (request.GithubUsername is not null) member.GithubUsername = request.GithubUsername;
+        if (request.GithubAccountUrl is not null) member.GithubAccountUrl = request.GithubAccountUrl;
+        if (request.GithubToken is not null) member.GithubTokenEncrypted = ProtectToken(request.GithubToken);
         if (request.AvatarUrl is not null) member.AvatarUrl = request.AvatarUrl;
         if (request.Email is not null) member.Email = request.Email;
         if (request.LinkedinUrl is not null) member.LinkedinUrl = request.LinkedinUrl;
@@ -146,7 +160,7 @@ public class TeamService : ITeamService
         return await ToDto(member);
     }
 
-    private static void Validate(string? name, string? role, string? bio, string? slug, string? github, string? email, string? linkedin, string? avatar)
+    private static void Validate(string? name, string? role, string? bio, string? slug, string? github, string? githubAccountUrl, string? email, string? linkedin, string? avatar)
     {
         Guard.Reset();
         Guard.Required(name, "name", 100);
@@ -154,6 +168,7 @@ public class TeamService : ITeamService
         Guard.Required(bio, "bio", 5000);
         if (!string.IsNullOrWhiteSpace(slug)) Guard.Slug(slug, "slug");
         Guard.MaxLength(github, "githubUsername", 100);
+        Guard.Url(githubAccountUrl, "githubAccountUrl");
         if (!string.IsNullOrWhiteSpace(email)) Guard.Email(email, "email", 200);
         Guard.Url(linkedin, "linkedinUrl");
         Guard.Url(avatar, "avatarUrl");
@@ -164,7 +179,9 @@ public class TeamService : ITeamService
         => ToDto(m, await _repo.GetLatestSnapshotAsync(m.Id));
 
     private static TeamMemberDto ToDto(TeamMember m, GithubSnapshot? snap) =>
-        new(m.Id, m.Slug, m.Name, m.Role, m.Bio, m.GithubUsername, m.AvatarUrl,
-            m.Email, m.LinkedinUrl, m.Location, m.IsPublished,
+        new(m.Id, m.Slug, m.Name, m.Role, m.Bio, m.GithubUsername, m.GithubAccountUrl,
+            !string.IsNullOrWhiteSpace(m.GithubTokenEncrypted), m.AvatarUrl, m.Email, m.LinkedinUrl, m.Location, m.IsPublished,
             snap is null ? null : new GithubSnapshotDto(snap.Commits90d, snap.ActiveRepos, snap.LastCommitAt, snap.CapturedAt));
+
+    private string? ProtectToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : _githubProtector.Protect(token.Trim());
 }

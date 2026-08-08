@@ -1,13 +1,14 @@
 const CACHE_STATIC = 'ralabs-customer-static-v1';
 const CACHE_API = 'ralabs-customer-api-v1';
+const BASE_URL = new URL('./', self.registration.scope);
 
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg',
-];
+  '',
+  'index.html',
+  'manifest.webmanifest',
+  'icons/icon-192.svg',
+  'icons/icon-512.svg',
+].map((path) => new URL(path, BASE_URL).href);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -59,7 +60,7 @@ async function cacheFirst(request) {
     }
     return network;
   } catch {
-    return caches.match('/index.html');
+    return caches.match(new URL('index.html', BASE_URL).href);
   }
 }
 

@@ -69,6 +69,22 @@ public interface IAgentTaskRepository
     Task<List<AgentTask>> ListRecentAsync(string? type, int page, int pageSize);
 }
 
+public interface IContentDraftRepository
+{
+    Task<ContentDraft?> GetByIdAsync(Guid id);
+    Task<List<ContentDraft>> ListAsync(string? status, int page, int pageSize);
+    Task<Guid> AddAsync(ContentDraft draft);
+    Task UpdateAsync(ContentDraft draft);
+}
+
+public interface IGithubRepositoryRepository
+{
+    Task<GithubRepository?> GetByFullNameAsync(string fullName);
+    Task UpsertAsync(GithubRepository repository);
+    Task<List<GithubRepository>> GetAllAsync(int page, int pageSize, string? technology);
+    Task<int> CountAsync(string? technology);
+}
+
 public interface IAdminUserRepository
 {
     Task<AdminUser?> GetByEmailAsync(string email);
@@ -116,6 +132,7 @@ public interface ICustomerProjectRepository
     Task<Guid> AddAsync(CustomerProject project);
     Task UpdateAsync(CustomerProject project);
     Task<Document> AddDocumentAsync(Document document);
+    Task<Document?> GetDocumentAsync(Guid projectId, Guid documentId);
     Task<List<Document>> GetDocumentsAsync(Guid projectId);
     Task<ClientPrd?> GetPrdAsync(Guid projectId);
     Task<ClientPrd> SavePrdAsync(ClientPrd prd);

@@ -4,6 +4,7 @@ import type {
   User,
   ProjectSummary,
   ProjectDetail,
+  ProjectBriefInput,
   Document,
   Prd,
   Demo,
@@ -250,9 +251,7 @@ export const api = {
     return parseResponse<ProjectSummary[]>(response);
   },
 
-  async createProject(
-    body: { title: string }
-  ): Promise<ApiResponse<ProjectSummary>> {
+  async createProject(body: ProjectBriefInput): Promise<ApiResponse<ProjectSummary>> {
     const response = await authFetch('/api/v1/customer/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

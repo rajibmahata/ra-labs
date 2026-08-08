@@ -17,8 +17,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddDataProtection();
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
@@ -84,6 +85,21 @@ app.MapGet("/api/v1/projects", async (int? page, int? pageSize, string? tag, IPr
 
 app.MapGet("/api/v1/projects/{slug}", async (string slug, IProjectService svc) =>
     Results.Ok(new { data = await svc.GetBySlugAsync(slug) })).WithOpenApi();
+
+app.MapGet("/api/v1/github/repositories", async (int? page, int? pageSize, string? technology, IGithubRepositoryRepository repo) =>
+{
+    var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
+    var repositories = await repo.GetAllAsync(p, ps, technology);
+    var total = await repo.CountAsync(technology);
+    return Results.Ok(new
+    {
+        data = repositories.Select(x => new GithubRepositoryDto(
+            x.Id, x.Owner, x.Name, x.FullName, x.HtmlUrl, x.Description, x.PrimaryLanguage,
+            System.Text.Json.JsonSerializer.Deserialize<List<string>>(x.TechnologiesJson) ?? new(),
+            x.PushedAt, x.SyncedAt)).ToList(),
+        pagination = new { page = p, pageSize = ps, totalCount = total }
+    });
+}).WithOpenApi();
 
 // ── Public: Team ──
 app.MapGet("/api/v1/team", async (ITeamService svc) =>
@@ -204,22 +220,34 @@ customer.MapGet("/projects/{id}", async (Guid id, HttpContext ctx, ICustomerProj
     return Results.Ok(new { data = await svc.GetMyProjectAsync(customerId, id) });
 }).WithOpenApi();
 
-customer.MapGet("/projects/{id}/documents", async (Guid id, ICustomerProjectService svc) =>
-    Results.Ok(new { data = await svc.GetDocumentsAsync(id) })).WithOpenApi();
+customer.MapGet("/projects/{id}/documents", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.GetMyDocumentsAsync(customerId, id) });
+}).WithOpenApi();
 
 customer.MapPost("/projects/{id}/documents", async (Guid id, HttpContext ctx, ICustomerProjectService svc, IFormFile file) =>
 {
     var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
     if (file is null || file.Length == 0)
         return Results.BadRequest(new { error = new { code = "VALIDATION_ERROR", message = "A file is required." } });
-    // Store as a data-URI placeholder via a simple local path naming (production uses object storage).
-    var url = $"/media/{id}/{Guid.NewGuid():N}-{file.FileName}";
-    var doc = await svc.UploadDocumentAsync(customerId, id, file.FileName, url, "uploaded via portal");
+    await using var content = file.OpenReadStream();
+    var doc = await svc.UploadDocumentAsync(customerId, id, file.FileName, content, file.ContentType, file.Length, "uploaded via portal");
     return Results.Created($"/api/v1/customer/projects/{id}/documents", new { data = doc });
 }).DisableAntiforgery().WithOpenApi();
 
-customer.MapGet("/projects/{id}/prd", async (Guid id, ICustomerProjectService svc) =>
-    Results.Ok(new { data = await svc.GetPrdAsync(id) })).WithOpenApi();
+customer.MapGet("/projects/{projectId}/documents/{documentId}/download", async (Guid projectId, Guid documentId, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    var download = await svc.DownloadDocumentAsync(customerId, projectId, documentId);
+    return Results.File(download.Content, download.ContentType, download.FileName);
+}).WithOpenApi();
+
+customer.MapGet("/projects/{id}/prd", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.GetMyPrdAsync(customerId, id) });
+}).WithOpenApi();
 
 customer.MapPost("/projects/{id}/prd/sign", async (Guid id, SignPrdRequest req, HttpContext ctx, ICustomerProjectService svc) =>
 {
@@ -227,11 +255,17 @@ customer.MapPost("/projects/{id}/prd/sign", async (Guid id, SignPrdRequest req, 
     return Results.Ok(new { data = await svc.SignPrdAsync(customerId, id, req) });
 }).WithOpenApi();
 
-customer.MapGet("/projects/{id}/demo", async (Guid id, ICustomerProjectService svc) =>
-    Results.Ok(new { data = await svc.GetDemoAsync(id) })).WithOpenApi();
+customer.MapGet("/projects/{id}/demo", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.GetMyDemoAsync(customerId, id) });
+}).WithOpenApi();
 
-customer.MapGet("/projects/{id}/invoice", async (Guid id, ICustomerProjectService svc) =>
-    Results.Ok(new { data = await svc.GetInvoicesAsync(id) })).WithOpenApi();
+customer.MapGet("/projects/{id}/invoice", async (Guid id, HttpContext ctx, ICustomerProjectService svc) =>
+{
+    var customerId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.GetMyInvoicesAsync(customerId, id) });
+}).WithOpenApi();
 
 customer.MapPost("/projects/{id}/feedback", async (Guid id, SubmitFeedbackRequest req, HttpContext ctx, ICustomerProjectService svc) =>
 {
@@ -399,10 +433,44 @@ admin.MapPost("/github/sync", async (IGithubSyncService svc) =>
     return Results.Ok(new { data = result });
 }).WithOpenApi();
 
+admin.MapGet("/github/repositories", async (int? page, int? pageSize, string? technology, IGithubRepositoryRepository repo) =>
+{
+    var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
+    var repositories = await repo.GetAllAsync(p, ps, technology);
+    var total = await repo.CountAsync(technology);
+    return Results.Ok(new
+    {
+        data = repositories.Select(x => new GithubRepositoryDto(
+            x.Id, x.Owner, x.Name, x.FullName, x.HtmlUrl, x.Description, x.PrimaryLanguage,
+            System.Text.Json.JsonSerializer.Deserialize<List<string>>(x.TechnologiesJson) ?? new(),
+            x.PushedAt, x.SyncedAt)).ToList(),
+        pagination = new { page = p, pageSize = ps, totalCount = total }
+    });
+}).WithOpenApi();
+
+admin.MapGet("/content-drafts", async (string? status, int? page, int? pageSize, IAiDraftService svc) =>
+{
+    var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
+    return Results.Ok(new { data = await svc.ListAsync(status, p, ps) });
+}).WithOpenApi();
+
+admin.MapPost("/content-drafts/generate", async (GenerateDraftRequest req, IAiDraftService svc, CancellationToken ct) =>
+    Results.Created("/api/v1/admin/content-drafts", new { data = await svc.GenerateProjectDraftAsync(req.SourceUrl, req.SourceText, ct) })).WithOpenApi();
+
+admin.MapPost("/content-drafts/{id}/review", async (Guid id, ReviewDraftRequest req, IAiDraftService svc, IProjectRepository projects) =>
+    Results.Ok(new { data = await svc.ReviewAsync(id, req.Decision.Trim().ToLowerInvariant(), req.Note, projects) })).WithOpenApi();
+
 admin.MapPost("/rag/ingest", async (IRagIngestionService svc) =>
 {
     var count = await svc.IngestPublicContentAsync(CancellationToken.None);
     return Results.Ok(new { data = new { ingestedChunks = count } });
+}).WithOpenApi();
+
+app.MapGet("/api/v1/rag/query", async (string query, Guid? customerProjectId, IRagIngestionService svc, HttpContext ctx, CancellationToken ct) =>
+{
+    if (customerProjectId.HasValue && !ctx.User.IsInRole("admin"))
+        return Results.Forbid();
+    return Results.Ok(new { data = await svc.QueryAsync(query, customerProjectId, ct) });
 }).WithOpenApi();
 
 admin.MapGet("/admins", async (IAuthService svc) =>

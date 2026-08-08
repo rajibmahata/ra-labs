@@ -25,6 +25,12 @@ public class CustomerProject
     public Guid CustomerId { get; set; }
     public Customer Customer { get; set; } = null!;
     public string Title { get; set; } = string.Empty;
+    public string? Goal { get; set; }
+    public string? Audience { get; set; }
+    public string? Requirements { get; set; }
+    public string? Timeline { get; set; }
+    public string? BudgetOrConstraints { get; set; }
+    public string? ReferenceLinks { get; set; }
     public CustomerProjectStatus Status { get; set; } = CustomerProjectStatus.Intake;
     public string? AdminNotes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -44,6 +50,9 @@ public class Document
     public CustomerProject CustomerProject { get; set; } = null!;
     public string FileName { get; set; } = string.Empty;
     public string FileUrl { get; set; } = string.Empty;
+    public string StorageKey { get; set; } = string.Empty;
+    public string ContentType { get; set; } = "application/octet-stream";
+    public long FileSize { get; set; }
     public string UploadedBy { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

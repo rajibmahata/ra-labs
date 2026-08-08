@@ -1,0 +1,32 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^Push-Location web-customer; npm audit --json; Pop-Location$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Push-Location web-public; npm run dev -- --host 127\\.0\\.0\\.1; Pop-Location$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Push-Location web-customer; npm run dev -- --host 127\\.0\\.0\\.1; Pop-Location$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Push-Location web-customer; npm run build; Pop-Location$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Push-Location web-admin; npm run dev -- --host 127\\.0\\.0\\.1; Pop-Location$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Push-Location web-public; npm run build; Pop-Location; Push-Location web-admin; npm run build; Pop-Location$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^dotnet run --project backend/RALabs\\.Api --urls http://localhost:5002$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

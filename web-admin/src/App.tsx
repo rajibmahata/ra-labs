@@ -14,10 +14,11 @@ import Settings from './pages/Settings';
 import Customers from './pages/Customers';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import Drafts from './pages/Drafts';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <Routes>
           <Route path="/admin/login" element={<Login />} />
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetail />} />
+            <Route path="drafts" element={<Drafts />} />
             <Route path="portfolio" element={<Portfolio />} />
             <Route path="team" element={<Team />} />
             <Route path="my-profile" element={<MyProfile />} />
@@ -41,7 +43,7 @@ export default function App() {
             <Route path="chat" element={<Chat />} />
             <Route path="settings" element={<Settings />} />
           </Route>
-          <Route path="*" element={<Navigate to="/admin" replace />} />
+          <Route path="*" element={<Navigate to="/admin/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

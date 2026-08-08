@@ -53,10 +53,14 @@ public static class DependencyInjection
         services.AddScoped<ILeadRepository, LeadRepository>();
         services.AddScoped<IChatRepository, ChatRepository>();
         services.AddScoped<IAgentTaskRepository, AgentTaskRepository>();
+        services.AddScoped<IContentDraftRepository, ContentDraftRepository>();
+        services.AddScoped<IGithubRepositoryRepository, GithubRepositoryRepository>();
         services.AddScoped<IAdminUserRepository, AdminUserRepository>();
         services.AddScoped<IKnowledgeChunkRepository, KnowledgeChunkRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICustomerProjectRepository, CustomerProjectRepository>();
+        services.AddSingleton<IPrivateFileStorage>(_ =>
+            new LocalPrivateFileStorage(config["Storage:RootPath"]));
 
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtService>(_ => new JwtService(jwtSecret, issuer, audience));

@@ -31,7 +31,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/admin';
+      const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/admin/';
       navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiClientError) {

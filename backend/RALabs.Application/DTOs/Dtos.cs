@@ -24,22 +24,33 @@ public record ProjectDto(
     string Status, string? GithubUrl, string? CaseStudyBody, string? CoverImageUrl,
     int SortOrder, bool IsPublished, DateTime CreatedAt, DateTime? UpdatedAt);
 
+public record GenerateDraftRequest(string SourceUrl, string SourceText);
+public record ReviewDraftRequest(string Decision, string? Note);
+
 // ── Team ──
 public record CreateTeamRequest(
     string Name, string? Slug, string Role, string Bio, string? GithubUsername,
-    string? AvatarUrl, string? Email, string? LinkedinUrl, string? Location, bool? IsPublished);
+    string? GithubAccountUrl, string? GithubToken, string? AvatarUrl, string? Email,
+    string? LinkedinUrl, string? Location, bool? IsPublished);
 
 public record UpdateTeamRequest(
     string? Name, string? Slug, string? Role, string? Bio, string? GithubUsername,
-    string? AvatarUrl, string? Email, string? LinkedinUrl, string? Location, bool? IsPublished);
+    string? GithubAccountUrl, string? GithubToken, string? AvatarUrl, string? Email,
+    string? LinkedinUrl, string? Location, bool? IsPublished);
 
 public record TeamMemberDto(
     Guid Id, string Slug, string Name, string Role, string Bio,
-    string? GithubUsername, string? AvatarUrl, string? Email, string? LinkedinUrl,
-    string? Location, bool IsPublished, GithubSnapshotDto? GithubSnapshot);
+    string? GithubUsername, string? GithubAccountUrl, bool HasGithubToken, string? AvatarUrl,
+    string? Email, string? LinkedinUrl, string? Location, bool IsPublished,
+    GithubSnapshotDto? GithubSnapshot);
 
 public record GithubSnapshotDto(
     int Commits90d, int ActiveRepos, DateTime? LastCommitAt, DateTime CapturedAt);
+
+public record GithubRepositoryDto(
+    Guid Id, string Owner, string Name, string FullName, string HtmlUrl,
+    string? Description, string? PrimaryLanguage, List<string> Technologies,
+    DateTime? PushedAt, DateTime SyncedAt);
 
 // ── Content ──
 public record CreateContentRequest(string Key, string Locale, string Value);

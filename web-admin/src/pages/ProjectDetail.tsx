@@ -381,6 +381,22 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+        <div className="card-header">
+          <h2 className="card-title">Customer Brief</h2>
+        </div>
+        <div className="card-body">
+          <div className="detail-grid">
+            <div><span className="form-hint">Goal</span><p>{project.goal || 'Not provided'}</p></div>
+            <div><span className="form-hint">Audience</span><p>{project.audience || 'Not provided'}</p></div>
+            <div><span className="form-hint">Timeline</span><p>{project.timeline || 'Not provided'}</p></div>
+            <div><span className="form-hint">Budget or constraints</span><p>{project.budgetOrConstraints || 'Not provided'}</p></div>
+            <div style={{ gridColumn: '1 / -1' }}><span className="form-hint">Requirements</span><p style={{ whiteSpace: 'pre-wrap' }}>{project.requirements || 'Not provided'}</p></div>
+            <div style={{ gridColumn: '1 / -1' }}><span className="form-hint">Reference links</span><p>{project.referenceLinks || 'Not provided'}</p></div>
+          </div>
+        </div>
+      </div>
+
       {/* ================================================================
           STATUS TRANSITION + ADMIN NOTES
           ================================================================ */}

@@ -12,6 +12,8 @@ export default function MyProfile() {
     role: '',
     bio: '',
     githubUsername: '',
+    githubAccountUrl: '',
+    githubToken: '',
     avatarUrl: '',
     email: '',
     linkedinUrl: '',
@@ -30,6 +32,8 @@ export default function MyProfile() {
         role: teamProfile.role,
         bio: teamProfile.bio,
         githubUsername: teamProfile.githubUsername ?? '',
+        githubAccountUrl: teamProfile.githubAccountUrl ?? '',
+        githubToken: '',
         avatarUrl: teamProfile.avatarUrl ?? '',
         email: teamProfile.email ?? '',
         linkedinUrl: teamProfile.linkedinUrl ?? '',
@@ -64,6 +68,8 @@ export default function MyProfile() {
         role: form.role.trim(),
         bio: form.bio.trim(),
         githubUsername: form.githubUsername || null,
+        githubAccountUrl: form.githubAccountUrl || null,
+        ...(form.githubToken ? { githubToken: form.githubToken } : {}),
         avatarUrl: form.avatarUrl || null,
         email: form.email || null,
         linkedinUrl: form.linkedinUrl || null,
@@ -155,6 +161,16 @@ export default function MyProfile() {
                   maxLength={100}
                 />
                 {fieldErrors.role && <div className="form-error">{fieldErrors.role}</div>}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="pf-gh-url">GitHub Account URL</label>
+                <input id="pf-gh-url" className="form-input" type="url" value={form.githubAccountUrl} onChange={(e) => setForm((p) => ({ ...p, githubAccountUrl: e.target.value }))} placeholder="https://github.com/username" />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="pf-gh-token">GitHub Personal Access Token</label>
+                <input id="pf-gh-token" className="form-input" type="password" value={form.githubToken} onChange={(e) => setForm((p) => ({ ...p, githubToken: e.target.value }))} placeholder={teamProfile?.hasGithubToken ? 'Leave blank to keep saved token' : 'Token for repository sync'} autoComplete="new-password" />
               </div>
             </div>
             <div className="form-group">
