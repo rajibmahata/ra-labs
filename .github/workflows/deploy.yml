@@ -1,0 +1,172 @@
+name: CI/CD
+
+# Deploys on push/merge to `main` (Release Manager flow) + manual dispatch.
+# Pattern: RMEnterpriseCMS — rsync source to the VPS, build images there,
+# generate .env from GitHub secrets, health-check, auto-rollback.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore + test
+        run: |
+          cd backend
+          dotnet restore RALabs.sln
+          dotnet test RALabs.sln --configuration Release --nologo
+          if compgen -G 'tests/*/*.csproj' >/dev/null 2>&1; then echo "frontend tests run separately"; fi
+
+  build-public:
+    name: Build web-public
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        run: cd web-public && npm ci && npm run build
+
+  build-admin:
+    name: Build web-admin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        run: cd web-admin && npm ci && npm run build
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [test, build-public, build-admin]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set build vars
+        id: vars
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare deploy directories on VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            mkdir -p /opt/ralabs/deploy /opt/ralabs/gateway /opt/ralabs/backend \
+                     /opt/ralabs/web-public /opt/ralabs/web-admin /opt/ralabs/docs
+
+      - name: Sync repository source to VPS
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          PORT: ${{ secrets.VPS_PORT || 22 }}
+          USERNAME: ${{ secrets.VPS_USERNAME }}
+          SSH_KEY: ${{ secrets.VPS_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 600 /dev/null /tmp/ralabs_key
+          printf '%s\n' "${SSH_KEY}" > /tmp/ralabs_key
+          chmod 600 /tmp/ralabs_key
+          if ! command -v rsync >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq rsync
+          fi
+          rsync -az --delete --timeout=90 \
+            -e "ssh -i /tmp/ralabs_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${PORT}" \
+            --exclude '.git' --exclude '.github' --exclude '**/node_modules' \
+            --exclude '**/bin' --exclude '**/obj' --exclude '**/dist' \
+            --exclude '.env' --exclude '.deployed-sha' --exclude '.previous-sha' \
+            ./ "${USERNAME}@${HOST}:/opt/ralabs/"
+          rm -f /tmp/ralabs_key
+
+      - name: Generate production .env from secrets
+        run: |
+          cat > .env <<'EOF'
+          ASPNETCORE_ENVIRONMENT=${{ secrets.ASPNETCORE_ENVIRONMENT || 'Production' }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT || '1433' }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_ENCRYPT=${{ secrets.DB_ENCRYPT || 'true' }}
+          DB_TRUST_SERVER_CERTIFICATE=${{ secrets.DB_TRUST_SERVER_CERTIFICATE || 'true' }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_ISSUER=${{ secrets.JWT_ISSUER || 'RALabs' }}
+          JWT_AUDIENCE=${{ secrets.JWT_AUDIENCE || 'RALabs' }}
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT || '587' }}
+          SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM=${{ secrets.SMTP_FROM || 'noreply@ralabs.dev' }}
+          SMTP_FROM_NAME=${{ secrets.SMTP_FROM_NAME || 'R&A Labs' }}
+          SMTP_ADMIN=${{ secrets.SMTP_ADMIN }}
+          SEED_ON_STARTUP=${{ secrets.SEED_ON_STARTUP || 'false' }}
+          APP_DOMAIN=${{ secrets.APP_DOMAIN }}
+          CERT_EMAIL=${{ secrets.CERT_EMAIL }}
+          EOF
+          if ! grep -q '^DB_HOST=.\+' .env || ! grep -q '^DB_NAME=.\+' .env; then
+            echo "::error::DB_HOST / DB_NAME secrets missing."; exit 1
+          fi
+          if ! grep -q '^JWT_SECRET=.\{32,\}' .env; then
+            echo "::error::JWT_SECRET missing or < 32 chars."; exit 1
+          fi
+          if ! grep -q '^APP_DOMAIN=.\+' .env; then
+            echo "::error::APP_DOMAIN missing."; exit 1
+          fi
+
+      - name: Upload .env to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          source: ".env"
+          target: /opt/ralabs
+
+      - name: Deploy and verify
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          envs: NEW_SHA,APP_DOMAIN
+          script: |
+            set -e
+            chmod +x /opt/ralabs/deploy/*.sh
+            bash /opt/ralabs/deploy/deploy.sh
+        env:
+          NEW_SHA: ${{ steps.vars.outputs.sha }}
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Deployment status: ${{ job.status }}"
+            echo "- Commit: \`${{ steps.vars.outputs.sha }}\`"
+            echo "- Target: \`https://${{ secrets.APP_DOMAIN }}\`"
+            echo "- API health: \`https://${{ secrets.APP_DOMAIN }}/api/health\`"
+          } >> "$GITHUB_STEP_SUMMARY"

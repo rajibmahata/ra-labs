@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RALabs.Application\RALabs.Application.csproj" />
+    <ProjectReference Include="..\RALabs.Infrastructure\RALabs.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
