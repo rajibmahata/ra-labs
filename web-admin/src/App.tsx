@@ -11,6 +11,9 @@ import MyProfile from './pages/MyProfile';
 import Content from './pages/Content';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import Customers from './pages/Customers';
+import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 
 export default function App() {
   return (
@@ -28,6 +31,9 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="leads" element={<Leads />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="projects/:id" element={<ProjectDetail />} />
             <Route path="portfolio" element={<Portfolio />} />
             <Route path="team" element={<Team />} />
             <Route path="my-profile" element={<MyProfile />} />

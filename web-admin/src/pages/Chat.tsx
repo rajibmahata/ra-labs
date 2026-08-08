@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { chat as chatApi, ApiClientError } from '../api/client';
 import { useToast } from '../components/useToast';
 import type { ChatThread, ChatThreadDetail } from '../types';
 
 export default function Chat() {
   const { addToast, ToastContainer } = useToast();
+  const [searchParams] = useSearchParams();
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,6 +34,18 @@ export default function Chat() {
   };
 
   useEffect(() => { fetchThreads(); }, [typeFilter, interventionFilter]);
+
+  // Auto-open thread from query param
+  useEffect(() => {
+    const threadId = searchParams.get('threadId');
+    if (threadId && threads.length > 0 && !loading) {
+      // Check if the thread exists in the loaded list
+      const exists = threads.some((t) => t.id === threadId);
+      if (exists) {
+        openThread(threadId);
+      }
+    }
+  }, [threads, loading, searchParams]);
 
   const openThread = async (threadId: string) => {
     setThreadLoading(true);

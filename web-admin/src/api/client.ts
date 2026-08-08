@@ -296,3 +296,104 @@ export const admins = {
       body,
     ),
 };
+
+// Customers & Customer Projects (admin)
+export const customerProjects = {
+  listCustomers: (params?: { page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    const query = qs.toString();
+    return request<{ data: { id: string; name: string; email: string; createdAt: string; projectCount: number }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/customers${query ? `?${query}` : ''}`,
+    );
+  },
+
+  list: (params?: { status?: string; customerId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.customerId) qs.set('customerId', params.customerId);
+    const query = qs.toString();
+    return request<{ data: { id: string; customerId: string; title: string; status: string; chatThreadId: string | null; documentCount: number; prdStatus: string | null; latestDemoId: string | null; createdAt: string; updatedAt: string; adminNotes: string | null }[] }>(
+      'GET',
+      `/api/v1/admin/customer-projects${query ? `?${query}` : ''}`,
+    );
+  },
+
+  get: (id: string) =>
+    request<{ data: { id: string; customerId: string; title: string; status: string; chatThreadId: string | null; documentCount: number; prdStatus: string | null; latestDemoId: string | null; createdAt: string; updatedAt: string; adminNotes: string | null } }>(
+      'GET',
+      `/api/v1/admin/customer-projects/${id}`,
+    ),
+
+  update: (id: string, body: { status?: string; adminNotes?: string }) =>
+    request<{ data: { id: string; customerId: string; title: string; status: string; chatThreadId: string | null; documentCount: number; prdStatus: string | null; latestDemoId: string | null; createdAt: string; updatedAt: string; adminNotes: string | null } }>(
+      'PATCH',
+      `/api/v1/admin/customer-projects/${id}`,
+      body,
+    ),
+
+  getDocuments: (id: string) =>
+    request<{ data: { id: string; fileName: string; fileUrl: string; uploadedBy: string; description: string | null; createdAt: string }[] }>(
+      'GET',
+      `/api/v1/admin/customer-projects/${id}/documents`,
+    ),
+
+  getPrd: (id: string) =>
+    request<{ data: { id: string; content: string; status: string; signerNameCustomer: string | null; signedAtCustomer: string | null; signerNameAdmin: string | null; signedAtAdmin: string | null } | null }>(
+      'GET',
+      `/api/v1/admin/customer-projects/${id}/prd`,
+    ),
+
+  savePrd: (id: string, body: { content: string }) =>
+    request<{ data: { id: string; content: string; status: string; signerNameCustomer: string | null; signedAtCustomer: string | null; signerNameAdmin: string | null; signedAtAdmin: string | null } }>(
+      'PUT',
+      `/api/v1/admin/customer-projects/${id}/prd`,
+      body,
+    ),
+
+  signPrdAdmin: (id: string) =>
+    request<{ data: { id: string; content: string; status: string; signerNameCustomer: string | null; signedAtCustomer: string | null; signerNameAdmin: string | null; signedAtAdmin: string | null } }>(
+      'POST',
+      `/api/v1/admin/customer-projects/${id}/prd/sign`,
+    ),
+
+  getDemo: (id: string) =>
+    request<{ data: { type: 'screenshot' | 'url'; urlOrAsset: string; notes: string | null; createdAt: string } | null }>(
+      'GET',
+      `/api/v1/admin/customer-projects/${id}/demo`,
+    ),
+
+  addDemo: (id: string, body: { type: 'screenshot' | 'url'; urlOrAsset: string; notes?: string }) =>
+    request<{ data: { type: 'screenshot' | 'url'; urlOrAsset: string; notes: string | null; createdAt: string } }>(
+      'POST',
+      `/api/v1/admin/customer-projects/${id}/demo`,
+      body,
+    ),
+
+  getInvoices: (id: string) =>
+    request<{ data: { amount: number; currency: string; status: 'unpaid' | 'paid_cash'; notes: string | null; createdAt: string }[] }>(
+      'GET',
+      `/api/v1/admin/customer-projects/${id}/invoice`,
+    ),
+
+  createInvoice: (id: string, body: { amount: number; currency: string; status: 'unpaid' | 'paid_cash'; notes?: string }) =>
+    request<{ data: { amount: number; currency: string; status: 'unpaid' | 'paid_cash'; notes: string | null; createdAt: string } }>(
+      'POST',
+      `/api/v1/admin/customer-projects/${id}/invoice`,
+      body,
+    ),
+
+  getFeedback: (id: string) =>
+    request<{ data: { rating: number; comment: string; consentToPublish: boolean; isPublished: boolean; createdAt: string } | null }>(
+      'GET',
+      `/api/v1/admin/customer-projects/${id}/feedback`,
+    ),
+
+  approveFeedback: (id: string) =>
+    request<{ data: { rating: number; comment: string; consentToPublish: boolean; isPublished: boolean; createdAt: string } }>(
+      'POST',
+      `/api/v1/admin/customer-projects/${id}/feedback/approve`,
+    ),
+};
