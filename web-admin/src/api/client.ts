@@ -1,0 +1,298 @@
+import type { ApiError } from '../types';
+
+const STORAGE_PREFIX = 'admin.';
+const TOKEN_KEY = `${STORAGE_PREFIX}auth.token`;
+const USER_KEY = `${STORAGE_PREFIX}auth.user`;
+const EXPIRES_KEY = `${STORAGE_PREFIX}auth.expiresAt`;
+
+function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuth(token: string, user: unknown, expiresAt: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(EXPIRES_KEY, expiresAt);
+}
+
+export function clearAuth(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(EXPIRES_KEY);
+}
+
+export function getStoredUser<T>(): T | null {
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function isAuthenticated(): boolean {
+  const token = getToken();
+  if (!token) return false;
+  const expiresAt = localStorage.getItem(EXPIRES_KEY);
+  if (expiresAt && new Date(expiresAt) < new Date()) {
+    clearAuth();
+    return false;
+  }
+  return true;
+}
+
+export class ApiClientError extends Error {
+  code: string;
+  status: number;
+  details?: unknown;
+
+  constructor(status: number, code: string, message: string, details?: unknown) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
+function redirectToLogin(): void {
+  clearAuth();
+  window.location.href = '/admin/login';
+}
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      redirectToLogin();
+      throw new ApiClientError(401, 'UNAUTHORIZED', 'Session expired. Please log in again.');
+    }
+
+    if (res.status === 204) {
+      return undefined as T;
+    }
+
+    let errorPayload: ApiError | null = null;
+    try {
+      errorPayload = (await res.json()) as ApiError;
+    } catch {
+      // no JSON body
+    }
+
+    const code = errorPayload?.error?.code ?? 'UNKNOWN_ERROR';
+    const message = errorPayload?.error?.message ?? `Request failed with status ${res.status}`;
+    const details = errorPayload?.error?.details;
+
+    throw new ApiClientError(res.status, code, message, details);
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+  return (await res.json()) as T;
+}
+
+// Auth
+export const auth = {
+  login: (email: string, password: string) =>
+    request<{ data: { accessToken: string; expiresAt: string; user: { id: string; name: string; email: string; role: string; teamMemberId?: string | null } } }>(
+      'POST',
+      '/api/v1/auth/login',
+      { email, password },
+    ),
+};
+
+// Team (admin)
+export const team = {
+  list: () =>
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string }[] }>(
+      'GET',
+      '/api/v1/admin/team',
+    ),
+
+  getMe: () =>
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string } }>(
+      'GET',
+      '/api/v1/admin/team/me',
+    ),
+
+  updateMe: (body: Record<string, unknown>) =>
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null } }>(
+      'PUT',
+      '/api/v1/admin/team/me',
+      body,
+    ),
+
+  create: (body: Record<string, unknown>) =>
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean } }>(
+      'POST',
+      '/api/v1/admin/team',
+      body,
+    ),
+
+  update: (id: string, body: Record<string, unknown>) =>
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean } }>(
+      'PUT',
+      `/api/v1/admin/team/${id}`,
+      body,
+    ),
+
+  delete: (id: string) =>
+    request<void>('DELETE', `/api/v1/admin/team/${id}`),
+};
+
+// Projects (admin)
+export const projects = {
+  list: () =>
+    request<{ data: { id: string; slug: string; title: string; summary: string; stackTags: string[]; status: string; githubUrl?: string | null; caseStudyBody?: string | null; coverImageUrl?: string | null; sortOrder: number; isPublished: boolean; createdAt: string; updatedAt?: string }[] }>(
+      'GET',
+      '/api/v1/admin/projects',
+    ),
+
+  create: (body: Record<string, unknown>) =>
+    request<{ data: { id: string; slug: string; title: string; summary: string; stackTags: string[]; status: string; githubUrl?: string | null; caseStudyBody?: string | null; coverImageUrl?: string | null; sortOrder: number; isPublished: boolean; createdAt: string } }>(
+      'POST',
+      '/api/v1/admin/projects',
+      body,
+    ),
+
+  update: (id: string, body: Record<string, unknown>) =>
+    request<{ data: { id: string; slug: string; title: string; summary: string; stackTags: string[]; status: string; githubUrl?: string | null; caseStudyBody?: string | null; coverImageUrl?: string | null; sortOrder: number; isPublished: boolean; createdAt: string; updatedAt?: string } }>(
+      'PUT',
+      `/api/v1/admin/projects/${id}`,
+      body,
+    ),
+
+  delete: (id: string) =>
+    request<void>('DELETE', `/api/v1/admin/projects/${id}`),
+};
+
+// Leads (admin)
+export const leads = {
+  list: (params?: { status?: string; source?: string; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.source) qs.set('source', params.source);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    const query = qs.toString();
+    return request<{ data: { id: string; name: string; contactInfo: string; message: string; source: string; status: string; notes?: string | null; createdAt: string; updatedAt: string }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/leads${query ? `?${query}` : ''}`,
+    );
+  },
+
+  patch: (id: string, body: Record<string, unknown>) =>
+    request<{ data: { id: string; name: string; contactInfo: string; message: string; source: string; status: string; notes?: string | null; createdAt: string; updatedAt: string } }>(
+      'PATCH',
+      `/api/v1/admin/leads/${id}`,
+      body,
+    ),
+};
+
+// Content (admin)
+export const content = {
+  list: (params?: { locale?: string; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.locale) qs.set('locale', params.locale);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    const query = qs.toString();
+    return request<{ data: { key: string; locale: string; value: string; updatedAt?: string }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/content${query ? `?${query}` : ''}`,
+    );
+  },
+
+  create: (body: { key: string; locale: string; value: string }) =>
+    request<{ data: { key: string; locale: string; value: string; updatedAt?: string } }>(
+      'POST',
+      '/api/v1/admin/content',
+      body,
+    ),
+
+  update: (key: string, body: { locale: string; value: string }) =>
+    request<{ data: { key: string; locale: string; value: string; updatedAt?: string } }>(
+      'PUT',
+      `/api/v1/admin/content/${encodeURIComponent(key)}`,
+      body,
+    ),
+
+  delete: (key: string, locale: string) =>
+    request<void>(
+      'DELETE',
+      `/api/v1/admin/content/${encodeURIComponent(key)}?locale=${encodeURIComponent(locale)}`,
+    ),
+};
+
+// Chat (admin)
+export const chat = {
+  list: (params?: { type?: string; needsManualIntervention?: boolean; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.type) qs.set('type', params.type);
+    if (params?.needsManualIntervention !== undefined) qs.set('needsManualIntervention', String(params.needsManualIntervention));
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    const query = qs.toString();
+    return request<{ data: { id: string; type: string; needsManualIntervention: boolean; customerProjectId: string | null; lastMessageAt?: string; messageCount?: number; createdAt: string }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/chat${query ? `?${query}` : ''}`,
+    );
+  },
+
+  getThread: (threadId: string) =>
+    request<{ data: { id: string; type: string; needsManualIntervention: boolean; customerProjectId: string | null; createdAt: string; messages: { id: string; senderType: string; senderName: string; content: string; attachmentUrl: string | null; createdAt: string }[] } }>(
+      'GET',
+      `/api/v1/chat/${threadId}`,
+    ),
+
+  sendMessage: (threadId: string, content: string) =>
+    request<{ data: { id: string; threadId: string; senderType: string; senderName: string; content: string; attachmentUrl: string | null; createdAt: string } }>(
+      'POST',
+      `/api/v1/chat/${threadId}/messages`,
+      { content },
+    ),
+
+  patchThread: (threadId: string, body: Record<string, unknown>) =>
+    request<{ data: { id: string; type: string; needsManualIntervention: boolean; customerProjectId: string | null } }>(
+      'PATCH',
+      `/api/v1/admin/chat/${threadId}`,
+      body,
+    ),
+};
+
+// Admins (admin)
+export const admins = {
+  list: () =>
+    request<{ data: { id: string; name: string; email: string; teamMemberId?: string | null; createdAt?: string }[] }>(
+      'GET',
+      '/api/v1/admin/admins',
+    ),
+
+  create: (body: { name: string; email: string; password: string; teamMemberId?: string | null }) =>
+    request<{ data: { id: string; name: string; email: string; teamMemberId?: string | null; createdAt?: string } }>(
+      'POST',
+      '/api/v1/admin/admins',
+      body,
+    ),
+};

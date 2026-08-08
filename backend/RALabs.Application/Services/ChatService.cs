@@ -18,8 +18,15 @@ public interface IChatService
 public class ChatService : IChatService
 {
     private readonly IChatRepository _repo;
+    private readonly IChatbotService _chatbot;
+    private readonly ILeadRepository _leads;
 
-    public ChatService(IChatRepository repo) => _repo = repo;
+    public ChatService(IChatRepository repo, IChatbotService chatbot, ILeadRepository leads)
+    {
+        _repo = repo;
+        _chatbot = chatbot;
+        _leads = leads;
+    }
 
     public async Task<ChatThreadDto> GetThreadAsync(Guid threadId, bool isCustomerThread, bool isAdmin)
     {
@@ -53,6 +60,27 @@ public class ChatService : IChatService
         };
         var id = await _repo.AddMessageAsync(message);
         message.Id = id;
+
+        // Visitor messages get a chatbot reply appended (agent). Transactional
+        // asks flag the thread for manual intervention (BR-002).
+        if (ParseSender(senderType) == ChatSenderType.Visitor)
+        {
+            var reply = await _chatbot.AnswerAsync(request.Content, locale: null);
+            await _repo.AddMessageAsync(new ChatMessage
+            {
+                Id = Guid.NewGuid(),
+                ThreadId = threadId,
+                SenderType = ChatSenderType.Agent,
+                SenderName = "R&A Assistant",
+                Content = reply.Content,
+                CreatedAt = DateTime.UtcNow.AddSeconds(1)
+            });
+            if (reply.NeedsManualIntervention && !thread.NeedsManualIntervention)
+            {
+                thread.NeedsManualIntervention = true;
+                await _repo.UpdateThreadAsync(thread);
+            }
+        }
 
         var updated = await _repo.GetThreadAsync(threadId)!;
         return ToSummary(updated!);
