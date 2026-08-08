@@ -20,12 +20,20 @@ export default function Nav() {
         <Link to="/work" className={isActive('/work')}>
           {t('nav.work', 'Work')}
         </Link>
+        <Link to="/#process" className={isActive('/process')}>
+          {t('nav.process', 'Process')}
+        </Link>
         <Link to="/team" className={isActive('/team')}>
           {t('nav.team', 'Team')}
         </Link>
         <Link to="/contact" className={isActive('/contact')}>
           {t('nav.contact', 'Contact')}
         </Link>
+
+        <span className="badge">
+          <span className="dot" aria-hidden="true" />{' '}
+          {t('nav.liveAgents', '2 agents active')}
+        </span>
 
         <div className="locale-switcher">
           <label htmlFor="locale-select" className="sr-only">

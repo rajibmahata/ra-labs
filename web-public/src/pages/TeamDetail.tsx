@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, type TeamMember } from '../api/client';
 import { useI18n } from '../i18n';
-import { getInitials, formatRelativeTime, AVATAR_GRADIENTS } from '../components/TeamCard';
+import { getInitials, formatRelativeTime, avatarClassForIndex } from '../components/TeamCard';
 
 function formatMarkdownBio(md: string): string {
   let html = md
@@ -97,13 +97,8 @@ export default function TeamDetail() {
           <article>
             <div className="team-detail-layout">
               <div
-                className="team-avatar-large"
-                style={{
-                  background:
-                    AVATAR_GRADIENTS[
-                      member.name.length % AVATAR_GRADIENTS.length
-                    ],
-                }}
+                className={`avatar ${avatarClassForIndex(0)}`}
+                style={{ width: 120, height: 120, fontSize: 32 }}
                 aria-hidden="true"
               >
                 {member.avatarUrl ? (
@@ -179,7 +174,7 @@ export default function TeamDetail() {
                 style={{
                   marginTop: 32,
                   maxWidth: 680,
-                  color: 'var(--text-dim)',
+                  color: 'var(--ink-dim)',
                   lineHeight: 1.7,
                   fontSize: '15px',
                 }}
