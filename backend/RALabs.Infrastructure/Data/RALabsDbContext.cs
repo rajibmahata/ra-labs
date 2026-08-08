@@ -38,6 +38,7 @@ public class RALabsDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Role).HasMaxLength(30).IsRequired();
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.PasswordHash).IsRequired();
             e.Property(x => x.RefreshTokenHash).HasMaxLength(500);

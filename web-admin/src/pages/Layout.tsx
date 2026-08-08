@@ -15,6 +15,7 @@ const navItems = [
   { to: '/admin/my-profile', label: 'My Profile', icon: '👤', end: false },
   { to: '/admin/content', label: 'Content', icon: '📝', end: false },
   { to: '/admin/chat', label: 'Chat', icon: '💬', end: false },
+  { to: '/admin/reviews', label: 'Reviews', icon: '★', end: false },
   { to: '/admin/notifications', label: 'Notifications', icon: '🔔', end: false },
   { to: '/admin/settings', label: 'Settings', icon: '⚙️', end: false },
 ];

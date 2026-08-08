@@ -28,6 +28,7 @@ public interface IAuthService
     Task ResetPasswordAsync(ResetPasswordRequest request);
     Task<AdminUserDto> CreateAdminAsync(CreateAdminRequest request, Guid actorId);
     Task<List<AdminUserDto>> GetAdminsAsync();
+    Task<AdminUserDto> SetActiveAsync(Guid id, bool isActive, Guid actorId);
 }
 
 public record CreateAdminRequest(string Name, string Email, string Password, Guid? TeamMemberId);
@@ -170,9 +171,27 @@ public class AuthService : IAuthService
         return admins.Select(ToDto).ToList();
     }
 
+    public async Task<AdminUserDto> SetActiveAsync(Guid id, bool isActive, Guid actorId)
+    {
+        if (id == actorId)
+            throw new Exceptions.ForbiddenAccessException("You cannot deactivate your own account.");
+
+        var user = await _admins.GetByIdAsync(id)
+            ?? throw new Exceptions.NotFoundException("Admin account not found.");
+        user.IsActive = isActive;
+        if (!isActive)
+        {
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+        }
+        user.UpdatedAt = DateTime.UtcNow;
+        await _admins.UpdateAsync(user);
+        return ToDto(user);
+    }
+
     private async Task<LoginResponse> IssueTokensAsync(AdminUser user)
     {
-        var token = _jwt.GenerateToken(user, "admin");
+        var token = _jwt.GenerateToken(user, user.Role);
         var refresh = _jwt.GenerateRefreshToken();
 
         user.RefreshTokenHash = HashToken(refresh);
@@ -186,7 +205,7 @@ public class AuthService : IAuthService
     private static string HashToken(string token) => Convert.ToBase64String(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
 
     private static AdminUserDto ToDto(AdminUser u) =>
-        new(u.Id, u.Name, u.Email, "admin", u.TeamMemberId);
+        new(u.Id, u.Name, u.Email, u.Role, u.IsActive, u.TeamMemberId);
 
     private static string BuildResetEmail(string token, string? userName)
     {

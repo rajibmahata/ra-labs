@@ -30,14 +30,16 @@ export default function Projects() {
   const [error, setError] = useState('');
   const statusFilter = searchParams.get('status') ?? '';
   const customerFilter = searchParams.get('customerId') ?? '';
+  const searchFilter = searchParams.get('search') ?? '';
 
   const fetchProjects = async () => {
     setLoading(true);
     setError('');
     try {
-      const params: { status?: string; customerId?: string } = {};
+      const params: { status?: string; customerId?: string; search?: string } = {};
       if (statusFilter) params.status = statusFilter;
       if (customerFilter) params.customerId = customerFilter;
+      if (searchFilter) params.search = searchFilter;
       const res = await cpApi.list(params);
       setProjects(res.data as CustomerProject[]);
     } catch (e) {
@@ -47,7 +49,7 @@ export default function Projects() {
     }
   };
 
-  useEffect(() => { fetchProjects(); }, [statusFilter, customerFilter]);
+  useEffect(() => { fetchProjects(); }, [statusFilter, customerFilter, searchFilter]);
 
   const handleStatusChange = async (projectId: string, newStatus: string) => {
     try {
@@ -77,6 +79,19 @@ export default function Projects() {
       </div>
 
       <div className="filter-bar">
+        <input
+          className="form-input"
+          style={{ minWidth: '220px' }}
+          value={searchFilter}
+          placeholder="Search projects"
+          aria-label="Search customer projects"
+          onChange={(e) => {
+            const params = new URLSearchParams(searchParams);
+            if (e.target.value) params.set('search', e.target.value);
+            else params.delete('search');
+            setSearchParams(params, { replace: true });
+          }}
+        />
         <select
           className="form-select"
           value={statusFilter}
@@ -121,7 +136,7 @@ export default function Projects() {
             <div className="state-message" style={{ padding: 0 }}>
               <span className="state-message-icon">📋</span>
               <h3>No projects found</h3>
-              <p>{statusFilter || customerFilter ? 'Try adjusting the filters.' : 'Customer projects will appear here when created.'}</p>
+              <p>{statusFilter || customerFilter || searchFilter ? 'Try adjusting the filters.' : 'Customer projects will appear here when created.'}</p>
             </div>
           </div>
         </div>

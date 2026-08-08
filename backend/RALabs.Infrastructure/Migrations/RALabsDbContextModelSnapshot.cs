@@ -48,6 +48,11 @@ namespace RALabs.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<string>("PasswordResetToken")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -888,6 +893,9 @@ namespace RALabs.Infrastructure.Migrations
                     b.Property<string>("GithubUsername")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("bit");

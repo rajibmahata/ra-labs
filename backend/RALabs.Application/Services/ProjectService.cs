@@ -13,6 +13,7 @@ public interface IProjectService
     Task<ProjectDto> GetBySlugAsync(string slug);
     Task<ProjectDto> CreateAsync(CreateProjectRequest request);
     Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectRequest request);
+    Task<ProjectDto> SetPublishedAsync(Guid id, bool isPublished);
     Task DeleteAsync(Guid id);
 }
 
@@ -112,6 +113,18 @@ public class ProjectService : IProjectService
         project.IsPublished = false;
         project.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(project);
+    }
+
+    public async Task<ProjectDto> SetPublishedAsync(Guid id, bool isPublished)
+    {
+        var project = await _repo.GetByIdAsync(id)
+            ?? throw new Exceptions.NotFoundException("Project not found.");
+        if (project.IsDeleted && isPublished)
+            throw new Exceptions.ConflictException("A deleted project cannot be activated.");
+        project.IsPublished = isPublished;
+        project.UpdatedAt = DateTime.UtcNow;
+        await _repo.UpdateAsync(project);
+        return ToDto(project);
     }
 
     private static void Validate(string title, string summary, string? slug, string? githubUrl, string? coverImageUrl, string? status)

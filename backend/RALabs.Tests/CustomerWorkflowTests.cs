@@ -77,6 +77,34 @@ public class CustomerWorkflowTests : IDisposable
     }
 
     [Fact]
+    public async Task AdminProjectListing_FiltersByCustomerAndSearch()
+    {
+        var first = await RegisterCustomerAsync("First", "first@example.com");
+        var second = await RegisterCustomerAsync("Second", "second@example.com");
+        await _projects.CreateAsync(first, new CreateCustomerProjectRequest("First dashboard", Requirements: "warehouse"));
+        await _projects.CreateAsync(second, new CreateCustomerProjectRequest("Second portal"));
+
+        var result = await _projects.GetAllForAdminAsync(1, 20, null, "warehouse", first);
+
+        var project = Assert.Single(result);
+        Assert.Equal(first, project.CustomerId);
+        Assert.Equal("First dashboard", project.Title);
+    }
+
+    [Fact]
+    public async Task AdminProjectListing_FiltersBeforePaging()
+    {
+        var customer = await RegisterCustomerAsync("Paging", "paging@example.com");
+        await _projects.CreateAsync(customer, new CreateCustomerProjectRequest("Other project"));
+        await _projects.CreateAsync(customer, new CreateCustomerProjectRequest("Warehouse project"));
+
+        var result = await _projects.GetAllForAdminAsync(1, 1, null, "warehouse", customer);
+
+        var project = Assert.Single(result);
+        Assert.Equal("Warehouse project", project.Title);
+    }
+
+    [Fact]
     public async Task GetMyProject_OtherCustomersProject_ThrowsNotFound_NoLeak()
     {
         var a = await RegisterCustomerAsync("A", "a@example.com");

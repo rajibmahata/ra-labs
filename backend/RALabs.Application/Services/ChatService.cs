@@ -96,7 +96,7 @@ public class ChatService : IChatService
                         "chat_escalation",
                         isCustomer ? "Customer needs help" : "Chat needs team help",
                         isCustomer
-                            ? $"A customer message in project chat needs a team response: {request.Content.Trim()}"
+                            ? "A customer message in project chat needs a team response."
                             : "A visitor chat was escalated for a personal team response.",
                         threadId: thread.Id,
                         customerProjectId: thread.CustomerProjectId);

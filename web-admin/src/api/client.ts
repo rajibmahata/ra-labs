@@ -125,7 +125,7 @@ export const auth = {
 // Team (admin)
 export const team = {
   list: () =>
-    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; githubAccountUrl?: string | null; hasGithubToken?: boolean; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string }[] }>(
+    request<{ data: { id: string; slug: string; name: string; role: string; bio: string; githubUsername?: string | null; githubAccountUrl?: string | null; hasGithubToken?: boolean; avatarUrl?: string | null; email?: string | null; linkedinUrl?: string | null; location?: string | null; isActive: boolean; isPublished: boolean; githubSnapshot?: { commits90d: number; activeRepos: number; lastCommitAt: string; capturedAt: string } | null; createdAt?: string; updatedAt?: string }[] }>(
       'GET',
       '/api/v1/admin/team',
     ),
@@ -159,6 +159,13 @@ export const team = {
 
   delete: (id: string) =>
     request<void>('DELETE', `/api/v1/admin/team/${id}`),
+
+  setStatus: (id: string, isActive: boolean) =>
+    request<{ data: { id: string; isActive: boolean; isPublished: boolean } }>(
+      'PATCH',
+      `/api/v1/admin/team/${id}/status`,
+      { isActive },
+    ),
 };
 
 export const github = {
@@ -185,6 +192,13 @@ export const projects = {
       'PUT',
       `/api/v1/admin/projects/${id}`,
       body,
+    ),
+
+  setPublished: (id: string, isPublished: boolean) =>
+    request<{ data: { id: string; isPublished: boolean } }>(
+      'PATCH',
+      `/api/v1/admin/projects/${id}/published`,
+      { isPublished },
     ),
 
   delete: (id: string) =>
@@ -317,16 +331,23 @@ export const chat = {
 // Admins (admin)
 export const admins = {
   list: () =>
-    request<{ data: { id: string; name: string; email: string; teamMemberId?: string | null; createdAt?: string }[] }>(
+    request<{ data: { id: string; name: string; email: string; role: string; isActive: boolean; teamMemberId?: string | null; createdAt?: string }[] }>(
       'GET',
       '/api/v1/admin/admins',
     ),
 
   create: (body: { name: string; email: string; password: string; teamMemberId?: string | null }) =>
-    request<{ data: { id: string; name: string; email: string; teamMemberId?: string | null; createdAt?: string } }>(
+    request<{ data: { id: string; name: string; email: string; role: string; isActive: boolean; teamMemberId?: string | null; createdAt?: string } }>(
       'POST',
       '/api/v1/admin/admins',
       body,
+    ),
+
+  setStatus: (id: string, isActive: boolean) =>
+    request<{ data: { id: string; name: string; email: string; role: string; isActive: boolean; teamMemberId?: string | null } }>(
+      'PATCH',
+      `/api/v1/admin/admins/${id}/status`,
+      { isActive },
     ),
 };
 
@@ -337,16 +358,27 @@ export const customerProjects = {
     if (params?.page) qs.set('page', String(params.page));
     if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
     const query = qs.toString();
-    return request<{ data: { id: string; name: string; email: string; createdAt: string; projectCount: number }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+    return request<{ data: { id: string; name: string; email: string; isActive: boolean; createdAt: string; projectCount: number }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
       'GET',
       `/api/v1/admin/customers${query ? `?${query}` : ''}`,
     );
   },
 
-  list: (params?: { status?: string; customerId?: string }) => {
+  createCustomer: (body: { name: string; email: string; password: string }) =>
+    request<{ data: { id: string; name: string; email: string } }>('POST', '/api/v1/admin/customers', body),
+
+  setStatus: (id: string, isActive: boolean) =>
+    request<{ data: { id: string; isActive: boolean; updatedAt: string } }>(
+      'PATCH',
+      `/api/v1/admin/customers/${id}/status`,
+      { isActive },
+    ),
+
+  list: (params?: { status?: string; customerId?: string; search?: string }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
     if (params?.customerId) qs.set('customerId', params.customerId);
+    if (params?.search) qs.set('search', params.search);
     const query = qs.toString();
     return request<{ data: { id: string; customerId: string; title: string; status: string; chatThreadId: string | null; documentCount: number; prdStatus: string | null; latestDemoId: string | null; createdAt: string; updatedAt: string; adminNotes: string | null }[] }>(
       'GET',
@@ -358,6 +390,13 @@ export const customerProjects = {
     request<{ data: { id: string; customerId: string; title: string; status: string; chatThreadId: string | null; documentCount: number; prdStatus: string | null; latestDemoId: string | null; createdAt: string; updatedAt: string; adminNotes: string | null } }>(
       'GET',
       `/api/v1/admin/customer-projects/${id}`,
+    ),
+
+  create: (body: { customerId: string; title: string; goal?: string; audience?: string; requirements?: string; timeline?: string; budgetOrConstraints?: string; referenceLinks?: string }) =>
+    request<{ data: { id: string; customerId: string; title: string; status: string; chatThreadId: string | null; documentCount: number; prdStatus: string | null; latestDemoId: string | null; createdAt: string; updatedAt: string; adminNotes: string | null } }>(
+      'POST',
+      '/api/v1/admin/customer-projects',
+      body,
     ),
 
   update: (id: string, body: { status?: string; adminNotes?: string }) =>
@@ -428,5 +467,27 @@ export const customerProjects = {
     request<{ data: { rating: number; comment: string; consentToPublish: boolean; isPublished: boolean; createdAt: string } }>(
       'POST',
       `/api/v1/admin/customer-projects/${id}/feedback/approve`,
+    ),
+};
+
+export const reviews = {
+  list: (params?: { page?: number; pageSize?: number; search?: string; published?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    if (params?.search) qs.set('search', params.search);
+    if (params?.published !== undefined) qs.set('published', String(params.published));
+    const query = qs.toString();
+    return request<{ data: { id: string; customerProjectId: string; customerName: string; projectTitle: string; rating: number; comment: string; consentToPublish: boolean; isPublished: boolean; createdAt: string }[]; pagination: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/reviews${query ? `?${query}` : ''}`,
+    );
+  },
+
+  moderate: (id: string, approved: boolean) =>
+    request<{ data: { id: string; isPublished: boolean } }>(
+      'POST',
+      `/api/v1/admin/reviews/${id}/moderate`,
+      { approved },
     ),
 };

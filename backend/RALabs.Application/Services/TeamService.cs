@@ -13,6 +13,7 @@ public interface ITeamService
     Task<TeamMemberDto> CreateAsync(CreateTeamRequest request);
     Task<TeamMemberDto> UpdateAsync(Guid id, UpdateTeamRequest request);
     Task DeleteAsync(Guid id);
+    Task<TeamMemberDto> SetActiveAsync(Guid id, bool isActive);
     Task<TeamMemberDto?> GetByAdminUserIdAsync(Guid adminUserId);
     Task<TeamMemberDto> UpdateProfileAsync(Guid adminUserId, UpdateTeamRequest request);
 }
@@ -41,7 +42,7 @@ public class TeamService : ITeamService
         Guard.Slug(slug, "slug");
         Guard.ThrowIfAny("team request");
         var member = await _repo.GetBySlugAsync(slug);
-        if (member is null || !member.IsPublished)
+        if (member is null || !member.IsActive || !member.IsPublished)
             throw new Exceptions.NotFoundException("Team member not found.");
         return await ToDto(member);
     }
@@ -67,6 +68,7 @@ public class TeamService : ITeamService
             Email = r.Email,
             LinkedinUrl = r.LinkedinUrl,
             Location = r.Location,
+            IsActive = true,
             IsPublished = r.IsPublished ?? false,
             CreatedAt = DateTime.UtcNow
         };
@@ -118,6 +120,17 @@ public class TeamService : ITeamService
         member.IsPublished = false;
         member.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(member);
+    }
+
+    public async Task<TeamMemberDto> SetActiveAsync(Guid id, bool isActive)
+    {
+        var member = await _repo.GetByIdAsync(id)
+            ?? throw new Exceptions.NotFoundException("Team member not found.");
+        member.IsActive = isActive;
+        member.IsPublished = false;
+        member.UpdatedAt = DateTime.UtcNow;
+        await _repo.UpdateAsync(member);
+        return await ToDto(member);
     }
 
     public async Task<TeamMemberDto?> GetByAdminUserIdAsync(Guid adminUserId)
@@ -180,7 +193,7 @@ public class TeamService : ITeamService
 
     private static TeamMemberDto ToDto(TeamMember m, GithubSnapshot? snap) =>
         new(m.Id, m.Slug, m.Name, m.Role, m.Bio, m.GithubUsername, m.GithubAccountUrl,
-            !string.IsNullOrWhiteSpace(m.GithubTokenEncrypted), m.AvatarUrl, m.Email, m.LinkedinUrl, m.Location, m.IsPublished,
+            !string.IsNullOrWhiteSpace(m.GithubTokenEncrypted), m.AvatarUrl, m.Email, m.LinkedinUrl, m.Location, m.IsActive, m.IsPublished,
             snap is null ? null : new GithubSnapshotDto(snap.Commits90d, snap.ActiveRepos, snap.LastCommitAt, snap.CapturedAt));
 
     private string? ProtectToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : _githubProtector.Protect(token.Trim());

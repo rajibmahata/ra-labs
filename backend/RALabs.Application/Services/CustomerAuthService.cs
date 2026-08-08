@@ -12,6 +12,7 @@ namespace RALabs.Application.Services;
 public interface ICustomerAuthService
 {
     Task<CustomerLoginResponse> RegisterAsync(CustomerRegisterRequest request);
+    Task<CustomerDto> CreateByAdminAsync(CreateCustomerByAdminRequest request);
     Task<CustomerLoginResponse> LoginAsync(LoginRequest request);
     Task<CustomerLoginResponse> RefreshAsync(RefreshTokenRequest request);
     Task ForgotPasswordAsync(ForgotPasswordRequest request);
@@ -19,6 +20,7 @@ public interface ICustomerAuthService
 }
 
 public record CustomerRegisterRequest(string Name, string Email, string Password);
+public record CreateCustomerByAdminRequest(string Name, string Email, string Password);
 public record CustomerLoginResponse(string AccessToken, string RefreshToken, DateTime ExpiresAt, CustomerDto User);
 public record CustomerDto(Guid Id, string Name, string Email);
 
@@ -28,7 +30,7 @@ public interface ICustomerProjectService
     Task<List<CustomerProjectDto>> GetMyProjectsAsync(Guid customerId, int? page, int? pageSize);
     Task<CustomerProjectDto> GetMyProjectAsync(Guid customerId, Guid id);
     Task<CustomerProjectDto> GetForAdminAsync(Guid id);
-    Task<List<CustomerProjectDto>> GetAllForAdminAsync(int? page, int? pageSize, string? status);
+    Task<List<CustomerProjectDto>> GetAllForAdminAsync(int? page, int? pageSize, string? status, string? search, Guid? customerId);
     Task<CustomerProjectDto> UpdateStatusAsync(Guid id, UpdateCustomerProjectRequest request);
     Task<DocumentDto> UploadDocumentAsync(Guid customerId, Guid projectId, string fileName, Stream content, string contentType, long fileSize, string? description);
     Task<StoredDocumentDownload> DownloadDocumentAsync(Guid customerId, Guid projectId, Guid documentId);
@@ -48,9 +50,20 @@ public interface ICustomerProjectService
     Task<FeedbackDto> SubmitFeedbackAsync(Guid customerId, Guid id, SubmitFeedbackRequest request);
     Task<FeedbackDto?> GetFeedbackAsync(Guid id);
     Task<FeedbackDto> ApproveFeedbackAsync(Guid id);
+    Task<PaginatedResult<AdminFeedbackDto>> GetFeedbacksForAdminAsync(int? page, int? pageSize, string? search, bool? published);
+    Task<FeedbackDto> ModerateFeedbackAsync(Guid id, bool approved);
 }
 
 public record CreateCustomerProjectRequest(
+    string Title,
+    string? Goal = null,
+    string? Audience = null,
+    string? Requirements = null,
+    string? Timeline = null,
+    string? BudgetOrConstraints = null,
+    string? ReferenceLinks = null);
+public record CreateCustomerProjectByAdminRequest(
+    Guid CustomerId,
     string Title,
     string? Goal = null,
     string? Audience = null,
@@ -79,6 +92,8 @@ public record AddDemoRequest(string Type, string UrlOrAsset, string? Notes);
 public record InvoiceDto(Guid Id, Guid CustomerProjectId, decimal Amount, string Currency, string Status, string? Notes, DateTime CreatedAt);
 public record CreateInvoiceRequest(decimal Amount, string Currency, string? Status, string? Notes);
 public record FeedbackDto(Guid Id, Guid CustomerProjectId, int Rating, string Comment, bool ConsentToPublish, bool IsPublished, DateTime CreatedAt);
+public record AdminFeedbackDto(Guid Id, Guid CustomerProjectId, string CustomerName, string ProjectTitle,
+    int Rating, string Comment, bool ConsentToPublish, bool IsPublished, DateTime CreatedAt);
 public record SubmitFeedbackRequest(int Rating, string Comment, bool ConsentToPublish);
 
 public class CustomerAuthService : ICustomerAuthService
@@ -130,6 +145,33 @@ public class CustomerAuthService : ICustomerAuthService
                 customerId: customer.Id);
         }
         return await IssueTokensAsync(customer);
+    }
+
+    public async Task<CustomerDto> CreateByAdminAsync(CreateCustomerByAdminRequest request)
+    {
+        Guard.Reset();
+        Guard.Required(request.Name, "name", 100);
+        Guard.Email(request.Email, "email", 200);
+        Guard.Password(request.Password);
+        Guard.ThrowIfAny("customer account");
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await _customers.EmailExistsAsync(email))
+            throw new ConflictException("An account with this email already exists.");
+
+        var customer = new Customer
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name.Trim(),
+            Email = email,
+            PasswordHash = _hasher.Hash(request.Password),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _customers.AddAsync(customer);
+        if (_notifications is not null)
+            await _notifications.CreateAsync("customer_registration", "Customer added by admin", $"{customer.Name} was added to the customer workspace.", customerId: customer.Id);
+        return new CustomerDto(customer.Id, customer.Name, customer.Email);
     }
 
     public async Task<CustomerLoginResponse> LoginAsync(LoginRequest request)

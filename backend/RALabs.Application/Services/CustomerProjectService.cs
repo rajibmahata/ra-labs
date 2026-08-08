@@ -96,15 +96,14 @@ public class CustomerProjectService : ICustomerProjectService
         return await ToDtoAsync(project, null);
     }
 
-    public async Task<List<CustomerProjectDto>> GetAllForAdminAsync(int? page, int? pageSize, string? status)
+    public async Task<List<CustomerProjectDto>> GetAllForAdminAsync(int? page, int? pageSize, string? status, string? search, Guid? customerId)
     {
         var (p, ps) = PageRequest.Normalize(page, pageSize);
-        var items = await _repo.GetAllAsync(p, ps);
+        CustomerProjectStatus? parsedStatus = string.IsNullOrWhiteSpace(status) ? null : ParseStatus(status);
+        var items = await _repo.GetAllForAdminAsync(p, ps, parsedStatus, search, customerId);
         var result = new List<CustomerProjectDto>();
         foreach (var item in items)
         {
-            if (status is not null && !item.Status.ToString().Equals(status, StringComparison.OrdinalIgnoreCase))
-                continue;
             result.Add(await ToDtoAsync(item, null));
         }
         return result;
@@ -470,13 +469,30 @@ public class CustomerProjectService : ICustomerProjectService
     }
 
     public async Task<FeedbackDto> ApproveFeedbackAsync(Guid id)
+        => await ModerateFeedbackAsync(id, true);
+
+    public async Task<PaginatedResult<AdminFeedbackDto>> GetFeedbacksForAdminAsync(int? page, int? pageSize, string? search, bool? published)
+    {
+        var (p, ps) = PageRequest.Normalize(page, pageSize);
+        var items = await _repo.GetFeedbacksForAdminAsync(p, ps, search, published);
+        var total = await _repo.CountFeedbacksForAdminAsync(search, published);
+        return new PaginatedResult<AdminFeedbackDto>
+        {
+            Page = p,
+            PageSize = ps,
+            TotalCount = total,
+            Items = items.Select(ToAdminFeedbackDto).ToList()
+        };
+    }
+
+    public async Task<FeedbackDto> ModerateFeedbackAsync(Guid id, bool approved)
     {
         var project = await _repo.GetByIdIncludingAsync(id)
             ?? throw new NotFoundException("Project not found.");
         var feedback = project.Feedback
             ?? throw new NotFoundException("No feedback submitted for this project.");
 
-        feedback.IsPublished = true;
+        feedback.IsPublished = approved;
         await _repo.SaveFeedbackAsync(feedback);
 
         // BR-005: feedback approved → auto-publish a public Project entry.
@@ -532,4 +548,8 @@ public class CustomerProjectService : ICustomerProjectService
 
     private static FeedbackDto ToFeedbackDto(Feedback f) =>
         new(f.Id, f.CustomerProjectId, f.Rating, f.Comment, f.ConsentToPublish, f.IsPublished, f.CreatedAt);
+
+    private static AdminFeedbackDto ToAdminFeedbackDto(Feedback f) =>
+        new(f.Id, f.CustomerProjectId, f.CustomerProject.Customer.Name, f.CustomerProject.Title,
+            f.Rating, f.Comment, f.ConsentToPublish, f.IsPublished, f.CreatedAt);
 }

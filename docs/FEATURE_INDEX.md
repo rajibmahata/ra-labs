@@ -23,6 +23,9 @@
 | Feedback loop → publish (BR-005) | M4 | done | backend/frontend |
 | web-customer PWA | M2 | done | frontend |
 | Admin: Customers + Projects kanban + Project workspace | M2/M4 | done | frontend |
+| Admin governance: roles, team activation, admin account status | M1 | done | backend/frontend |
+| Admin-created customer projects + scoped search | M2 | done | backend/frontend |
+| Public RAG mutation synchronization + approved reviews | M1 | done | backend/rag |
 | Docker Compose + GitHub Actions deploy (RMEnterpriseCMS pattern) | M1 | done | devops |
 | Tests (55 xUnit) + Playwright scaffold | M1–M4 | done | qa/automation |
 | Marketing agent, voice chatbot, expanded locales | M5 | planned | — |

@@ -1,10 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { admins as adminsApi, team as teamApi, ApiClientError } from '../api/client';
-import { Modal } from '../components/Modal';
+import { ConfirmDialog, Modal } from '../components/Modal';
 import { useToast } from '../components/useToast';
 import type { AdminEntry, TeamMember } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Settings() {
+  const { user } = useAuth();
   const { addToast, ToastContainer } = useToast();
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -14,6 +16,7 @@ export default function Settings() {
   const [form, setForm] = useState({ name: '', email: '', password: '', teamMemberId: '' });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<AdminEntry | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -86,6 +89,18 @@ export default function Settings() {
     return member ? member.name : 'Unknown';
   };
 
+  const handleStatus = async () => {
+    if (!statusTarget) return;
+    try {
+      await adminsApi.setStatus(statusTarget.id, !statusTarget.isActive);
+      addToast(statusTarget.isActive ? 'Admin account deactivated' : 'Admin account activated', 'success');
+      setStatusTarget(null);
+      await fetchData();
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Failed to update admin account', 'error');
+    }
+  };
+
   return (
     <div>
       <ToastContainer />
@@ -119,8 +134,11 @@ export default function Settings() {
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
                     <th>Team Member</th>
                     <th>Created</th>
+                    {user?.role === 'super_admin' && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -128,8 +146,15 @@ export default function Settings() {
                     <tr key={a.id}>
                       <td style={{ fontWeight: 600 }}>{a.name}</td>
                       <td>{a.email}</td>
+                      <td><span className="badge">{a.role === 'super_admin' ? 'Super admin' : 'Admin'}</span></td>
+                      <td><span className={`badge ${a.isActive ? 'badge--success' : 'badge--muted'}`}>{a.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td>{getTeamMemberName(a.teamMemberId)}</td>
                       <td>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
+                      {user?.role === 'super_admin' && <td>
+                        <button className="btn btn--sm btn--outline" onClick={() => setStatusTarget(a)}>
+                          {a.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </td>}
                     </tr>
                   ))}
                 </tbody>
@@ -138,6 +163,17 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(statusTarget)}
+        onClose={() => setStatusTarget(null)}
+        onConfirm={handleStatus}
+        title={statusTarget?.isActive ? 'Deactivate admin account?' : 'Activate admin account?'}
+        message={statusTarget?.isActive
+          ? `${statusTarget.name} will be signed out and unable to log in until reactivated.`
+          : `${statusTarget?.name} will be able to sign in again.`}
+        confirmLabel={statusTarget?.isActive ? 'Deactivate' : 'Activate'}
+      />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Admin" width="520px">
         <form onSubmit={handleSubmit} noValidate>
