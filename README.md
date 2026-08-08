@@ -23,16 +23,16 @@ tool.
 ```bash
 # Backend (Windows host — SQL Express Windows auth; empty conn string = in-memory)
 cd backend
-dotnet run --project RALabs.Api --urls http://localhost:5000
+dotnet run --project RALabs.Api   # http://localhost:5002
 
-# Public site (PWA) — port 3000
+# Public site (PWA) — port 3004
 cd web-public && npm install && npm run dev
 
-# Admin CMS — port 3001
+# Admin CMS — port 3005
 cd web-admin && npm install && npm run dev
 
 # Smoke test
-bash scripts/smoke.sh http://localhost:5000
+bash scripts/smoke.sh http://localhost:5002
 ```
 
 ### Login (after seed)

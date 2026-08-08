@@ -4,7 +4,7 @@
 
 | Environment | Purpose | Host | Access |
 |---|---|---|---|
-| Local | Primary dev: API via `dotnet run` (Windows auth to `RAJIB\SQLEXPRESS`), frontends via Vite (3000/3001) | Developer machine | localhost |
+| Local | Primary dev: API via `dotnet run` on **port 5002** (Windows auth to `RAJIB\SQLEXPRESS`), frontends via Vite (**3004** public, **3005** admin) | Developer machine | localhost |
 | Docker demo | Full stack via `docker compose up` (containerized SQL Server SA auth) | Any Docker host | localhost |
 | Production | Live deploy on the VPS (same host as RMEnterpriseCMS) | VPS `/opt/ralabs` | public domain |
 
@@ -25,8 +25,8 @@
 | Service | Role | Port (local) |
 |---|---|---|
 | api | RALabs.Api (REST + MCP + AI jobs) | 8080 (compose) |
-| web-public | React PWA (nginx) | 3000 (dev) |
-| web-admin | React admin CMS (nginx, `/admin/`) | 3001 (dev) |
+| web-public | React PWA (nginx) | 3004 (dev) |
+| web-admin | React admin CMS (nginx, `/admin/`) | 3005 (dev) |
 | gateway | nginx reverse proxy | 80/443 |
 
 ### Secrets (never committed)
@@ -44,17 +44,17 @@ Migrations are forward-only; pre-deploy `pg_dump`-equivalent for SQL Server
 ## How to run (dev)
 
 ```
-# API (Windows host, SQL Express Windows auth)
+# API (Windows host, SQL Express Windows auth) — http://localhost:5002
 cd backend
-dotnet run --project RALabs.Api --urls http://localhost:5000
+dotnet run --project RALabs.Api
 # empty DefaultConnection → in-memory fallback
 
 # Frontends
-cd web-public && npm install && npm run dev   # :3000
-cd web-admin && npm install && npm run dev    # :3001
+cd web-public && npm install && npm run dev   # :3004
+cd web-admin && npm install && npm run dev    # :3005
 
 # Smoke
-bash scripts/smoke.sh http://localhost:5000
+bash scripts/smoke.sh http://localhost:5002
 ```
 
 ## First-time VPS setup

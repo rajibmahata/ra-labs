@@ -73,9 +73,9 @@ Smoke suite passed:
 
 ```
 cd backend
-dotnet run --project RALabs.Api --urls http://localhost:5000
+dotnet run --project RALabs.Api   # http://localhost:5002
 # with appsettings.json connection string → SQL Express Windows auth
 # (empty DefaultConnection → in-memory)
-curl http://localhost:5000/health
-curl -X POST http://localhost:5000/seed/full   # idempotent re-seed
+curl http://localhost:5002/health
+curl -X POST http://localhost:5002/seed/full   # idempotent re-seed
 ```
