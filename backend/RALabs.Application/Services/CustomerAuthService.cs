@@ -87,13 +87,15 @@ public class CustomerAuthService : ICustomerAuthService
     private readonly IPasswordHasher _hasher;
     private readonly IJwtService _jwt;
     private readonly IEmailSender _email;
+    private readonly INotificationService? _notifications;
 
-    public CustomerAuthService(ICustomerRepository customers, IPasswordHasher hasher, IJwtService jwt, IEmailSender email)
+    public CustomerAuthService(ICustomerRepository customers, IPasswordHasher hasher, IJwtService jwt, IEmailSender email, INotificationService? notifications = null)
     {
         _customers = customers;
         _hasher = hasher;
         _jwt = jwt;
         _email = email;
+        _notifications = notifications;
     }
 
     public async Task<CustomerLoginResponse> RegisterAsync(CustomerRegisterRequest request)
@@ -119,6 +121,14 @@ public class CustomerAuthService : ICustomerAuthService
         };
         var id = await _customers.AddAsync(customer);
         customer.Id = id;
+        if (_notifications is not null)
+        {
+            await _notifications.CreateAsync(
+                "customer_registration",
+                "New customer registered",
+                $"{customer.Name} created a customer account.",
+                customerId: customer.Id);
+        }
         return await IssueTokensAsync(customer);
     }
 

@@ -20,12 +20,14 @@ public class ChatService : IChatService
     private readonly IChatRepository _repo;
     private readonly IChatbotService _chatbot;
     private readonly ILeadRepository _leads;
+    private readonly INotificationService? _notifications;
 
-    public ChatService(IChatRepository repo, IChatbotService chatbot, ILeadRepository leads)
+    public ChatService(IChatRepository repo, IChatbotService chatbot, ILeadRepository leads, INotificationService? notifications = null)
     {
         _repo = repo;
         _chatbot = chatbot;
         _leads = leads;
+        _notifications = notifications;
     }
 
     public async Task<ChatThreadDto> GetThreadAsync(Guid threadId, bool isCustomerThread, bool isAdmin)
@@ -87,6 +89,18 @@ public class ChatService : IChatService
             {
                 thread.NeedsManualIntervention = true;
                 await _repo.UpdateThreadAsync(thread);
+                if (_notifications is not null)
+                {
+                    var isCustomer = parsedSender == ChatSenderType.Customer;
+                    await _notifications.CreateAsync(
+                        "chat_escalation",
+                        isCustomer ? "Customer needs help" : "Chat needs team help",
+                        isCustomer
+                            ? $"A customer message in project chat needs a team response: {request.Content.Trim()}"
+                            : "A visitor chat was escalated for a personal team response.",
+                        threadId: thread.Id,
+                        customerProjectId: thread.CustomerProjectId);
+                }
             }
         }
 

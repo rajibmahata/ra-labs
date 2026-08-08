@@ -820,6 +820,23 @@ a.cta.on-dark:hover {
   white-space: nowrap;
 }
 
+.chatbot-input .chatbot-voice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--ink-dim);
+  border: 1.5px solid var(--line);
+}
+
+.chatbot-input .chatbot-voice:hover,
+.chatbot-input .chatbot-voice.listening {
+  color: var(--emerald);
+  border-color: var(--emerald);
+}
+
 .chatbot-input button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

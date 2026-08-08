@@ -13,14 +13,16 @@ public class CustomerProjectService : ICustomerProjectService
     private readonly ICustomerProjectRepository _repo;
     private readonly ICustomerRepository _customers;
     private readonly IChatService _chat;
+    private readonly INotificationService? _notifications;
     private readonly IPrivateFileStorage? _fileStorage;
 
-    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatService chat, IPrivateFileStorage? fileStorage = null)
+    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatService chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null)
     {
         _repo = repo;
         _customers = customers;
         _chat = chat;
         _fileStorage = fileStorage;
+        _notifications = notifications;
     }
 
     public async Task<CustomerProjectDto> CreateAsync(Guid customerId, CreateCustomerProjectRequest request)
@@ -54,6 +56,17 @@ public class CustomerProjectService : ICustomerProjectService
         project.Id = id;
         thread.CustomerProjectId = id;
         await _repo.UpdateAsync(project); // thread link is via ChatThread; thread already saved
+        if (_notifications is not null)
+        {
+            var customer = await _customers.GetByIdAsync(customerId);
+            await _notifications.CreateAsync(
+                "customer_project",
+                "New customer project",
+                $"{customer?.Name ?? "A customer"} created the project \"{project.Title}\".",
+                customerId: customerId,
+                customerProjectId: project.Id,
+                threadId: thread.Id);
+        }
         return await ToDtoAsync(project, thread.Id);
     }
 
@@ -174,6 +187,16 @@ public class CustomerProjectService : ICustomerProjectService
             Description = description,
             CreatedAt = DateTime.UtcNow
         });
+        if (_notifications is not null)
+        {
+            var customer = await _customers.GetByIdAsync(customerId);
+            await _notifications.CreateAsync(
+                "customer_update",
+                "Customer uploaded a document",
+                $"{customer?.Name ?? "A customer"} uploaded \"{doc.FileName}\" to project \"{project.Title}\".",
+                customerId: customerId,
+                customerProjectId: projectId);
+        }
         return new DocumentDto(doc.Id, doc.CustomerProjectId, doc.FileName, doc.FileUrl, doc.UploadedBy, doc.Description, doc.CreatedAt);
     }
 
@@ -282,6 +305,15 @@ public class CustomerProjectService : ICustomerProjectService
             project.Status = CustomerProjectStatus.PrdSigned;
             project.UpdatedAt = DateTime.UtcNow;
             await _repo.UpdateAsync(project);
+        }
+        if (_notifications is not null)
+        {
+            await _notifications.CreateAsync(
+                "customer_update",
+                "Customer signed the PRD",
+                $"{customer.Name} signed the PRD for project \"{project.Title}\".",
+                customerId: customerId,
+                customerProjectId: id);
         }
         return ToPrdDto(prd);
     }
@@ -424,6 +456,16 @@ public class CustomerProjectService : ICustomerProjectService
             IsPublished = false,
             CreatedAt = DateTime.UtcNow
         });
+        if (_notifications is not null)
+        {
+            var customer = await _customers.GetByIdAsync(customerId);
+            await _notifications.CreateAsync(
+                "customer_update",
+                "Customer submitted feedback",
+                $"{customer?.Name ?? "A customer"} submitted feedback for project \"{project.Title}\".",
+                customerId: customerId,
+                customerProjectId: id);
+        }
         return ToFeedbackDto(feedback);
     }
 

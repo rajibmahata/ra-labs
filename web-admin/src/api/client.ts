@@ -1,4 +1,4 @@
-import type { ApiError } from '../types';
+import type { AdminNotification, ApiError } from '../types';
 
 const STORAGE_PREFIX = 'admin.';
 const TOKEN_KEY = `${STORAGE_PREFIX}auth.token`;
@@ -223,6 +223,24 @@ export const leads = {
       `/api/v1/admin/leads/${id}`,
       body,
     ),
+};
+
+// Admin notifications
+export const notifications = {
+  list: (params?: { unread?: boolean; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.unread !== undefined) qs.set('unread', String(params.unread));
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    const query = qs.toString();
+    return request<{ data: AdminNotification[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/notifications${query ? `?${query}` : ''}`,
+    );
+  },
+
+  markRead: (id: string) =>
+    request<void>('POST', `/api/v1/admin/notifications/${id}/read`),
 };
 
 // Content (admin)

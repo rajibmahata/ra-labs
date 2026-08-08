@@ -34,6 +34,20 @@ export interface ApiError {
   };
 }
 
+export interface AdminNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  relatedLeadId?: string | null;
+  relatedThreadId?: string | null;
+  relatedCustomerId?: string | null;
+  relatedCustomerProjectId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+  readAt?: string | null;
+}
+
 export interface TeamMember {
   id: string;
   slug: string;

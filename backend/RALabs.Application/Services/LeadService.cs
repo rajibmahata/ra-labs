@@ -16,8 +16,13 @@ public interface ILeadService
 public class LeadService : ILeadService
 {
     private readonly ILeadRepository _repo;
+    private readonly INotificationService? _notifications;
 
-    public LeadService(ILeadRepository repo) => _repo = repo;
+    public LeadService(ILeadRepository repo, INotificationService? notifications = null)
+    {
+        _repo = repo;
+        _notifications = notifications;
+    }
 
     public async Task<LeadDto> CreateAsync(CreateLeadRequest r)
     {
@@ -40,6 +45,14 @@ public class LeadService : ILeadService
         };
         var id = await _repo.AddAsync(lead);
         lead.Id = id;
+        if (_notifications is not null)
+        {
+            await _notifications.CreateAsync(
+                "lead",
+                "New contact request",
+                $"{lead.Name} sent a new {lead.Source.ToString().ToLowerInvariant()} request.",
+                leadId: lead.Id);
+        }
         return ToDto(lead);
     }
 

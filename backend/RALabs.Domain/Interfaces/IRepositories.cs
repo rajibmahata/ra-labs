@@ -52,6 +52,15 @@ public interface ILeadRepository
     Task UpdateAsync(Lead lead);
 }
 
+public interface INotificationRepository
+{
+    Task AddAsync(AdminNotification notification);
+    Task<AdminNotification?> GetByIdAsync(Guid id);
+    Task<List<AdminNotification>> ListAsync(bool? unread, int page, int pageSize);
+    Task<int> CountAsync(bool? unread);
+    Task UpdateAsync(AdminNotification notification);
+}
+
 public interface IChatRepository
 {
     Task<ChatThread?> GetThreadAsync(Guid id);

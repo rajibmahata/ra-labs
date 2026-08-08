@@ -296,6 +296,23 @@ customer.MapPost("/projects/{id}/feedback", async (Guid id, SubmitFeedbackReques
 // ── Admin: customer projects ──
 var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("admin"));
 
+// ── Admin: notifications ──
+admin.MapGet("/notifications", async (bool? unread, int? page, int? pageSize, INotificationService svc) =>
+{
+    var result = await svc.ListAsync(unread, page, pageSize);
+    return Results.Ok(new
+    {
+        data = result.Items,
+        pagination = new { result.Page, result.PageSize, result.TotalCount, result.TotalPages }
+    });
+}).WithOpenApi();
+
+admin.MapPost("/notifications/{id}/read", async (Guid id, INotificationService svc) =>
+{
+    await svc.MarkReadAsync(id);
+    return Results.NoContent();
+}).WithOpenApi();
+
 // ── Admin: customers ──
 admin.MapGet("/customers", async (int? page, int? pageSize, ICustomerRepository repo) =>
 {

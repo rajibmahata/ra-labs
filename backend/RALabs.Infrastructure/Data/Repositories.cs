@@ -215,6 +215,44 @@ public class LeadRepository : ILeadRepository
     }
 }
 
+public class NotificationRepository : INotificationRepository
+{
+    private readonly RALabsDbContext _db;
+    public NotificationRepository(RALabsDbContext db) => _db = db;
+
+    public async Task AddAsync(AdminNotification notification)
+    {
+        _db.AdminNotifications.Add(notification);
+        await _db.SaveChangesAsync();
+    }
+
+    public Task<AdminNotification?> GetByIdAsync(Guid id) =>
+        _db.AdminNotifications.FirstOrDefaultAsync(x => x.Id == id);
+
+    public Task<List<AdminNotification>> ListAsync(bool? unread, int page, int pageSize)
+    {
+        var query = _db.AdminNotifications.AsQueryable();
+        if (unread == true) query = query.Where(x => !x.IsRead);
+        if (unread == false) query = query.Where(x => x.IsRead);
+        return query.OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public Task<int> CountAsync(bool? unread)
+    {
+        var query = _db.AdminNotifications.AsQueryable();
+        if (unread == true) query = query.Where(x => !x.IsRead);
+        if (unread == false) query = query.Where(x => x.IsRead);
+        return query.CountAsync();
+    }
+
+    public Task UpdateAsync(AdminNotification notification)
+    {
+        _db.AdminNotifications.Update(notification);
+        return _db.SaveChangesAsync();
+    }
+}
+
 public class ChatRepository : IChatRepository
 {
     private readonly RALabsDbContext _db;

@@ -60,7 +60,8 @@ public class ChatbotRetrievalTests
         var svc = CreateService();
         var reply = await svc.AnswerAsync(question, null);
         // Must not fabricate an answer about the studio from an unrelated question.
-        Assert.Contains("I don't have information", reply.Content);
+        Assert.Contains("Share your details", reply.Content);
+        Assert.DoesNotContain("I don't have information", reply.Content);
         Assert.True(reply.NeedsManualIntervention);
     }
 

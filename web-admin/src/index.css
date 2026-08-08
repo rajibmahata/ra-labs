@@ -237,6 +237,146 @@ input, select, textarea, button {
   gap: var(--space-4);
 }
 
+.notification-center {
+  position: relative;
+  margin-right: auto;
+}
+
+.notification-button {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--btn-radius);
+  background: var(--surface-bg);
+  cursor: pointer;
+}
+
+.notification-button:hover {
+  background: var(--content-bg);
+}
+
+.notification-count {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--badge-danger-text);
+  color: #fff;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.notification-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(380px, calc(100vw - 32px));
+  max-height: 430px;
+  overflow-y: auto;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--surface-radius);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  z-index: 60;
+}
+
+.notification-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.notification-empty {
+  padding: var(--space-5) var(--space-4);
+  color: var(--content-muted);
+}
+
+.notification-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-bg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: var(--content-bg);
+}
+
+.notification-item strong,
+.notification-item span,
+.notification-item small {
+  display: block;
+}
+
+.notification-item span {
+  margin-top: 2px;
+  color: var(--content-muted);
+  font-size: var(--font-size-sm);
+}
+
+.notification-item small {
+  margin-top: 5px;
+  color: var(--content-muted);
+  font-size: var(--font-size-xs);
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.notification-row--unread {
+  background: #f8fbff;
+}
+
+.notification-row-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: var(--color-primary-light);
+  border-radius: var(--btn-radius);
+}
+
+.notification-row-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-row-content p {
+  margin: 3px 0;
+  color: var(--content-muted);
+}
+
+.notification-row-content time {
+  color: var(--content-muted);
+  font-size: var(--font-size-xs);
+}
+
 .topbar-user {
   display: flex;
   align-items: center;
