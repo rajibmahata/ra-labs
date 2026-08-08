@@ -78,7 +78,7 @@ public class TeamService : ITeamService
         var member = await _repo.GetByIdAsync(id)
             ?? throw new Exceptions.NotFoundException("Team member not found.");
 
-        var slug = string.IsNullOrWhiteSpace(r.Slug) ? Guard.Slugify(r.Name) : r.Slug.Trim().ToLowerInvariant();
+        var slug = string.IsNullOrWhiteSpace(r.Slug) ? Guard.Slugify(r.Name!) : r.Slug.Trim().ToLowerInvariant();
         if (await _repo.SlugExistsAsync(slug, id))
             throw new Exceptions.ConflictException($"A team member with slug '{slug}' already exists.");
 
@@ -144,15 +144,15 @@ public class TeamService : ITeamService
         return await ToDto(member);
     }
 
-    private static void Validate(string name, string role, string bio, string? slug, string? github, string? email, string? linkedin, string? avatar)
+    private static void Validate(string? name, string? role, string? bio, string? slug, string? github, string? email, string? linkedin, string? avatar)
     {
         Guard.Reset();
         Guard.Required(name, "name", 100);
         Guard.Required(role, "role", 100);
         Guard.Required(bio, "bio", 5000);
-        Guard.Slug(slug, "slug");
+        if (!string.IsNullOrWhiteSpace(slug)) Guard.Slug(slug, "slug");
         Guard.MaxLength(github, "githubUsername", 100);
-        Guard.Email(email, "email", 200);
+        if (!string.IsNullOrWhiteSpace(email)) Guard.Email(email, "email", 200);
         Guard.Url(linkedin, "linkedinUrl");
         Guard.Url(avatar, "avatarUrl");
         Guard.ThrowIfAny("team member");

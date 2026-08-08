@@ -119,7 +119,7 @@ public class ProjectService : IProjectService
         Guard.Reset();
         Guard.Required(title, "title", 200);
         Guard.Required(summary, "summary", 500);
-        Guard.Slug(slug, "slug");
+        if (!string.IsNullOrWhiteSpace(slug)) Guard.Slug(slug, "slug");
         Guard.Url(githubUrl, "githubUrl");
         Guard.Url(coverImageUrl, "coverImageUrl");
         if (status is not null) Guard.InSet(status, "status", new[] { "live", "in_build" });
