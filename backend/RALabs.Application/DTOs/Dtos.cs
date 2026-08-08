@@ -27,7 +27,7 @@ public record CreateTeamRequest(
     string? AvatarUrl, string? Email, string? LinkedinUrl, string? Location, bool? IsPublished);
 
 public record UpdateTeamRequest(
-    string Name, string? Slug, string Role, string Bio, string? GithubUsername,
+    string? Name, string? Slug, string? Role, string? Bio, string? GithubUsername,
     string? AvatarUrl, string? Email, string? LinkedinUrl, string? Location, bool? IsPublished);
 
 public record TeamMemberDto(
