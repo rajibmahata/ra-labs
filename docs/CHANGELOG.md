@@ -1,5 +1,19 @@
 # CHANGELOG: ra-labs
 
+## [1.1.1] - 2026-08-08 (verification pass)
+
+### Fixed
+- **P0 concurrency bug**: `Guard` used a shared static error list; concurrent
+  requests could corrupt each other's validation. Now `AsyncLocal`-isolated per
+  execution context. Regression test added (56 tests total).
+- **P0 MCP error mapping**: MCP argument errors returned 500 and leaked the
+  exception message; now 400 VALIDATION_ERROR with a clean envelope.
+- **P0 seed default**: `Seed:DemoOnStartup` defaults to `false`; seeding is
+  explicit via `/seed/full`.
+- Zero nullable-reference warnings in the backend build.
+- Admin login no longer pre-validates password length (server is the source of
+  truth; aligned with customer portal).
+
 ## [1.1.0] - 2026-08-08
 
 ### Added

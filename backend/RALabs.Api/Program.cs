@@ -441,9 +441,15 @@ app.MapPost("/mcp/call", async (McpCallRequest req, McpToolRegistry registry, Ht
     {
         return Results.Json(new { error = new { code = ex.Code.ToString(), message = ex.Message, details = ex.Details } }, statusCode: (int)ex.Code);
     }
+    catch (ArgumentException ex)
+    {
+        // MCP argument-shape errors are client errors (400), not server faults.
+        return Results.Json(new { error = new { code = "VALIDATION_ERROR", message = ex.Message } }, statusCode: StatusCodes.Status400BadRequest);
+    }
     catch (Exception ex)
     {
-        return Results.Json(new { error = new { code = "INTERNAL_ERROR", message = ex.Message } }, statusCode: StatusCodes.Status500InternalServerError);
+        app.Logger.LogError(ex, "Unhandled MCP error on tool {Tool}", req.Tool);
+        return Results.Json(new { error = new { code = "INTERNAL_ERROR", message = "An unexpected error occurred." } }, statusCode: StatusCodes.Status500InternalServerError);
     }
 }).WithOpenApi();
 
