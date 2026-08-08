@@ -7,6 +7,7 @@ using RALabs.Application.Services;
 using RALabs.Domain.Interfaces;
 using RALabs.Infrastructure;
 using RALabs.Infrastructure.Data;
+using RALabs.Api.Mcp;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -33,6 +34,10 @@ builder.Services.AddRateLimiter(o =>
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
+
+builder.Services.Configure<RALabs.Api.Jobs.GithubSyncOptions>(builder.Configuration.GetSection(RALabs.Api.Jobs.GithubSyncOptions.SectionName));
+builder.Services.AddHostedService<RALabs.Api.Jobs.GithubSyncHostedService>();
+builder.Services.AddSingleton<McpToolRegistry>();
 
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
@@ -95,6 +100,12 @@ app.MapPost("/api/v1/leads", async (CreateLeadRequest req, ILeadService svc) =>
    .RequireRateLimiting("contact").WithOpenApi();
 
 // ── Public: Chat (rate limited) ──
+app.MapPost("/api/v1/chat/threads", async (IChatService svc, RALabs.Domain.Enums.ChatThreadType? type) =>
+{
+    var result = await svc.CreateThreadAsync(type ?? RALabs.Domain.Enums.ChatThreadType.Lead, null);
+    return Results.Created($"/api/v1/chat/{result.Id}", new { data = new { id = result.Id, type = result.Type.ToString().ToLowerInvariant() } });
+}).WithOpenApi();
+
 app.MapPost("/api/v1/chat/{threadId}/messages", async (Guid threadId, SendMessageRequest req, IChatService svc, HttpContext ctx) =>
 {
     var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
@@ -203,6 +214,26 @@ admin.MapGet("/chat", async (string? type, bool? needsManualIntervention, int? p
 admin.MapPatch("/chat/{threadId}", async (Guid threadId, UpdateThreadRequest req, IChatService svc) =>
     Results.Ok(new { data = await svc.UpdateThreadAsync(threadId, req) })).WithOpenApi();
 
+admin.MapPost("/chat/{threadId}/messages", async (Guid threadId, SendMessageRequest req, IChatService svc, HttpContext ctx) =>
+{
+    var senderName = ctx.User.FindFirst(ClaimTypes.Name)?.Value;
+    var result = await svc.SendMessageAsync(threadId, req, "admin", senderName);
+    return Results.Created($"/api/v1/admin/chat/{threadId}", new { data = result });
+}).WithOpenApi();
+
+// ── Admin: operational triggers (AI layer) ──
+admin.MapPost("/github/sync", async (IGithubSyncService svc) =>
+{
+    var result = await svc.SyncAllAsync(CancellationToken.None);
+    return Results.Ok(new { data = result });
+}).WithOpenApi();
+
+admin.MapPost("/rag/ingest", async (IRagIngestionService svc) =>
+{
+    var count = await svc.IngestPublicContentAsync(CancellationToken.None);
+    return Results.Ok(new { data = new { ingestedChunks = count } });
+}).WithOpenApi();
+
 admin.MapGet("/admins", async (IAuthService svc) =>
     Results.Ok(new { data = await svc.GetAdminsAsync() })).WithOpenApi();
 
@@ -212,7 +243,42 @@ admin.MapPost("/admins", async (CreateAdminRequest req, HttpContext ctx, IAuthSe
     return Results.Created("/api/v1/admin/admins", new { data = await svc.CreateAdminAsync(req, actorId) });
 }).WithOpenApi();
 
+// ── MCP server (thin tool layer over Application services — ADR-002) ──
+app.MapGet("/mcp/tools", (McpToolRegistry registry) =>
+    Results.Ok(new { data = registry.Definitions.Select(d => new { d.Name, d.Description, d.Parameters, d.RequiredRole }) })).WithOpenApi();
+
+app.MapPost("/mcp/call", async (McpCallRequest req, McpToolRegistry registry, HttpContext ctx) =>
+{
+    var role = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+    Guid? adminUserId = null;
+    if (role == "admin")
+    {
+        var sub = ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        if (Guid.TryParse(sub, out var uid)) adminUserId = uid;
+    }
+
+    try
+    {
+        var result = await registry.DispatchAsync(req.Tool, req.Arguments ?? new Dictionary<string, object?>(), role, adminUserId);
+        return Results.Ok(new { data = new { tool = req.Tool, result } });
+    }
+    catch (ForbiddenMcpException ex)
+    {
+        return Results.Json(new { error = new { code = "FORBIDDEN", message = ex.Message } }, statusCode: StatusCodes.Status403Forbidden);
+    }
+    catch (RALabs.Application.Exceptions.AppException ex)
+    {
+        return Results.Json(new { error = new { code = ex.Code.ToString(), message = ex.Message, details = ex.Details } }, statusCode: (int)ex.Code);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = new { code = "INTERNAL_ERROR", message = ex.Message } }, statusCode: StatusCodes.Status500InternalServerError);
+    }
+}).WithOpenApi();
+
 app.Run();
+
+public record McpCallRequest(string Tool, Dictionary<string, object?>? Arguments);
 
 namespace RALabs.Api.Middleware
 {

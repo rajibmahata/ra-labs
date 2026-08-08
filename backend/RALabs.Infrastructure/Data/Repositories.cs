@@ -263,7 +263,18 @@ public class AgentTaskRepository : IAgentTaskRepository
 
     public Task UpdateAsync(AgentTask task)
     {
-        _db.AgentTasks.Update(task);
+        var existing = _db.AgentTasks.Local.FirstOrDefault(t => t.Id == task.Id)
+            ?? _db.AgentTasks.Find(task.Id);
+        if (existing is not null)
+        {
+            existing.Status = task.Status;
+            existing.Result = task.Result;
+            existing.Error = task.Error;
+            existing.CompletedAt = task.CompletedAt;
+            return _db.SaveChangesAsync();
+        }
+        _db.AgentTasks.Attach(task);
+        _db.Entry(task).State = EntityState.Modified;
         return _db.SaveChangesAsync();
     }
 
