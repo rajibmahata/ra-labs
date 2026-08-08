@@ -60,19 +60,3 @@ public class ChatbotServiceTests
         Assert.Contains("LexVault", reply.Content, StringComparison.OrdinalIgnoreCase);
     }
 }
-
-internal sealed class FakeKnowledgeChunkRepository : IKnowledgeChunkRepository
-{
-    private readonly List<KnowledgeChunk> _chunks;
-    public FakeKnowledgeChunkRepository(List<KnowledgeChunk> chunks) => _chunks = chunks;
-
-    public Task AddAsync(KnowledgeChunk chunk) { _chunks.Add(chunk); return Task.CompletedTask; }
-    public Task DeleteBySourceAsync(string sourceType, string sourceId)
-    {
-        _chunks.RemoveAll(c => c.SourceType.ToString() == sourceType && c.SourceId == sourceId);
-        return Task.CompletedTask;
-    }
-    public Task<List<KnowledgeChunk>> GetPublicChunksAsync() => Task.FromResult(_chunks.Where(c => c.CustomerProjectId == null).ToList());
-    public Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId) =>
-        Task.FromResult(_chunks.Where(c => c.CustomerProjectId == customerProjectId).ToList());
-}

@@ -157,7 +157,7 @@ internal sealed class FakeEmailSender : RALabs.Domain.Interfaces.IEmailSender
     public List<string> Sent { get; } = new();
     public Task SendAsync(string to, string toName, string subject, string htmlBody)
     {
-        Sent.Add($"{to}|{subject}");
+        Sent.Add($"{to}|{subject}|{htmlBody}");
         return Task.CompletedTask;
     }
 }
