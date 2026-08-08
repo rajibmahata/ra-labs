@@ -27,6 +27,7 @@ public interface ITeamRepository
     Task<TeamMember?> GetByAdminUserIdAsync(Guid adminUserId);
     Task<GithubSnapshot> AddSnapshotAsync(GithubSnapshot snapshot);
     Task<GithubSnapshot?> GetLatestSnapshotAsync(Guid teamMemberId);
+    Task<Dictionary<Guid, GithubSnapshot>> GetLatestSnapshotsAsync(IEnumerable<Guid> teamMemberIds);
 }
 
 public interface IContentRepository
@@ -72,6 +73,7 @@ public interface IAdminUserRepository
 {
     Task<AdminUser?> GetByEmailAsync(string email);
     Task<AdminUser?> GetByIdAsync(Guid id);
+    Task<AdminUser?> GetByRefreshTokenHashAsync(string hash);
     Task<Guid> AddAsync(AdminUser user);
     Task UpdateAsync(AdminUser user);
     Task<bool> EmailExistsAsync(string email);
@@ -84,4 +86,9 @@ public interface IKnowledgeChunkRepository
     Task DeleteBySourceAsync(string sourceType, string sourceId);
     Task<List<KnowledgeChunk>> GetPublicChunksAsync();
     Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId);
+}
+
+public interface IEmailSender
+{
+    Task SendAsync(string to, string toName, string subject, string htmlBody);
 }

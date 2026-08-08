@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RALabs.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using RALabs.Infrastructure.Data;
 namespace RALabs.Infrastructure.Migrations
 {
     [DbContext(typeof(RALabsDbContext))]
-    partial class RALabsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260808041634_AdminAuthResetRefresh")]
+    partial class AdminAuthResetRefresh
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
