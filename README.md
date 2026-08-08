@@ -31,6 +31,9 @@ cd web-public && npm install && npm run dev
 # Admin CMS — port 3005
 cd web-admin && npm install && npm run dev
 
+# Customer portal (PWA) — port 3002
+cd web-customer && npm install && npm run dev
+
 # Smoke test
 bash scripts/smoke.sh http://localhost:5002
 ```
@@ -41,9 +44,12 @@ bash scripts/smoke.sh http://localhost:5002
 |---|---|---|
 | Admin — Rajib | rajib@ralabs.dev | Admin@1234 |
 | Admin — Abhishek | abhishek@ralabs.dev | Admin@1234 |
+| Customer | (register at /customer/register) | — |
 
 Each admin logs into `/admin`, edits their own profile (My Profile) and it
-reflects on the public site immediately.
+reflects on the public site immediately. Customers register in the customer
+portal, open projects, discuss in chat, upload documents, sign the PRD, and
+track demo/invoice/feedback.
 
 ## Key Endpoints
 
@@ -51,7 +57,10 @@ reflects on the public site immediately.
 - Public: `GET /api/v1/projects`, `/team`, `/content?locale=`, `/locales`,
   `POST /api/v1/leads`, `POST /api/v1/chat/threads`,
   `POST /api/v1/chat/{id}/messages`
-- Admin: `/api/v1/admin/projects|team|content|leads|chat|admins`,
+- Customer auth: `/api/v1/customer/auth/register|login|refresh|forgot-password|reset-password`
+- Customer: `/api/v1/customer/me`, `/projects`, `/projects/{id}`, `/documents`,
+  `/prd`, `/prd/sign`, `/demo`, `/invoice`, `/feedback`
+- Admin: `/api/v1/admin/projects|team|content|leads|chat|admins|customers|customer-projects`,
   `GET|PUT /api/v1/admin/team/me` (self-edit)
 - MCP: `GET /mcp/tools`, `POST /mcp/call`
 - AI ops: `POST /api/v1/admin/github/sync`, `POST /api/v1/admin/rag/ingest`

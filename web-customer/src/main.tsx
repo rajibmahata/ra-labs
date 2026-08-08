@@ -23,7 +23,7 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/customer">
       <App />
     </BrowserRouter>
   </StrictMode>
