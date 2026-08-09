@@ -2,7 +2,8 @@ export interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: 'admin';
+  role: 'admin' | 'super_admin';
+  isActive: boolean;
   teamMemberId?: string | null;
 }
 
@@ -34,6 +35,20 @@ export interface ApiError {
   };
 }
 
+export interface AdminNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  relatedLeadId?: string | null;
+  relatedThreadId?: string | null;
+  relatedCustomerId?: string | null;
+  relatedCustomerProjectId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+  readAt?: string | null;
+}
+
 export interface TeamMember {
   id: string;
   slug: string;
@@ -47,6 +62,7 @@ export interface TeamMember {
   email?: string | null;
   linkedinUrl?: string | null;
   location?: string | null;
+  isActive: boolean;
   isPublished: boolean;
   githubSnapshot?: GithubSnapshot | null;
   createdAt?: string;
@@ -155,6 +171,8 @@ export interface AdminEntry {
   id: string;
   name: string;
   email: string;
+  role: 'admin' | 'super_admin';
+  isActive: boolean;
   teamMemberId?: string | null;
   createdAt?: string;
 }
@@ -186,6 +204,7 @@ export interface Customer {
   id: string;
   name: string;
   email: string;
+  isActive: boolean;
   createdAt: string;
   projectCount: number;
 }

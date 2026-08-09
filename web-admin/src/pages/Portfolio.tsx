@@ -29,6 +29,9 @@ export default function Portfolio() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<{ ids: string[]; kind: 'publish' | 'unpublish' | 'delete' } | null>(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -36,6 +39,7 @@ export default function Portfolio() {
     try {
       const res = await projectsApi.list();
       setProjects(res.data as Project[]);
+      setSelected(new Set());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load projects');
     } finally {
@@ -143,6 +147,30 @@ export default function Portfolio() {
     }
   };
 
+  const handleBulkAction = async () => {
+    if (!bulkAction) return;
+    setBulkSaving(true);
+    try {
+      if (bulkAction.kind === 'delete') await Promise.all(bulkAction.ids.map((id) => projectsApi.delete(id)));
+      else await Promise.all(bulkAction.ids.map((id) => projectsApi.setPublished(id, bulkAction.kind === 'publish')));
+      addToast(bulkAction.kind === 'delete' ? 'Projects deleted' : bulkAction.kind === 'publish' ? 'Projects activated' : 'Projects deactivated', 'success');
+      setBulkAction(null);
+      await fetchProjects();
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'Failed to update selected projects', 'error');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const toggleSelected = (id: string) => setSelected((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const selectAll = () => setSelected((current) => current.size === projects.length ? new Set() : new Set(projects.map((project) => project.id)));
+
   return (
     <div>
       <ToastContainer />
@@ -151,7 +179,12 @@ export default function Portfolio() {
           <h1 className="page-title">Portfolio</h1>
           <p className="page-subtitle">Manage public portfolio projects.</p>
         </div>
-        <button className="btn btn--primary" onClick={openCreate}>Add Project</button>
+        <div className="form-inline">
+          <button className="btn btn--primary" onClick={openCreate}>Add Project</button>
+          <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setBulkAction({ ids: [...selected], kind: 'publish' })}>Activate selected</button>
+          <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setBulkAction({ ids: [...selected], kind: 'unpublish' })}>Deactivate selected</button>
+          <button className="btn btn--ghost" style={{ color: '#dc2626' }} disabled={selected.size === 0} onClick={() => setBulkAction({ ids: [...selected], kind: 'delete' })}>Delete selected</button>
+        </div>
       </div>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
@@ -171,6 +204,7 @@ export default function Portfolio() {
               <table>
                 <thead>
                   <tr>
+                    <th><input type="checkbox" checked={selected.size === projects.length && projects.length > 0} onChange={selectAll} aria-label="Select all projects" /></th>
                     <th>Title</th>
                     <th>Status</th>
                     <th>Tags</th>
@@ -183,6 +217,7 @@ export default function Portfolio() {
                 <tbody>
                   {projects.map((p) => (
                     <tr key={p.id}>
+                      <td><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelected(p.id)} aria-label={`Select ${p.title}`} /></td>
                       <td style={{ fontWeight: 600 }}>{p.title}</td>
                       <td><span className={`badge badge--${p.status}`}>{p.status}</span></td>
                       <td>
@@ -279,6 +314,15 @@ export default function Portfolio() {
         message={`Are you sure you want to delete "${deleteTarget?.title}"? This will soft-delete the project (unpublishes it).`}
         confirmLabel="Delete"
         loading={deleting}
+      />
+      <ConfirmDialog
+        open={bulkAction !== null}
+        onClose={() => setBulkAction(null)}
+        onConfirm={() => void handleBulkAction()}
+        title={bulkAction?.kind === 'delete' ? 'Delete selected projects?' : bulkAction?.kind === 'publish' ? 'Activate selected projects?' : 'Deactivate selected projects?'}
+        message={bulkAction?.kind === 'delete' ? 'Selected projects will be soft-deleted and removed from public display.' : bulkAction?.kind === 'publish' ? 'Selected projects will be visible on the public site.' : 'Selected projects will be hidden from the public site.'}
+        confirmLabel={bulkAction?.kind === 'delete' ? 'Delete' : bulkAction?.kind === 'publish' ? 'Activate' : 'Deactivate'}
+        loading={bulkSaving}
       />
     </div>
   );

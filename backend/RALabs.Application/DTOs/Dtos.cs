@@ -6,7 +6,8 @@ public record LoginResponse(string AccessToken, string RefreshToken, DateTime Ex
 public record RefreshTokenRequest(string RefreshToken);
 public record ForgotPasswordRequest(string Email);
 public record ResetPasswordRequest(string Email, string Token, string NewPassword);
-public record AdminUserDto(Guid Id, string Name, string Email, string Role, Guid? TeamMemberId);
+public record AdminUserDto(Guid Id, string Name, string Email, string Role, bool IsActive, Guid? TeamMemberId);
+public record UpdateCustomerStatusRequest(bool IsActive);
 
 // ── Portfolio ──
 public record CreateProjectRequest(
@@ -18,6 +19,7 @@ public record UpdateProjectRequest(
     string Title, string? Slug, string Summary, List<string>? StackTags,
     string? Status, string? GithubUrl, string? CaseStudyBody,
     string? CoverImageUrl, int? SortOrder, bool? IsPublished);
+public record SetPublishedRequest(bool IsPublished);
 
 public record ProjectDto(
     Guid Id, string Slug, string Title, string Summary, List<string> StackTags,
@@ -41,7 +43,7 @@ public record UpdateTeamRequest(
 public record TeamMemberDto(
     Guid Id, string Slug, string Name, string Role, string Bio,
     string? GithubUsername, string? GithubAccountUrl, bool HasGithubToken, string? AvatarUrl,
-    string? Email, string? LinkedinUrl, string? Location, bool IsPublished,
+    string? Email, string? LinkedinUrl, string? Location, bool IsActive, bool IsPublished,
     GithubSnapshotDto? GithubSnapshot);
 
 public record GithubSnapshotDto(
@@ -64,6 +66,7 @@ public record CreateLeadRequest(string Name, string ContactInfo, string Message,
 public record LeadDto(Guid Id, string Name, string ContactInfo, string Message, string Source,
     string Status, string? Notes, DateTime CreatedAt, DateTime? UpdatedAt);
 public record UpdateLeadRequest(string? Status, string? Notes);
+public record ModerateFeedbackRequest(bool Approved);
 
 // ── Chat ──
 public record SendMessageRequest(string Content, string? AttachmentUrl);

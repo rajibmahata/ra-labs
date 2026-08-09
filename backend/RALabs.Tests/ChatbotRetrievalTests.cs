@@ -60,7 +60,8 @@ public class ChatbotRetrievalTests
         var svc = CreateService();
         var reply = await svc.AnswerAsync(question, null);
         // Must not fabricate an answer about the studio from an unrelated question.
-        Assert.Contains("I don't have information", reply.Content);
+        Assert.Contains("Share your details", reply.Content);
+        Assert.DoesNotContain("I don't have information", reply.Content);
         Assert.True(reply.NeedsManualIntervention);
     }
 
@@ -113,6 +114,11 @@ internal sealed class FakeKnowledgeChunkRepository : IKnowledgeChunkRepository
     public Task DeleteBySourceAsync(string sourceType, string sourceId)
     {
         _chunks.RemoveAll(c => c.SourceType.ToString() == sourceType && c.SourceId == sourceId);
+        return Task.CompletedTask;
+    }
+    public Task DeleteBySourcePrefixAsync(string sourceType, string sourcePrefix)
+    {
+        _chunks.RemoveAll(c => c.SourceType.ToString() == sourceType && c.SourceId.StartsWith(sourcePrefix, StringComparison.Ordinal));
         return Task.CompletedTask;
     }
     public Task<List<KnowledgeChunk>> GetPublicChunksAsync() => Task.FromResult(_chunks.Where(c => c.CustomerProjectId == null).ToList());

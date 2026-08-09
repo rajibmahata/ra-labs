@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { team as teamApi, github as githubApi, ApiClientError } from '../api/client';
+import { team as teamApi, github as githubApi, ApiClientError, getStoredUser } from '../api/client';
 import { Modal, ConfirmDialog } from '../components/Modal';
 import { useToast } from '../components/useToast';
 import type { TeamMember, TeamMemberForm } from '../types';
@@ -31,6 +31,10 @@ export default function Team() {
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [statusConfirm, setStatusConfirm] = useState<{ ids: string[]; isActive: boolean } | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const isSuperAdmin = getStoredUser<{ role?: string }>()?.role === 'super_admin';
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -38,6 +42,7 @@ export default function Team() {
     try {
       const res = await teamApi.list();
       setMembers(res.data as TeamMember[]);
+      setSelected(new Set());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load team members');
     } finally {
@@ -141,6 +146,33 @@ export default function Team() {
     }
   };
 
+  const toggleSelected = (id: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected((current) => current.size === members.length ? new Set() : new Set(members.map((member) => member.id)));
+  };
+
+  const handleStatus = async () => {
+    if (!statusConfirm) return;
+    setUpdatingStatus(true);
+    try {
+      await Promise.all(statusConfirm.ids.map((id) => teamApi.setStatus(id, statusConfirm.isActive)));
+      addToast(statusConfirm.isActive ? 'Team members activated and left unpublished' : 'Team members deactivated', 'success');
+      setStatusConfirm(null);
+      await fetchMembers();
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'Failed to update team member status', 'error');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
@@ -164,6 +196,10 @@ export default function Team() {
         </div>
         <div className="form-inline">
           <button className="btn btn--outline" onClick={() => void handleSync()} disabled={syncing}>{syncing ? 'Syncing...' : 'Sync GitHub'}</button>
+          {isSuperAdmin && <>
+            <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setStatusConfirm({ ids: [...selected], isActive: true })}>Activate selected</button>
+            <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setStatusConfirm({ ids: [...selected], isActive: false })}>Deactivate selected</button>
+          </>}
           <button className="btn btn--primary" onClick={openCreate}>Add Member</button>
         </div>
       </div>
@@ -185,17 +221,20 @@ export default function Team() {
               <table>
                 <thead>
                   <tr>
+                    {isSuperAdmin && <th><input type="checkbox" checked={members.length > 0 && selected.size === members.length} onChange={toggleAll} aria-label="Select all team members" /></th>}
                     <th>Name</th>
                     <th>Role</th>
                     <th>GitHub</th>
                     <th>GitHub Commits (90d)</th>
                     <th>Published</th>
+                    <th>Active</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {members.map((m) => (
                     <tr key={m.id}>
+                      {isSuperAdmin && <td><input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleSelected(m.id)} aria-label={`Select ${m.name}`} /></td>}
                       <td style={{ fontWeight: 600 }}>{m.name}</td>
                       <td>{m.role}</td>
                       <td>{m.githubUsername ?? '—'}</td>
@@ -205,9 +244,11 @@ export default function Team() {
                           {m.isPublished ? 'Published' : 'Draft'}
                         </span>
                       </td>
+                      <td><span className={`badge ${m.isActive ? 'badge--published' : 'badge--unpublished'}`}>{m.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td>
                         <div className="form-inline">
                           <button className="btn btn--outline btn--sm" onClick={() => openEdit(m)}>Edit</button>
+                          {isSuperAdmin && <button className="btn btn--outline btn--sm" onClick={() => setStatusConfirm({ ids: [m.id], isActive: !m.isActive })}>{m.isActive ? 'Deactivate' : 'Activate'}</button>}
                           <button className="btn btn--ghost btn--sm" style={{ color: '#dc2626' }} onClick={() => setDeleteTarget(m)}>Delete</button>
                         </div>
                       </td>
@@ -297,6 +338,17 @@ export default function Team() {
         message={`Remove "${deleteTarget?.name}" from the team? This will unpublish their profile from the public site.`}
         confirmLabel="Remove"
         loading={deleting}
+      />
+      <ConfirmDialog
+        open={!!statusConfirm}
+        onClose={() => setStatusConfirm(null)}
+        onConfirm={handleStatus}
+        title={statusConfirm?.isActive ? 'Activate Team Members' : 'Deactivate Team Members'}
+        message={statusConfirm?.isActive
+          ? `Activate ${statusConfirm.ids.length} team member${statusConfirm.ids.length === 1 ? '' : 's'}? Their public profiles will remain hidden until explicitly published.`
+          : `Deactivate ${statusConfirm?.ids.length ?? 0} team member${statusConfirm?.ids.length === 1 ? '' : 's'}? Their public profiles will be hidden.`}
+        confirmLabel={statusConfirm?.isActive ? 'Activate' : 'Deactivate'}
+        loading={updatingStatus}
       />
     </div>
   );

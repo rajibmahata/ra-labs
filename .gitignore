@@ -17,6 +17,7 @@ dist-ssr/
 *.pem
 
 # Build output / tooling
+.api-build/
 .DS_Store
 Thumbs.db
 coverage/

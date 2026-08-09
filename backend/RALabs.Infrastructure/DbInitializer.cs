@@ -82,6 +82,7 @@ public static class DbInitializer
                     Name = "Rajib Mahata",
                     Email = "rajib@ralabs.dev",
                     PasswordHash = hasher.Hash("Admin@1234"),
+                    Role = "super_admin",
                     TeamMemberId = rajib.Id,
                     CreatedAt = DateTime.UtcNow
                 },
@@ -91,6 +92,7 @@ public static class DbInitializer
                     Name = "Abhishek Burnwal",
                     Email = "abhishek@ralabs.dev",
                     PasswordHash = hasher.Hash("Admin@1234"),
+                    Role = "admin",
                     TeamMemberId = abhishek.Id,
                     CreatedAt = DateTime.UtcNow
                 });

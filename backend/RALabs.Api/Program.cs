@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RALabs.Application;
 using RALabs.Application.DTOs;
+using RALabs.Application.Exceptions;
 using RALabs.Application.Services;
 using RALabs.Domain.Interfaces;
 using RALabs.Infrastructure;
@@ -58,6 +59,31 @@ app.UseMiddleware<RALabs.Api.Middleware.SecurityHeadersMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (ctx, next) =>
+{
+    await next();
+    if (ctx.Request.Method is "GET" or "HEAD" || ctx.Response.StatusCode >= 400)
+        return;
+
+    var path = ctx.Request.Path;
+    var isPublicKnowledgeMutation = path.StartsWithSegments("/api/v1/admin/projects")
+        || path.StartsWithSegments("/api/v1/admin/team")
+        || path.StartsWithSegments("/api/v1/admin/content")
+        || path.StartsWithSegments("/api/v1/admin/reviews")
+        || path.Value?.EndsWith("/feedback/approve", StringComparison.OrdinalIgnoreCase) == true;
+    if (!isPublicKnowledgeMutation) return;
+
+    try
+    {
+        var rag = ctx.RequestServices.GetRequiredService<IRagIngestionService>();
+        await rag.IngestPublicContentAsync(CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("PublicRagSync");
+        logger.LogError(ex, "Public RAG synchronization failed after {Method} {Path}", ctx.Request.Method, ctx.Request.Path);
+    }
+});
 
 if (app.Environment.IsDevelopment())
 {
@@ -294,7 +320,24 @@ customer.MapPost("/projects/{id}/feedback", async (Guid id, SubmitFeedbackReques
 }).WithOpenApi();
 
 // ── Admin: customer projects ──
-var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("admin"));
+var admin = app.MapGroup("/api/v1/admin").RequireAuthorization(policy => policy.RequireRole("admin", "super_admin"));
+
+// ── Admin: notifications ──
+admin.MapGet("/notifications", async (bool? unread, int? page, int? pageSize, INotificationService svc) =>
+{
+    var result = await svc.ListAsync(unread, page, pageSize);
+    return Results.Ok(new
+    {
+        data = result.Items,
+        pagination = new { result.Page, result.PageSize, result.TotalCount, result.TotalPages }
+    });
+}).WithOpenApi();
+
+admin.MapPost("/notifications/{id}/read", async (Guid id, INotificationService svc) =>
+{
+    await svc.MarkReadAsync(id);
+    return Results.NoContent();
+}).WithOpenApi();
 
 // ── Admin: customers ──
 admin.MapGet("/customers", async (int? page, int? pageSize, ICustomerRepository repo) =>
@@ -302,19 +345,39 @@ admin.MapGet("/customers", async (int? page, int? pageSize, ICustomerRepository 
     var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
     var items = await repo.GetAllAsync(p, ps);
     var total = await repo.CountAllAsync();
-    return Results.Ok(new { data = items.Select(c => new { c.Id, c.Name, c.Email, c.CreatedAt, projectCount = c.Projects.Count }),
+    return Results.Ok(new { data = items.Select(c => new { c.Id, c.Name, c.Email, c.IsActive, c.CreatedAt, projectCount = c.Projects.Count }),
         pagination = new { page = p, pageSize = ps, totalCount = total } });
 }).WithOpenApi();
 
-// ── Admin: customer projects ──
-admin.MapGet("/customer-projects", async (int? page, int? pageSize, string? status, ICustomerProjectService svc) =>
+admin.MapPost("/customers", async (CreateCustomerByAdminRequest req, ICustomerAuthService svc) =>
+    Results.Created("/api/v1/admin/customers", new { data = await svc.CreateByAdminAsync(req) })).WithOpenApi();
+
+admin.MapPatch("/customers/{id}/status", async (Guid id, UpdateCustomerStatusRequest req, ICustomerRepository repo) =>
 {
-    var items = await svc.GetAllForAdminAsync(page, pageSize, status);
+    var customer = await repo.GetByIdAsync(id) ?? throw new NotFoundException("Customer not found.");
+    customer.IsActive = req.IsActive;
+    customer.UpdatedAt = DateTime.UtcNow;
+    await repo.UpdateAsync(customer);
+    return Results.Ok(new { data = new { customer.Id, customer.IsActive, customer.UpdatedAt } });
+}).WithOpenApi();
+
+// ── Admin: customer projects ──
+admin.MapGet("/customer-projects", async (int? page, int? pageSize, string? status, string? search, Guid? customerId, ICustomerProjectService svc) =>
+{
+    var items = await svc.GetAllForAdminAsync(page, pageSize, status, search, customerId);
     return Results.Ok(new { data = items });
 }).WithOpenApi();
 
 admin.MapGet("/customer-projects/{id}", async (Guid id, ICustomerProjectService svc) =>
     Results.Ok(new { data = await svc.GetForAdminAsync(id) })).WithOpenApi();
+
+admin.MapPost("/customer-projects", async (CreateCustomerProjectByAdminRequest req, ICustomerProjectService svc) =>
+{
+    var project = await svc.CreateAsync(req.CustomerId, new CreateCustomerProjectRequest(
+        req.Title, req.Goal, req.Audience, req.Requirements, req.Timeline,
+        req.BudgetOrConstraints, req.ReferenceLinks));
+    return Results.Created($"/api/v1/admin/customer-projects/{project.Id}", new { data = project });
+}).WithOpenApi();
 
 admin.MapPatch("/customer-projects/{id}", async (Guid id, UpdateCustomerProjectRequest req, ICustomerProjectService svc) =>
     Results.Ok(new { data = await svc.UpdateStatusAsync(id, req) })).WithOpenApi();
@@ -352,6 +415,15 @@ admin.MapGet("/customer-projects/{id}/feedback", async (Guid id, ICustomerProjec
 admin.MapPost("/customer-projects/{id}/feedback/approve", async (Guid id, ICustomerProjectService svc) =>
     Results.Ok(new { data = await svc.ApproveFeedbackAsync(id) })).WithOpenApi();
 
+admin.MapGet("/reviews", async (int? page, int? pageSize, string? search, bool? published, ICustomerProjectService svc) =>
+{
+    var result = await svc.GetFeedbacksForAdminAsync(page, pageSize, search, published);
+    return Results.Ok(new { data = result.Items, pagination = new { result.Page, result.PageSize, result.TotalCount, result.TotalPages } });
+}).WithOpenApi();
+
+admin.MapPost("/reviews/{id}/moderate", async (Guid id, ModerateFeedbackRequest req, ICustomerProjectService svc) =>
+    Results.Ok(new { data = await svc.ModerateFeedbackAsync(id, req.Approved) })).WithOpenApi();
+
 admin.MapGet("/projects", async (bool? includeUnpublished, int? page, int? pageSize, IProjectRepository repo) =>
 {
     var (p, ps) = RALabs.Application.Common.PageRequest.Normalize(page, pageSize);
@@ -369,6 +441,9 @@ admin.MapPost("/projects", async (CreateProjectRequest req, IProjectService svc)
 
 admin.MapPut("/projects/{id}", async (Guid id, UpdateProjectRequest req, IProjectService svc) =>
     Results.Ok(new { data = await svc.UpdateAsync(id, req) })).WithOpenApi();
+
+admin.MapPatch("/projects/{id}/published", async (Guid id, SetPublishedRequest req, IProjectService svc) =>
+    Results.Ok(new { data = await svc.SetPublishedAsync(id, req.IsPublished) })).WithOpenApi();
 
 admin.MapDelete("/projects/{id}", async (Guid id, IProjectService svc) =>
 {
@@ -389,6 +464,13 @@ admin.MapDelete("/team/{id}", async (Guid id, ITeamService svc) =>
 {
     await svc.DeleteAsync(id);
     return Results.NoContent();
+}).WithOpenApi();
+
+admin.MapPatch("/team/{id}/status", async (Guid id, UpdateCustomerStatusRequest req, HttpContext ctx, ITeamService svc) =>
+{
+    if (!ctx.User.IsInRole("super_admin"))
+        return Results.Forbid();
+    return Results.Ok(new { data = await svc.SetActiveAsync(id, req.IsActive) });
 }).WithOpenApi();
 
 // ── Admin: team member self-edit (any logged-in team member updates own profile) ──
@@ -488,7 +570,7 @@ admin.MapPost("/rag/ingest", async (IRagIngestionService svc) =>
 
 app.MapGet("/api/v1/rag/query", async (string query, Guid? customerProjectId, IRagIngestionService svc, HttpContext ctx, CancellationToken ct) =>
 {
-    if (customerProjectId.HasValue && !ctx.User.IsInRole("admin"))
+    if (customerProjectId.HasValue && !ctx.User.IsInRole("admin") && !ctx.User.IsInRole("super_admin"))
         return Results.Forbid();
     return Results.Ok(new { data = await svc.QueryAsync(query, customerProjectId, ct) });
 }).WithOpenApi();
@@ -498,8 +580,18 @@ admin.MapGet("/admins", async (IAuthService svc) =>
 
 admin.MapPost("/admins", async (CreateAdminRequest req, HttpContext ctx, IAuthService svc) =>
 {
+    if (!ctx.User.IsInRole("super_admin"))
+        return Results.Forbid();
     var actorId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
     return Results.Created("/api/v1/admin/admins", new { data = await svc.CreateAdminAsync(req, actorId) });
+}).WithOpenApi();
+
+admin.MapPatch("/admins/{id}/status", async (Guid id, UpdateCustomerStatusRequest req, HttpContext ctx, IAuthService svc) =>
+{
+    if (!ctx.User.IsInRole("super_admin"))
+        return Results.Forbid();
+    var actorId = Guid.Parse(ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? Guid.Empty.ToString());
+    return Results.Ok(new { data = await svc.SetActiveAsync(id, req.IsActive, actorId) });
 }).WithOpenApi();
 
 // ── MCP server (thin tool layer over Application services — ADR-002) ──

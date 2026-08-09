@@ -8,6 +8,36 @@ import { getSessionItem, setSessionItem, removeSessionItem } from '../api/client
 
 const THREAD_STORAGE_KEY = 'chat.thread';
 
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+
+interface SpeechRecognitionEventLike extends Event {
+  resultIndex: number;
+  results: { [index: number]: SpeechRecognitionResultLike };
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 function getStoredThreadId(): string | null {
   return getSessionItem(THREAD_STORAGE_KEY);
 }
@@ -25,9 +55,13 @@ export default function ChatbotWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const speechSupported = typeof window !== 'undefined'
+    && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   const showRegistrationCta = messages.some(
     (message) =>
@@ -46,6 +80,10 @@ export default function ChatbotWidget() {
       inputRef.current?.focus();
     }
   }, [open]);
+
+  useEffect(() => () => {
+    recognitionRef.current?.stop();
+  }, []);
 
   // Load existing thread on open
   useEffect(() => {
@@ -165,6 +203,42 @@ export default function ChatbotWidget() {
   const toggleOpen = useCallback(() => {
     setOpen((prev) => !prev);
   }, []);
+
+  const toggleVoiceInput = useCallback(() => {
+    if (!speechSupported) return;
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
+
+    const recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = document.documentElement.lang || 'en-US';
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.resultIndex]?.[0]?.transcript?.trim();
+      if (transcript) {
+        setInput((current) => `${current.trim()}${current.trim() ? ' ' : ''}${transcript}`);
+      }
+    };
+    recognition.onerror = () => {
+      setListening(false);
+      setError('Voice input was not available. You can still type your message.');
+    };
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    setError(null);
+    setListening(true);
+    recognition.start();
+  }, [listening, speechSupported]);
 
   return (
     <>
@@ -297,6 +371,31 @@ export default function ChatbotWidget() {
               disabled={sending}
               autoComplete="off"
             />
+            {speechSupported && (
+              <button
+                type="button"
+                className={`chatbot-voice${listening ? ' listening' : ''}`}
+                onClick={toggleVoiceInput}
+                disabled={sending}
+                aria-label={listening ? 'Stop voice input' : 'Use voice input'}
+                title={listening ? 'Stop voice input' : 'Use voice input'}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="9" y="2" width="6" height="12" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" />
+                </svg>
+              </button>
+            )}
             <button type="submit" disabled={sending || !input.trim()}>
               {sending ? '...' : 'Send'}
             </button>

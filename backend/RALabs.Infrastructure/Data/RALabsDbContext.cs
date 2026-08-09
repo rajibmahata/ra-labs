@@ -15,6 +15,7 @@ public class RALabsDbContext : DbContext
     public DbSet<Locale> Locales => Set<Locale>();
     public DbSet<PageContent> PageContents => Set<PageContent>();
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<AdminNotification> AdminNotifications => Set<AdminNotification>();
     public DbSet<ChatThread> ChatThreads => Set<ChatThread>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
@@ -37,6 +38,7 @@ public class RALabsDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Role).HasMaxLength(30).IsRequired();
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.PasswordHash).IsRequired();
             e.Property(x => x.RefreshTokenHash).HasMaxLength(500);
@@ -135,6 +137,16 @@ public class RALabsDbContext : DbContext
             e.HasIndex(x => x.Status);
             e.HasOne(x => x.ChatThread).WithOne().HasForeignKey<Lead>(x => x.ChatThreadId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Admin notifications
+        b.Entity<AdminNotification>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Type).HasMaxLength(40).IsRequired();
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Message).HasMaxLength(1000).IsRequired();
+            e.HasIndex(x => new { x.IsRead, x.CreatedAt });
         });
 
         // ChatThread / ChatMessage

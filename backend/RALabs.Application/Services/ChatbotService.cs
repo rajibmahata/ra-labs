@@ -102,7 +102,7 @@ public class ChatbotService : IChatbotService
         if (chunks.Count == 0)
         {
             return new ChatbotReply(
-                "I don't have enough information on that yet. Tell me about your project and our team will follow up.",
+                "Oops, this time I’m not able to answer that fully. Share your details and our admin will contact you so the team can help fulfil your requirement. Brainstorming is free — this is a space to share ideas and shape an innovative product or business.",
                 NeedsManualIntervention: true);
         }
 
@@ -128,7 +128,7 @@ public class ChatbotService : IChatbotService
         if (scored.Count == 0 || scored[0].Score < 2)
         {
             return new ChatbotReply(
-                "I don't have information on that yet. Share a few details about your project and our team will follow up personally.",
+                "Oops, this time I’m not able to answer that fully. Share your details and our admin will contact you so the team can help fulfil your requirement. Brainstorming is free — this is a space to share ideas and shape an innovative product or business.",
                 NeedsManualIntervention: true);
         }
 

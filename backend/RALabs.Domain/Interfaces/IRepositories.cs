@@ -52,6 +52,15 @@ public interface ILeadRepository
     Task UpdateAsync(Lead lead);
 }
 
+public interface INotificationRepository
+{
+    Task AddAsync(AdminNotification notification);
+    Task<AdminNotification?> GetByIdAsync(Guid id);
+    Task<List<AdminNotification>> ListAsync(bool? unread, int page, int pageSize);
+    Task<int> CountAsync(bool? unread);
+    Task UpdateAsync(AdminNotification notification);
+}
+
 public interface IChatRepository
 {
     Task<ChatThread?> GetThreadAsync(Guid id);
@@ -100,6 +109,7 @@ public interface IKnowledgeChunkRepository
 {
     Task AddAsync(KnowledgeChunk chunk);
     Task DeleteBySourceAsync(string sourceType, string sourceId);
+    Task DeleteBySourcePrefixAsync(string sourceType, string sourcePrefix);
     Task<List<KnowledgeChunk>> GetPublicChunksAsync();
     Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId);
 }
@@ -128,6 +138,7 @@ public interface ICustomerProjectRepository
     Task<List<CustomerProject>> GetByCustomerAsync(Guid customerId, int page, int pageSize);
     Task<int> CountByCustomerAsync(Guid customerId);
     Task<List<CustomerProject>> GetAllAsync(int page, int pageSize);
+    Task<List<CustomerProject>> GetAllForAdminAsync(int page, int pageSize, CustomerProjectStatus? status, string? search, Guid? customerId);
     Task<int> CountAllAsync();
     Task<Guid> AddAsync(CustomerProject project);
     Task UpdateAsync(CustomerProject project);
@@ -141,5 +152,7 @@ public interface ICustomerProjectRepository
     Task<Invoice> AddInvoiceAsync(Invoice invoice);
     Task<List<Invoice>> GetInvoicesAsync(Guid projectId);
     Task<Feedback?> GetFeedbackAsync(Guid projectId);
+    Task<List<Feedback>> GetFeedbacksForAdminAsync(int page, int pageSize, string? search, bool? published);
+    Task<int> CountFeedbacksForAdminAsync(string? search, bool? published);
     Task<Feedback> SaveFeedbackAsync(Feedback feedback);
 }

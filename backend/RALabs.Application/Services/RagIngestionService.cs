@@ -23,14 +23,16 @@ public class RagIngestionService : IRagIngestionService
     private readonly IProjectRepository _projects;
     private readonly ITeamRepository _team;
     private readonly IContentRepository _content;
+    private readonly ICustomerProjectRepository? _customerProjects;
     private readonly IKnowledgeChunkRepository _chunks;
 
-    public RagIngestionService(IProjectRepository projects, ITeamRepository team, IContentRepository content, IKnowledgeChunkRepository chunks)
+    public RagIngestionService(IProjectRepository projects, ITeamRepository team, IContentRepository content, IKnowledgeChunkRepository chunks, ICustomerProjectRepository? customerProjects = null)
     {
         _projects = projects;
         _team = team;
         _content = content;
         _chunks = chunks;
+        _customerProjects = customerProjects;
     }
 
     public async Task<int> IngestPublicContentAsync(CancellationToken ct)
@@ -115,6 +117,28 @@ public class RagIngestionService : IRagIngestionService
                     Id = Guid.NewGuid(),
                     SourceType = KnowledgeSourceType.PublicContent,
                     SourceId = $"team:{m.Id}",
+                    CustomerProjectId = null,
+                    ChunkText = text,
+                    CreatedAt = DateTime.UtcNow
+                });
+                count++;
+            }
+        }
+
+        if (_customerProjects is not null)
+        {
+            await _chunks.DeleteBySourcePrefixAsync(nameof(KnowledgeSourceType.PublicContent), "review:");
+            var reviews = await _customerProjects.GetFeedbacksForAdminAsync(1, 1000, null, true);
+            foreach (var review in reviews)
+            {
+                var title = review.CustomerProject?.Title ?? "Project";
+                var text = $"Review for {title}: {review.Comment}";
+                if (text.Length <= 20) continue;
+                await _chunks.AddAsync(new KnowledgeChunk
+                {
+                    Id = Guid.NewGuid(),
+                    SourceType = KnowledgeSourceType.PublicContent,
+                    SourceId = $"review:{review.Id}",
                     CustomerProjectId = null,
                     ChunkText = text,
                     CreatedAt = DateTime.UtcNow

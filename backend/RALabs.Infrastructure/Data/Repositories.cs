@@ -70,7 +70,7 @@ public class TeamRepository : ITeamRepository
         _db.TeamMembers.FirstOrDefaultAsync(m => m.Slug == slug);
 
     public async Task<List<TeamMember>> GetPublishedAsync() =>
-        await _db.TeamMembers.Where(m => m.IsPublished).OrderBy(m => m.Name).ToListAsync();
+        await _db.TeamMembers.Where(m => m.IsActive && m.IsPublished).OrderBy(m => m.Name).ToListAsync();
 
     public async Task<List<TeamMember>> GetAllAsync() =>
         await _db.TeamMembers.OrderBy(m => m.Name).ToListAsync();
@@ -211,6 +211,44 @@ public class LeadRepository : ILeadRepository
     public Task UpdateAsync(Lead lead)
     {
         _db.Leads.Update(lead);
+        return _db.SaveChangesAsync();
+    }
+}
+
+public class NotificationRepository : INotificationRepository
+{
+    private readonly RALabsDbContext _db;
+    public NotificationRepository(RALabsDbContext db) => _db = db;
+
+    public async Task AddAsync(AdminNotification notification)
+    {
+        _db.AdminNotifications.Add(notification);
+        await _db.SaveChangesAsync();
+    }
+
+    public Task<AdminNotification?> GetByIdAsync(Guid id) =>
+        _db.AdminNotifications.FirstOrDefaultAsync(x => x.Id == id);
+
+    public Task<List<AdminNotification>> ListAsync(bool? unread, int page, int pageSize)
+    {
+        var query = _db.AdminNotifications.AsQueryable();
+        if (unread == true) query = query.Where(x => !x.IsRead);
+        if (unread == false) query = query.Where(x => x.IsRead);
+        return query.OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public Task<int> CountAsync(bool? unread)
+    {
+        var query = _db.AdminNotifications.AsQueryable();
+        if (unread == true) query = query.Where(x => !x.IsRead);
+        if (unread == false) query = query.Where(x => x.IsRead);
+        return query.CountAsync();
+    }
+
+    public Task UpdateAsync(AdminNotification notification)
+    {
+        _db.AdminNotifications.Update(notification);
         return _db.SaveChangesAsync();
     }
 }
@@ -403,6 +441,16 @@ public class KnowledgeChunkRepository : IKnowledgeChunkRepository
         }
     }
 
+    public async Task DeleteBySourcePrefixAsync(string sourceType, string sourcePrefix)
+    {
+        var items = await _db.KnowledgeChunks
+            .Where(k => k.SourceType.ToString() == sourceType && k.SourceId.StartsWith(sourcePrefix))
+            .ToListAsync();
+        if (items.Count == 0) return;
+        _db.KnowledgeChunks.RemoveRange(items);
+        await _db.SaveChangesAsync();
+    }
+
     public async Task<List<KnowledgeChunk>> GetPublicChunksAsync() =>
         await _db.KnowledgeChunks.Where(k => k.CustomerProjectId == null).ToListAsync();
 
@@ -470,6 +518,29 @@ public class CustomerProjectRepository : ICustomerProjectRepository
         await _db.CustomerProjects.OrderByDescending(p => p.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
+    public async Task<List<CustomerProject>> GetAllForAdminAsync(int page, int pageSize, CustomerProjectStatus? status, string? search, Guid? customerId)
+    {
+        var query = _db.CustomerProjects.AsQueryable();
+        if (status.HasValue)
+            query = query.Where(p => p.Status == status.Value);
+        if (customerId.HasValue)
+            query = query.Where(p => p.CustomerId == customerId.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLowerInvariant();
+            query = query.Where(p => p.Title.ToLower().Contains(term)
+                || (p.Goal != null && p.Goal.ToLower().Contains(term))
+                || (p.Audience != null && p.Audience.ToLower().Contains(term))
+                || (p.Requirements != null && p.Requirements.ToLower().Contains(term))
+                || (p.Timeline != null && p.Timeline.ToLower().Contains(term))
+                || (p.BudgetOrConstraints != null && p.BudgetOrConstraints.ToLower().Contains(term))
+                || (p.ReferenceLinks != null && p.ReferenceLinks.ToLower().Contains(term))
+                || (p.AdminNotes != null && p.AdminNotes.ToLower().Contains(term)));
+        }
+        return await query.OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
     public Task<int> CountAllAsync() => _db.CustomerProjects.CountAsync();
 
     public async Task<Guid> AddAsync(CustomerProject project)
@@ -532,6 +603,38 @@ public class CustomerProjectRepository : ICustomerProjectRepository
 
     public Task<Feedback?> GetFeedbackAsync(Guid projectId) =>
         _db.Feedbacks.FirstOrDefaultAsync(f => f.CustomerProjectId == projectId);
+
+    public async Task<List<Feedback>> GetFeedbacksForAdminAsync(int page, int pageSize, string? search, bool? published)
+    {
+        var query = FeedbackAdminQuery(search, published);
+        return await query
+            .OrderByDescending(f => f.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public Task<int> CountFeedbacksForAdminAsync(string? search, bool? published) =>
+        FeedbackAdminQuery(search, published).CountAsync();
+
+    private IQueryable<Feedback> FeedbackAdminQuery(string? search, bool? published)
+    {
+        var query = _db.Feedbacks
+            .Include(f => f.CustomerProject)
+            .ThenInclude(p => p.Customer)
+            .AsQueryable();
+        if (published.HasValue)
+            query = query.Where(f => f.IsPublished == published.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(f => f.Comment.Contains(term) ||
+                f.CustomerProject.Title.Contains(term) ||
+                f.CustomerProject.Customer.Name.Contains(term) ||
+                f.CustomerProject.Customer.Email.Contains(term));
+        }
+        return query;
+    }
 
     public async Task<Feedback> SaveFeedbackAsync(Feedback feedback)
     {

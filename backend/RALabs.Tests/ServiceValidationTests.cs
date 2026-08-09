@@ -91,6 +91,22 @@ public class ServiceValidationTests : IDisposable
     }
 
     [Fact]
+    public async Task NotificationService_CreatesListsAndMarksRead()
+    {
+        var svc = new NotificationService(new NotificationRepository(_db));
+        await svc.CreateAsync("lead", "New contact request", "A visitor sent a message.");
+
+        var unread = await svc.ListAsync(true, 1, 20);
+
+        Assert.Single(unread.Items);
+        Assert.False(unread.Items[0].IsRead);
+        await svc.MarkReadAsync(unread.Items[0].Id);
+
+        var remaining = await svc.ListAsync(true, 1, 20);
+        Assert.Empty(remaining.Items);
+    }
+
+    [Fact]
     public async Task AuthService_Login_InvalidPassword_ThrowsUnauthorized()
     {
         await SeedBaselineAsync();
@@ -119,6 +135,31 @@ public class ServiceValidationTests : IDisposable
             new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
         await Assert.ThrowsAsync<ConflictException>(() =>
             svc.CreateAdminAsync(new CreateAdminRequest("X", "rajib@ralabs.dev", "Password123!", null), Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task AuthService_SetActive_DeactivatesAndRevokesRefreshToken()
+    {
+        var actorId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        await _db.AdminUsers.AddRangeAsync(
+            new Domain.Entities.AdminUser { Id = actorId, Name = "Owner", Email = "owner@ralabs.dev", PasswordHash = "hash" },
+            new Domain.Entities.AdminUser
+            {
+                Id = targetId, Name = "Operator", Email = "operator@ralabs.dev", PasswordHash = "hash",
+                RefreshTokenHash = "refresh-hash", RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(1)
+            });
+        await _db.SaveChangesAsync();
+
+        var svc = new AuthService(new AdminUserRepository(_db), _hasher,
+            new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
+        var result = await svc.SetActiveAsync(targetId, false, actorId);
+
+        Assert.False(result.IsActive);
+        var target = await _db.AdminUsers.FindAsync(targetId);
+        Assert.Null(target!.RefreshTokenHash);
+        Assert.Null(target.RefreshTokenExpiresAt);
+        await Assert.ThrowsAsync<ForbiddenAccessException>(() => svc.SetActiveAsync(actorId, false, actorId));
     }
 
     [Fact]

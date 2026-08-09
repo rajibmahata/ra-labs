@@ -14,6 +14,7 @@ public class TeamMember
     public string? Email { get; set; }
     public string? LinkedinUrl { get; set; }
     public string? Location { get; set; }
+    public bool IsActive { get; set; } = true;
     public bool IsPublished { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

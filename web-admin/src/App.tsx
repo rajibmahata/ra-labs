@@ -15,6 +15,8 @@ import Customers from './pages/Customers';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Drafts from './pages/Drafts';
+import Notifications from './pages/Notifications';
+import Reviews from './pages/Reviews';
 
 export default function App() {
   return (
@@ -41,6 +43,8 @@ export default function App() {
             <Route path="my-profile" element={<MyProfile />} />
             <Route path="content" element={<Content />} />
             <Route path="chat" element={<Chat />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="reviews" element={<Reviews />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/admin/" replace />} />

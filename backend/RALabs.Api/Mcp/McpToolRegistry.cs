@@ -259,7 +259,7 @@ public class McpToolRegistry
             // Admin customer-project tools
             "list_customers" => EnsureAdmin(role, await customerRepo.GetAllAsync(GetInt(args, "page") ?? 1, GetInt(args, "pageSize") ?? 20)),
             "list_all_customer_projects" => EnsureAdmin(role,
-                await customerProjects.GetAllForAdminAsync(GetInt(args, "page"), GetInt(args, "pageSize"), GetStr(args, "status"))),
+                await customerProjects.GetAllForAdminAsync(GetInt(args, "page"), GetInt(args, "pageSize"), GetStr(args, "status"), GetStr(args, "search"), GetGuid(args, "customerId"))),
             "update_customer_project" => EnsureAdmin(role, await customerProjects.UpdateStatusAsync(ParseGuid(RequireStr(args, "id")),
                 new UpdateCustomerProjectRequest(GetStr(args, "status"), GetStr(args, "adminNotes")))),
             "get_customer_project" => EnsureAdmin(role, await customerProjects.GetForAdminAsync(ParseGuid(RequireStr(args, "id")))),

@@ -1,5 +1,36 @@
 # CHANGELOG: ra-labs
 
+## [Unreleased] - admin governance + public RAG synchronization
+
+### Added
+- Persisted `admin` and `super_admin` roles with super-admin-only governance
+  for team members and admin-account activation.
+- Settings status controls with confirmation dialogs; deactivation revokes
+  existing admin refresh tokens and self-deactivation is rejected.
+- Automatic public RAG refresh after project, team, CMS content, review
+  moderation, and review approval mutations.
+- Approved reviews are included in public RAG retrieval while customer-private
+  project data remains project-scoped.
+- Admin-created customer projects from the Customers workspace, including
+  title, goal, requirements, and timeline capture.
+- Customer-project admin search now covers project context fields and the
+  Customers-to-Projects customer filter is enforced by the API.
+- Customer-project filters are applied before pagination, with case-insensitive
+  matching across the SQL Server and in-memory providers.
+- Backend regression coverage now totals 68 passing tests.
+
+## [Unreleased] - voice assistant + admin notifications
+
+### Added
+- Public chatbot voice input through the browser Web Speech API, with a
+  graceful typed-input fallback.
+- Warm retrieval fallback copy that invites free brainstorming and a team
+  follow-up without bluntly claiming missing knowledge.
+- Persisted admin notifications for leads, escalated chats, customer
+  registrations, and customer project activity.
+- Admin notification bell, unread count, notification page, mark-read actions,
+  foreground browser alerts, and installable admin PWA shell.
+
 ## [Unreleased] - language fix + LLM translation agent (task-i18n-agent)
 
 ### Added
