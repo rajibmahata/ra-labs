@@ -17,6 +17,7 @@ const navItems = [
   { to: '/admin/chat', label: 'Chat', icon: '💬', end: false },
   { to: '/admin/reviews', label: 'Reviews', icon: '★', end: false },
   { to: '/admin/notifications', label: 'Notifications', icon: '🔔', end: false },
+  { to: '/admin/audit', label: 'Audit Log', icon: '🛡️', end: false },
   { to: '/admin/settings', label: 'Settings', icon: '⚙️', end: false },
 ];
 

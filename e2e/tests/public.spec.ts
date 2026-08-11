@@ -6,12 +6,14 @@ import { test, expect } from '@playwright/test';
  * (see docs/DEPLOYMENT.md), with the Vite dev proxy or gateway in place.
  */
 
-test('homepage renders hero, process, and portfolio', async ({ page }) => {
+test('homepage renders hero, agent panel, pipeline, and portfolio', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/R&A Labs|R.A Labs/);
   await expect(page.locator('h1').first()).toBeVisible();
-  // Process section present
-  await expect(page.locator('#process')).toBeVisible();
+  // Agent panel is the centerpiece of the hero
+  await expect(page.locator('.agent-hero-panel .agent-panel').first()).toBeVisible();
+  // Pipeline section present
+  await expect(page.locator('#pipeline')).toBeVisible();
   // Portfolio preview loads real projects (wait for cards or empty state)
   await expect(page.locator('.card-grid, .state-placeholder').first()).toBeVisible({ timeout: 10000 });
 });

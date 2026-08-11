@@ -99,12 +99,26 @@ export interface Project {
   stackTags: string[];
   status: 'live' | 'in_build';
   githubUrl?: string | null;
+  liveSiteUrl?: string | null;
+  category?: string | null;
+  businessPurpose?: string | null;
+  problemSolved?: string | null;
+  solution?: string | null;
+  keyFeatures: string[];
   caseStudyBody?: string | null;
   coverImageUrl?: string | null;
+  screenshots: string[];
+  duration?: string | null;
+  teamMemberIds: string[];
+  completedAt?: string | null;
+  customerReference?: string | null;
+  showCustomerReference: boolean;
   sortOrder: number;
+  isFeatured: boolean;
+  isActive: boolean;
   isPublished: boolean;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt?: string | null;
 }
 
 export interface ProjectForm {
@@ -114,9 +128,23 @@ export interface ProjectForm {
   stackTags: string[];
   status: 'live' | 'in_build';
   githubUrl?: string;
+  liveSiteUrl?: string;
+  category?: string;
+  businessPurpose?: string;
+  problemSolved?: string;
+  solution?: string;
+  keyFeatures: string[];
   caseStudyBody?: string;
   coverImageUrl?: string;
+  screenshots: string[];
+  duration?: string;
+  teamMemberIds: string[];
+  completedAt?: string;
+  customerReference?: string;
+  showCustomerReference: boolean;
   sortOrder: number;
+  isFeatured: boolean;
+  isActive: boolean;
   isPublished: boolean;
 }
 
@@ -207,6 +235,7 @@ export interface Customer {
   isActive: boolean;
   createdAt: string;
   projectCount: number;
+  updatedAt?: string | null;
 }
 
 export interface CustomerProject {

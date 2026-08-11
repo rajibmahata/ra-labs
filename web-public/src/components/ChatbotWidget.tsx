@@ -8,36 +8,6 @@ import { getSessionItem, setSessionItem, removeSessionItem } from '../api/client
 
 const THREAD_STORAGE_KEY = 'chat.thread';
 
-interface SpeechRecognitionResultLike {
-  isFinal: boolean;
-  0: { transcript: string };
-}
-
-interface SpeechRecognitionEventLike extends Event {
-  resultIndex: number;
-  results: { [index: number]: SpeechRecognitionResultLike };
-}
-
-interface SpeechRecognitionLike {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
 function getStoredThreadId(): string | null {
   return getSessionItem(THREAD_STORAGE_KEY);
 }
@@ -59,7 +29,7 @@ export default function ChatbotWidget() {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const speechSupported = typeof window !== 'undefined'
     && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
@@ -135,6 +105,7 @@ export default function ChatbotWidget() {
         senderName: 'Visitor',
         content: trimmed,
         attachmentUrl: null,
+        suggestedActions: null,
         createdAt: new Date().toISOString(),
       };
 
@@ -224,8 +195,7 @@ export default function ChatbotWidget() {
       if (transcript) {
         setInput((current) => `${current.trim()}${current.trim() ? ' ' : ''}${transcript}`);
       }
-    };
-    recognition.onerror = () => {
+    };    recognition.onerror = () => {
       setListening(false);
       setError('Voice input was not available. You can still type your message.');
     };

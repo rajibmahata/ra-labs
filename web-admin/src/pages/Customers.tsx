@@ -1,9 +1,13 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customerProjects as cpApi } from '../api/client';
-import { ConfirmDialog, Modal } from '../components/Modal';
 import { useToast } from '../components/useToast';
 import type { Customer } from '../types';
+
+type EditingPanel =
+  | { mode: 'create-customer' }
+  | { mode: 'create-project'; customer: Customer }
+  | null;
 
 export default function Customers() {
   const { addToast, ToastContainer } = useToast();
@@ -16,9 +20,8 @@ export default function Customers() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ ids: string[]; isActive: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [editingPanel, setEditingPanel] = useState<EditingPanel>(null);
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '' });
-  const [projectCustomer, setProjectCustomer] = useState<Customer | null>(null);
   const [projectForm, setProjectForm] = useState({ title: '', goal: '', requirements: '', timeline: '' });
 
   const fetchCustomers = async () => {
@@ -61,13 +64,25 @@ export default function Customers() {
     }
   };
 
+  const openCreateCustomer = () => {
+    setEditingPanel({ mode: 'create-customer' });
+    setCreateForm({ name: '', email: '', password: '' });
+  };
+
+  const openCreateProject = (customer: Customer) => {
+    setEditingPanel({ mode: 'create-project', customer });
+    setProjectForm({ title: '', goal: '', requirements: '', timeline: '' });
+  };
+
+  const closePanel = () => setEditingPanel(null);
+
   const createCustomer = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
     try {
       await cpApi.createCustomer(createForm);
       addToast('Customer account created', 'success');
-      setCreateOpen(false);
+      setEditingPanel(null);
       setCreateForm({ name: '', email: '', password: '' });
       await fetchCustomers();
     } catch (e) {
@@ -79,12 +94,12 @@ export default function Customers() {
 
   const createProject = async (event: FormEvent) => {
     event.preventDefault();
-    if (!projectCustomer) return;
+    if (editingPanel?.mode !== 'create-project') return;
     setSaving(true);
     try {
-      await cpApi.create({ customerId: projectCustomer.id, ...projectForm });
+      await cpApi.create({ customerId: editingPanel.customer.id, ...projectForm });
       addToast('Customer project created', 'success');
-      setProjectCustomer(null);
+      setEditingPanel(null);
       setProjectForm({ title: '', goal: '', requirements: '', timeline: '' });
       await fetchCustomers();
     } catch (e) {
@@ -103,13 +118,58 @@ export default function Customers() {
           <p className="page-subtitle">Registered customers and their active projects.</p>
         </div>
         <div className="form-inline">
-          <button className="btn btn--primary" onClick={() => setCreateOpen(true)}>Add Customer</button>
+          <button className="btn btn--primary" onClick={openCreateCustomer}>Add Customer</button>
           <button className="btn btn--primary" disabled={selected.size === 0} onClick={() => setConfirm({ ids: [...selected], isActive: true })}>Activate selected</button>
           <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setConfirm({ ids: [...selected], isActive: false })}>Deactivate selected</button>
         </div>
       </div>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
+
+      {confirm && (
+        <div className="inline-confirm-bar" role="region" aria-label="Confirm status change">
+          <span>
+            {confirm.isActive
+              ? `Activate ${confirm.ids.length} customer account(s)? They will be able to sign in again.`
+              : `Deactivate ${confirm.ids.length} customer account(s)? They will be blocked from signing in.`}
+          </span>
+          <div className="form-inline">
+            <button type="button" className="btn btn--primary btn--sm" disabled={saving} onClick={() => void updateStatus()}>
+              {saving ? '...' : confirm.isActive ? 'Activate' : 'Deactivate'}
+            </button>
+            <button type="button" className="btn btn--outline btn--sm" disabled={saving} onClick={() => setConfirm(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {editingPanel?.mode === 'create-customer' && (
+        <div className="card inline-edit-panel" role="region" aria-label="Add customer">
+          <form onSubmit={createCustomer}>
+            <div className="inline-edit-panel-title">
+              <h2 className="page-title">Add Customer</h2>
+            </div>
+            <div className="form-group"><label className="form-label">Name *</label><input className="form-input" required maxLength={100} value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Email *</label><input className="form-input" required type="email" maxLength={200} value={createForm.email} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Temporary password *</label><input className="form-input" required type="password" minLength={8} value={createForm.password} onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))} autoComplete="new-password" /></div>
+            <div className="form-actions"><button type="button" className="btn btn--outline" onClick={closePanel}>Cancel</button><button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Creating...' : 'Create customer'}</button></div>
+          </form>
+        </div>
+      )}
+
+      {editingPanel?.mode === 'create-project' && (
+        <div className="card inline-edit-panel" role="region" aria-label={`Add project for ${editingPanel.customer.name}`}>
+          <form onSubmit={createProject}>
+            <div className="inline-edit-panel-title">
+              <h2 className="page-title">Add project for {editingPanel.customer.name}</h2>
+            </div>
+            <div className="form-group"><label className="form-label">Title *</label><input className="form-input" required maxLength={200} value={projectForm.title} onChange={(event) => setProjectForm((current) => ({ ...current, title: event.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Goal</label><textarea className="form-textarea" maxLength={5000} value={projectForm.goal} onChange={(event) => setProjectForm((current) => ({ ...current, goal: event.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Requirements</label><textarea className="form-textarea" maxLength={10000} value={projectForm.requirements} onChange={(event) => setProjectForm((current) => ({ ...current, requirements: event.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Timeline</label><input className="form-input" maxLength={500} value={projectForm.timeline} onChange={(event) => setProjectForm((current) => ({ ...current, timeline: event.target.value }))} /></div>
+            <div className="form-actions"><button type="button" className="btn btn--outline" onClick={closePanel}>Cancel</button><button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Creating...' : 'Create project'}</button></div>
+          </form>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body card-body--flush">
@@ -159,7 +219,7 @@ export default function Customers() {
                       <td>{new Date(c.createdAt).toLocaleDateString()}</td>
                       <td><span className={`badge ${c.isActive ? 'badge--published' : 'badge--unpublished'}`}>{c.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <button className="btn btn--outline btn--sm" onClick={() => setProjectCustomer(c)}>Add project</button>
+                        <button className="btn btn--outline btn--sm" onClick={() => openCreateProject(c)}>Add project</button>
                       </td>
                     </tr>
                   ))}
@@ -178,32 +238,6 @@ export default function Customers() {
           </div>
         )}
       </div>
-      <ConfirmDialog
-        open={confirm !== null}
-        onClose={() => setConfirm(null)}
-        onConfirm={() => void updateStatus()}
-        title={confirm?.isActive ? 'Activate customer accounts?' : 'Deactivate customer accounts?'}
-        message={confirm?.isActive ? 'Selected customers will be able to sign in again.' : 'Selected customers will be blocked from signing in.'}
-        confirmLabel={confirm?.isActive ? 'Activate' : 'Deactivate'}
-        loading={saving}
-      />
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Add Customer">
-        <form onSubmit={createCustomer}>
-          <div className="form-group"><label className="form-label">Name *</label><input className="form-input" required maxLength={100} value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">Email *</label><input className="form-input" required type="email" maxLength={200} value={createForm.email} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">Temporary password *</label><input className="form-input" required type="password" minLength={8} value={createForm.password} onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))} autoComplete="new-password" /></div>
-          <div className="form-actions"><button type="button" className="btn btn--outline" onClick={() => setCreateOpen(false)}>Cancel</button><button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Creating...' : 'Create customer'}</button></div>
-        </form>
-      </Modal>
-      <Modal open={projectCustomer !== null} onClose={() => setProjectCustomer(null)} title={`Add project for ${projectCustomer?.name ?? 'customer'}`}>
-        <form onSubmit={createProject}>
-          <div className="form-group"><label className="form-label">Title *</label><input className="form-input" required maxLength={200} value={projectForm.title} onChange={(event) => setProjectForm((current) => ({ ...current, title: event.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">Goal</label><textarea className="form-textarea" maxLength={5000} value={projectForm.goal} onChange={(event) => setProjectForm((current) => ({ ...current, goal: event.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">Requirements</label><textarea className="form-textarea" maxLength={10000} value={projectForm.requirements} onChange={(event) => setProjectForm((current) => ({ ...current, requirements: event.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">Timeline</label><input className="form-input" maxLength={500} value={projectForm.timeline} onChange={(event) => setProjectForm((current) => ({ ...current, timeline: event.target.value }))} /></div>
-          <div className="form-actions"><button type="button" className="btn btn--outline" onClick={() => setProjectCustomer(null)}>Cancel</button><button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Creating...' : 'Create project'}</button></div>
-        </form>
-      </Modal>
     </div>
   );
 }

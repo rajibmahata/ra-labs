@@ -116,6 +116,23 @@ public static class Guard
             Errors.Add($"{field} must be a valid http(s) URL.");
     }
 
+    /// <summary>
+    /// Validates a public-facing website URL: absolute http(s) only, and HTTPS
+    /// unless the host is a loopback/dev host. Prevents javascript:/data:/file:
+    /// schemes and accidental insecure production links.
+    /// </summary>
+    public static void HttpsUrl(string? value, string field, int maxLength = 500)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        Url(value, field, maxLength);
+        if (HasErrors) return;
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)) return;
+        var host = uri.Host.ToLowerInvariant();
+        var isDevHost = host is "localhost" or "127.0.0.1" or "::1" || host.EndsWith(".local") || host.EndsWith(".test");
+        if (uri.Scheme == Uri.UriSchemeHttp && !isDevHost)
+            Errors.Add($"{field} must use HTTPS.");
+    }
+
     public static void Range(int value, string field, int min, int max)
     {
         if (value < min || value > max)

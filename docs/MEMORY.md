@@ -3,6 +3,9 @@
 Living project state. Updated as part of finishing a task, not after.
 
 ## Completed Features
+- 2026-08-10 — **Frontend dependency audit cleared (GAP-006)**: all three apps on react-router-dom 7.18.2 + vite 6.4.3; `BrowserRouter` v6 future props removed; `npm audit` 0 vulnerabilities in each; builds pass.
+- 2026-08-10 — **Admin import/export consistency (GAP-010)**: shared `CsvHelper`; Leads + Team CSV import (validation, 500-row cap, duplicate skipping, team import audited) and export with filters; Content + Reviews CSV export (export-only by design); Import/Export buttons on the Leads/Team/Content/Reviews pages. Suite: 82 passing tests.
+- 2026-08-10 — **Server-side dashboard aggregate + observability (GAP-011, GAP-012)**: admin-authorized `GET /api/v1/admin/dashboard/stats` returns true counts (customers, projects by status, leads, reviews, team, portfolio, drafts, chat intervention, unread notifications, latest GitHub snapshot, repository count, knowledge chunks, pending+running agent tasks) in one call — no more page-capped client-side counting. web-admin Dashboard `load()` is server-first with a client-side fallback, and the System Status card shows synced repositories, knowledge chunks, and pending agent tasks. Suite: 82 passing tests (with GAP-010).
 - 2026-08-08 — **v1.1.0 production pass (Phases A–J)**: customer portal +
   workflow backend (projects, docs, PRD dual sign, demo, invoice, feedback),
   admin Customers/Projects/Project workspace, auth hardening (roles, reset,
@@ -19,10 +22,49 @@ Living project state. Updated as part of finishing a task, not after.
   requirements, notes, and other captured project fields.
 - Customer-project admin filters are applied in the repository before paging,
   with case-insensitive behavior across SQL Server and in-memory tests.
+- Customer administration now has a shared prompt contract plus search,
+  status filtering, CRUD, bulk deletion, CSV import/export, and explicit
+  private knowledge-chunk cleanup on deletion. Dedicated customer-management
+  tests and MCP/Playwright coverage remain outstanding.
+- 2026-08-09 — **Admin modal-free overhaul + dynamic 3D AI hero**: every admin
+  popup replaced by inline patterns (`InlineConfirm` row-level destructive morph,
+  `inline-edit-panel` forms, `inline-confirm-bar` bulk confirms); `Modal.tsx`
+  deleted. Content admin grouped by key prefix with tabs; ProjectDetails
+  converted to Overview/Docs/PRD/Demos/Invoices/Feedback tabs. New
+  `GET /api/v1/hero-scenarios` endpoint (`HeroScenarioService`, OpenAI-generated
+  visual variables, `IMemoryCache` 1 h TTL, deterministic fallback grounded in
+  published projects) drives a CSS-3D animated hero on the public site. Suite:
+  74 passing tests.
+- 2026-08-09 — **RA Labs AI agent (GAP-019..024)**: agent orchestrator
+  (`AgentChatService`): guided 7-step project intake, quick/suggested actions,
+  RAG QA fallback, anonymous brief preservation + customer handoff with thread
+  claiming; voice (shared `useVoice` hook, states, TTS interrupt) and LLM
+  streaming gated by admin settings (`SystemSetting` store + public
+  `GET /api/v1/config`); chat attachments (10 MB allowlist, private storage);
+  Super Admin hardening (`CreateAdminRequest.Role`, MCP role hierarchy) +
+  `AuditLog` entity/service/endpoint + admin Audit page. Migration
+  `AgentSystemSettingsAuditAndChatAgent` (20260809143610). Suite: 77 passing
+  tests; all three frontend production builds pass.
+- 2026-08-09 — **Phase 2 self-review pass**: fixed ChatService notifications
+  (pending brief + project-created now create admin notifications, matching the
+  agent's promise to the user; escalation/pending-brief notifications fire only
+  on flag transition); streaming route now catches provider failures
+  (HttpRequestException/JsonException/IO/cancel) and falls back to the
+  deterministic reply instead of aborting mid-SSE, plus 403 handling and no
+  unused locals; audit-logs pagination now includes `totalPages` (frontend
+  expected it); web-public AgentChat fixed last-agent lookup off-by-one
+  (handoff banner + voice TTS crash), duplicate optimistic message in the
+  streaming path, and streaming-bubble cleanup on error; `recognition.start()`
+  wrapped in try/catch in both voice implementations. Build + 77 tests + three
+  frontend builds verified after fixes.
 
 ## Current Sprint
 - v1.1.0 shipped to develop. Next: M5 (marketing agent, voice chatbot, expanded
   locale set), Qdrant real embeddings, Playwright suite execution in CI.
+- Phase 2 (AI agent) implementation complete; runtime browser/voice/streaming
+  validation pending — SQL Server unreachable from WSL, API stopped on Windows,
+  three migrations pending apply (`20260809102238`, `20260809103250`,
+  `20260809143610`).
 
 ## Architecture Decisions
 - ADR-001 (Postgres) **superseded** by ADR-006 (SQL Server Express Windows

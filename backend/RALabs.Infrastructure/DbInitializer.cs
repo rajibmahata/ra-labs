@@ -141,20 +141,67 @@ public static class DbInitializer
         {
             var content = new Dictionary<string, string>
             {
-                ["hero.headline"] = "We build backend systems and SaaS products that scale, perform, and ship.",
-                ["hero.subheadline"] = "A two-founder engineering studio. 12+ years of production experience across Fortune 500 healthcare, enterprise telecom, and AI products.",
-                ["hero.cta.primary"] = "Start a project",
+                ["hero.eyebrow"] = "AI agent · engineering studio",
+                ["hero.headline"] = "Describe the problem once. Our AI agent turns it into",
+                ["hero.headlineHighlight"] = "a plan",
+                ["hero.subheadline"] = "A two-founder engineering studio pairing senior engineering with an AI agent workforce. The agent answers questions about our work and collects your project brief for the team.",
+                ["hero.cta.primary"] = "Ask the agent",
                 ["hero.cta.secondary"] = "See the work",
-                ["process.step1.title"] = "Discuss",
-                ["process.step1.body"] = "We listen to what you need and ask the right architecture questions upfront.",
-                ["process.step2.title"] = "Sketch",
-                ["process.step2.body"] = "We map the solution, scope, and timeline together.",
-                ["process.step3.title"] = "Architect",
-                ["process.step3.body"] = "Clean architecture from day one — SOLID, event-driven where it makes sense.",
-                ["process.step4.title"] = "Build",
-                ["process.step4.body"] = "Production-ready code with regular check-ins — you're never in the dark.",
-                ["process.step5.title"] = "Refine",
-                ["process.step5.body"] = "Delivery, documentation, and knowledge transfer. We don't disappear.",
+                ["hero.cta.note"] = "Your conversation stays in this browser session until you create a private workspace.",
+                ["cap.eyebrow"] = "The assistant",
+                ["cap.title"] = "What the agent can do",
+                ["cap.answers.title"] = "Answers about our work",
+                ["cap.answers.body"] = "Portfolio, services, process and team — grounded in our indexed content and knowledge base.",
+                ["cap.brief.title"] = "Collects your project brief",
+                ["cap.brief.body"] = "A guided step-by-step intake; the finished brief goes to the team and can follow you into the portal.",
+                ["cap.grounded.title"] = "Grounded, not invented",
+                ["cap.grounded.body"] = "Retrieval-augmented answers. The agent says so when it does not know — no made-up facts.",
+                ["cap.private.title"] = "Private by default",
+                ["cap.private.body"] = "The conversation lives in a session-scoped thread. No ads, no tracking, no sharing.",
+                ["pipeline.eyebrow"] = "How it works",
+                ["pipeline.title"] = "From first question to working plan",
+                ["pipeline.ask.title"] = "Ask",
+                ["pipeline.ask.body"] = "Type any question about our work, or describe the project you want to build.",
+                ["pipeline.grounded.title"] = "Grounded reply",
+                ["pipeline.grounded.body"] = "The agent answers from our indexed portfolio and knowledge — never invented.",
+                ["pipeline.brief.title"] = "Brief collection",
+                ["pipeline.brief.body"] = "Say \"create a project\" and the agent walks you through goal, users, features, timeline and budget.",
+                ["pipeline.handoff.title"] = "Handoff",
+                ["pipeline.handoff.body"] = "The brief reaches the team. Continue privately in a customer workspace when you are ready.",
+                ["pipeline.bridge.eyebrow"] = "Your first brief",
+                ["pipeline.bridge.body"] = "Bring a goal, the people it serves, the capabilities you need, a target timeline, and any constraints or references. The agent will help you shape the rest.",
+                ["privacy.eyebrow"] = "Conversation privacy",
+                ["privacy.title"] = "A private workspace, not a public comment box",
+                ["privacy.body"] = "Your conversation is kept in a session-scoped thread that only the RA Labs team can read. When you register, the thread moves into your project workspace so the brief and the conversation stay together.",
+                ["privacy.check.thread"] = "Session-scoped thread, no public history",
+                ["privacy.check.attachments"] = "Attachments stored privately, never published",
+                ["privacy.check.team"] = "Only the studio team can read your conversation",
+                ["privacy.check.portal"] = "Continue securely in the customer portal",
+                ["agent.welcome"] = "Hi! I'm the R&A Labs assistant. Ask about our work, services and process — or tell me about your project and I'll collect a brief for the team.",
+                ["agent.status.online"] = "Online — replies in seconds",
+                ["agent.status.offline"] = "Temporarily offline",
+                ["agent.composer.placeholder"] = "Ask the agent or describe your project…",
+                ["agent.draft.label"] = "Draft",
+                ["agent.draft.final"] = "Sent",
+                ["agent.draft.finalized"] = "Finalized",
+                ["agent.draft.finalizing"] = "Finalizing…",
+                ["agent.typing"] = "Agent is responding",
+                ["agent.copy"] = "Copy",
+                ["agent.copied"] = "Copied",
+                ["agent.loadFailed"] = "Could not reach the assistant right now. Please try again later.",
+                ["agent.sessionExpired"] = "Session expired. Send your message again and a new conversation will start.",
+                ["agent.rateLimited"] = "You are sending messages too quickly. Please wait a moment.",
+                ["agent.sendFailed"] = "Failed to send the message. Please try again.",
+                ["agent.uploadFailed"] = "Could not upload the file.",
+                ["agent.copyFailed"] = "Could not copy the message.",
+                ["agent.handoff.body"] = "Want to track this request? Continue in the customer portal.",
+                ["agent.handoff.cta"] = "Open customer portal",
+                ["agent.starters.label"] = "Conversation starters",
+                ["agent.starters.create"] = "Create a project",
+                ["agent.starters.about"] = "Tell me about RA Labs",
+                ["agent.starters.work"] = "Explore projects",
+                ["agent.starters.contact"] = "Contact us",
+                ["agent.page.subtitle"] = "Ask about our work, services and process — or let the agent collect your project brief.",
                 ["portfolio.title"] = "Selected work",
                 ["team.title"] = "Meet the team",
                 ["contact.title"] = "Have a project in mind? Let's talk.",
@@ -173,6 +220,25 @@ public static class DbInitializer
                 db.PageContents.Add(new PageContent { Id = Guid.NewGuid(), Key = key, Locale = "en", Value = value });
             await db.SaveChangesAsync();
             logger.LogInformation("Seeded {Count} content keys.", content.Count);
+        }
+
+        // ── System settings (AI & voice defaults) ──
+        if (!await db.SystemSettings.AnyAsync())
+        {
+            var defaults = new Dictionary<string, string>
+            {
+                ["ai.voice.enabled"] = "false",
+                ["ai.voice.response"] = "false",
+                ["ai.streaming.enabled"] = "false",
+                ["ai.chat.model"] = "gpt-4o-mini",
+                ["ai.stt.provider"] = "",
+                ["ai.tts.provider"] = "",
+                ["ai.max.audio.duration"] = "60"
+            };
+            foreach (var (key, value) in defaults)
+                db.SystemSettings.Add(new SystemSetting { Id = Guid.NewGuid(), Key = key, Value = value, UpdatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+            logger.LogInformation("Seeded {Count} system settings.", defaults.Count);
         }
     }
 }

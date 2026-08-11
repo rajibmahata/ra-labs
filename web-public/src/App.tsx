@@ -1,9 +1,10 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Nav from './components/Nav';
 import Footer from './components/Footer';
 import ChatbotWidget from './components/ChatbotWidget';
 import OfflineBanner from './components/OfflineBanner';
 import Home from './pages/Home';
+import AgentChat from './pages/AgentChat';
 import Work from './pages/Work';
 import WorkDetail from './pages/WorkDetail';
 import Team from './pages/Team';
@@ -16,6 +17,9 @@ function ScrollToTop() {
 }
 
 function AppLayout({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const embedAgentOnHome = location.pathname === '/';
+
   return (
     <>
       <OfflineBanner />
@@ -26,7 +30,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="wrap">
         <Footer />
       </div>
-      <ChatbotWidget />
+      {/* The homepage owns its own agent entry point (hero panel / bottom sheet). */}
+      {!embedAgentOnHome && <ChatbotWidget />}
     </>
   );
 }
@@ -36,6 +41,14 @@ export default function App() {
     <>
       <ScrollToTop />
       <Routes>
+        <Route
+          path="/agent"
+          element={
+            <AppLayout>
+              <AgentChat />
+            </AppLayout>
+          }
+        />
         <Route
           path="/"
           element={

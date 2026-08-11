@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ApiClientError } from '../api/client';
+
+const AGENT_THREAD_KEY = 'ralabs-customer.agent-thread';
 
 export default function Register() {
   const { register, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -13,6 +16,18 @@ export default function Register() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Registration handoff from the AI agent: remember which conversation
+  // this account should continue.
+  const agentThread = searchParams.get('agent');
+  if (agentThread) {
+    try {
+      localStorage.setItem(AGENT_THREAD_KEY, agentThread);
+    } catch {
+      // Storage unavailable
+    }
+    navigate('/register', { replace: true });
+  }
 
   if (user) {
     navigate('/dashboard', { replace: true });

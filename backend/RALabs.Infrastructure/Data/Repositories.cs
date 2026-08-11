@@ -14,11 +14,11 @@ public class ProjectRepository : IProjectRepository
         _db.Projects.FirstOrDefaultAsync(p => p.Id == id);
 
     public Task<Project?> GetBySlugAsync(string slug) =>
-        _db.Projects.FirstOrDefaultAsync(p => p.Slug == slug && !p.IsDeleted);
+        _db.Projects.FirstOrDefaultAsync(p => p.Slug == slug && !p.IsDeleted && p.IsActive);
 
     public async Task<List<Project>> GetPublishedAsync(int page, int pageSize, string? tag)
     {
-        var q = _db.Projects.Where(p => p.IsPublished && !p.IsDeleted);
+        var q = _db.Projects.Where(p => p.IsPublished && p.IsActive && !p.IsDeleted);
         if (!string.IsNullOrWhiteSpace(tag))
             q = q.Where(p => p.StackTags.Contains(tag));
         return await q.OrderBy(p => p.SortOrder).ThenBy(p => p.CreatedAt)
@@ -27,15 +27,51 @@ public class ProjectRepository : IProjectRepository
 
     public Task<int> CountPublishedAsync(string? tag)
     {
-        var q = _db.Projects.Where(p => p.IsPublished && !p.IsDeleted);
+        var q = _db.Projects.Where(p => p.IsPublished && p.IsActive && !p.IsDeleted);
         if (!string.IsNullOrWhiteSpace(tag))
             q = q.Where(p => p.StackTags.Contains(tag));
         return q.CountAsync();
     }
 
+    public async Task<List<Project>> GetFeaturedAsync(int page, int pageSize)
+    {
+        var q = _db.Projects.Where(p => p.IsPublished && p.IsActive && p.IsFeatured && !p.IsDeleted);
+        return await q.OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public Task<int> CountFeaturedAsync() =>
+        _db.Projects.CountAsync(p => p.IsPublished && p.IsActive && p.IsFeatured && !p.IsDeleted);
+
+    public async Task<(List<Project> Items, int TotalCount)> ListAdminAsync(string? search, string? category, string? status, bool? featured, bool? active, bool? published, int page, int pageSize)
+    {
+        var q = _db.Projects.Where(p => !p.IsDeleted);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var needle = search.Trim();
+            q = q.Where(p => p.Title.Contains(needle) || p.Summary.Contains(needle) || p.Category!.Contains(needle));
+        }
+        if (!string.IsNullOrWhiteSpace(category)) q = q.Where(p => p.Category == category);
+        if (!string.IsNullOrWhiteSpace(status)) q = q.Where(p => p.Status.ToString() == status);
+        if (featured.HasValue) q = q.Where(p => p.IsFeatured == featured.Value);
+        if (active.HasValue) q = q.Where(p => p.IsActive == active.Value);
+        if (published.HasValue) q = q.Where(p => p.IsPublished == published.Value);
+        var total = await q.CountAsync();
+        var items = await q.OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, total);
+    }
+
     public async Task<List<Project>> GetAllAsync(bool includeUnpublished) =>
         await _db.Projects.Where(p => !p.IsDeleted)
             .OrderBy(p => p.SortOrder).ToListAsync();
+
+    public Task<bool> LiveSiteUrlExistsAsync(string url, Guid? excludeId = null)
+    {
+        var q = _db.Projects.Where(p => p.LiveSiteUrl == url && !p.IsDeleted);
+        if (excludeId.HasValue) q = q.Where(p => p.Id != excludeId.Value);
+        return q.AnyAsync();
+    }
 
     public async Task<Guid> AddAsync(Project project)
     {
@@ -208,6 +244,12 @@ public class LeadRepository : ILeadRepository
         return q.CountAsync();
     }
 
+    public Task<bool> ContactInfoExistsAsync(string contactInfo) =>
+        _db.Leads.AnyAsync(l => l.ContactInfo == contactInfo);
+
+    public Task<int> CountNewSinceAsync(DateTime since) =>
+        _db.Leads.CountAsync(l => l.CreatedAt >= since);
+
     public Task UpdateAsync(Lead lead)
     {
         _db.Leads.Update(lead);
@@ -335,6 +377,11 @@ public class AgentTaskRepository : IAgentTaskRepository
         return await q.OrderByDescending(t => t.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
     }
+
+    public async Task<Dictionary<AgentTaskStatus, int>> CountByStatusAsync() =>
+        await _db.AgentTasks.GroupBy(t => t.Status)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Key, g => g.Count);
 }
 
 public class ContentDraftRepository : IContentDraftRepository
@@ -347,6 +394,13 @@ public class ContentDraftRepository : IContentDraftRepository
         var query = _db.ContentDrafts.AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status);
         return query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public Task<int> CountAsync(string? status)
+    {
+        var query = _db.ContentDrafts.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status);
+        return query.CountAsync();
     }
     public async Task<Guid> AddAsync(ContentDraft draft) { _db.ContentDrafts.Add(draft); await _db.SaveChangesAsync(); return draft.Id; }
     public Task UpdateAsync(ContentDraft draft) { _db.ContentDrafts.Update(draft); return _db.SaveChangesAsync(); }
@@ -451,11 +505,76 @@ public class KnowledgeChunkRepository : IKnowledgeChunkRepository
         await _db.SaveChangesAsync();
     }
 
+    public async Task DeleteByProjectAsync(Guid customerProjectId)
+    {
+        var items = await _db.KnowledgeChunks.Where(k => k.CustomerProjectId == customerProjectId).ToListAsync();
+        if (items.Count == 0) return;
+        _db.KnowledgeChunks.RemoveRange(items);
+        await _db.SaveChangesAsync();
+    }
+
     public async Task<List<KnowledgeChunk>> GetPublicChunksAsync() =>
         await _db.KnowledgeChunks.Where(k => k.CustomerProjectId == null).ToListAsync();
 
     public async Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId) =>
         await _db.KnowledgeChunks.Where(k => k.CustomerProjectId == customerProjectId).ToListAsync();
+
+    public Task<int> CountAsync() => _db.KnowledgeChunks.CountAsync();
+}
+
+public class SettingRepository : ISettingRepository
+{
+    private readonly RALabsDbContext _db;
+    public SettingRepository(RALabsDbContext db) => _db = db;
+
+    public Task<List<SystemSetting>> GetAllAsync() =>
+        _db.SystemSettings.ToListAsync();
+
+    public Task<SystemSetting?> GetByKeyAsync(string key) =>
+        _db.SystemSettings.FirstOrDefaultAsync(s => s.Key == key);
+
+    public async Task UpsertAsync(string key, string value)
+    {
+        var existing = await GetByKeyAsync(key);
+        if (existing is null)
+        {
+            _db.SystemSettings.Add(new SystemSetting { Key = key, Value = value, UpdatedAt = DateTime.UtcNow });
+        }
+        else
+        {
+            existing.Value = value;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync();
+    }
+}
+
+public class AuditLogRepository : IAuditLogRepository
+{
+    private readonly RALabsDbContext _db;
+    public AuditLogRepository(RALabsDbContext db) => _db = db;
+
+    public async Task AddAsync(AuditLog entry)
+    {
+        _db.AuditLogs.Add(entry);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<AuditLog>> ListAsync(int page, int pageSize, string? action, string? actorName)
+    {
+        var q = _db.AuditLogs.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(action)) q = q.Where(a => a.Action == action);
+        if (!string.IsNullOrWhiteSpace(actorName)) q = q.Where(a => a.ActorName != null && a.ActorName.Contains(actorName));
+        return await q.OrderByDescending(a => a.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public async Task<int> CountAsync(string? action, string? actorName)
+    {
+        var q = _db.AuditLogs.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(action)) q = q.Where(a => a.Action == action);
+        if (!string.IsNullOrWhiteSpace(actorName)) q = q.Where(a => a.ActorName != null && a.ActorName.Contains(actorName));
+        return await q.CountAsync();
+    }
 }
 
 public class CustomerRepository : ICustomerRepository
@@ -463,10 +582,11 @@ public class CustomerRepository : ICustomerRepository
     private readonly RALabsDbContext _db;
     public CustomerRepository(RALabsDbContext db) => _db = db;
 
-    public Task<Customer?> GetByIdAsync(Guid id) => _db.Customers.FirstOrDefaultAsync(c => c.Id == id);
+    public Task<Customer?> GetByIdAsync(Guid id) => _db.Customers.Include(c => c.Projects).FirstOrDefaultAsync(c => c.Id == id);
     public Task<Customer?> GetByEmailAsync(string email) => _db.Customers.FirstOrDefaultAsync(c => c.Email == email);
     public Task<Customer?> GetByRefreshTokenHashAsync(string hash) => _db.Customers.FirstOrDefaultAsync(c => c.RefreshTokenHash == hash);
-    public Task<bool> EmailExistsAsync(string email) => _db.Customers.AnyAsync(c => c.Email == email);
+    public Task<bool> EmailExistsAsync(string email, Guid? excludeId = null) =>
+        _db.Customers.AnyAsync(c => c.Email == email && (!excludeId.HasValue || c.Id != excludeId.Value));
 
     public async Task<Guid> AddAsync(Customer customer)
     {
@@ -477,15 +597,37 @@ public class CustomerRepository : ICustomerRepository
 
     public Task UpdateAsync(Customer customer)
     {
-        _db.Customers.Update(customer);
+        _db.Entry(customer).State = EntityState.Modified;
         return _db.SaveChangesAsync();
     }
 
-    public async Task<List<Customer>> GetAllAsync(int page, int pageSize) =>
-        await _db.Customers.OrderByDescending(c => c.CreatedAt)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    public Task DeleteAsync(Customer customer)
+    {
+        _db.Customers.Remove(customer);
+        return _db.SaveChangesAsync();
+    }
 
-    public Task<int> CountAllAsync() => _db.Customers.CountAsync();
+    public async Task<List<Customer>> GetAllAsync(int page, int pageSize, string? search = null, bool? isActive = null)
+    {
+        var query = CustomerAdminQuery(search, isActive);
+        return await query.OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+    }
+
+    public Task<int> CountAllAsync(string? search = null, bool? isActive = null) => CustomerAdminQuery(search, isActive).CountAsync();
+
+    private IQueryable<Customer> CustomerAdminQuery(string? search, bool? isActive)
+    {
+        var query = _db.Customers.Include(c => c.Projects).AsQueryable();
+        if (isActive.HasValue)
+            query = query.Where(c => c.IsActive == isActive.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLowerInvariant();
+            query = query.Where(c => c.Name.ToLower().Contains(term) || c.Email.ToLower().Contains(term));
+        }
+        return query;
+    }
 }
 
 public class CustomerProjectRepository : ICustomerProjectRepository
@@ -510,6 +652,9 @@ public class CustomerProjectRepository : ICustomerProjectRepository
         await _db.CustomerProjects.Where(p => p.CustomerId == customerId)
             .OrderByDescending(p => p.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+    public Task<List<Guid>> GetIdsByCustomerAsync(Guid customerId) =>
+        _db.CustomerProjects.Where(p => p.CustomerId == customerId).Select(p => p.Id).ToListAsync();
 
     public Task<int> CountByCustomerAsync(Guid customerId) =>
         _db.CustomerProjects.CountAsync(p => p.CustomerId == customerId);
@@ -542,6 +687,11 @@ public class CustomerProjectRepository : ICustomerProjectRepository
     }
 
     public Task<int> CountAllAsync() => _db.CustomerProjects.CountAsync();
+
+    public async Task<Dictionary<CustomerProjectStatus, int>> CountByStatusAsync() =>
+        await _db.CustomerProjects.GroupBy(p => p.Status)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Key, g => g.Count);
 
     public async Task<Guid> AddAsync(CustomerProject project)
     {

@@ -14,8 +14,21 @@ public static class DependencyInjection
         services.AddScoped<ILeadService, LeadService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IAgentService, AgentChatService>();
+        services.AddScoped<IChatStreamingService>(sp =>
+            new AgentChatService(
+                sp.GetRequiredService<IChatbotService>(),
+                sp.GetRequiredService<ICustomerProjectService>(),
+                sp.GetRequiredService<ISettingService>(),
+                sp.GetRequiredService<IHttpClientFactory>(),
+                config?["OpenAI:ApiKey"],
+                config?["OpenAI:Model"] ?? "gpt-4o-mini"));
+        services.AddScoped<ISettingService, SettingService>();
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IDashboardStatsService, DashboardStatsService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICustomerAuthService, CustomerAuthService>();
+        services.AddScoped<ICustomerManagementService, CustomerManagementService>();
         services.AddScoped<ICustomerProjectService, CustomerProjectService>();
         services.AddScoped<IChatbotService, ChatbotService>();
         services.AddScoped<IGithubSyncService>(sp =>
@@ -35,6 +48,12 @@ public static class DependencyInjection
         services.AddScoped<ITranslationAgentService>(sp => new TranslationAgentService(
             sp.GetRequiredService<Domain.Interfaces.IContentRepository>(),
             sp.GetRequiredService<IHttpClientFactory>(),
+            config?["OpenAI:ApiKey"], config?["OpenAI:Model"] ?? "gpt-4o-mini"));
+        services.AddScoped<IHeroScenarioService>(sp => new HeroScenarioService(
+            sp.GetRequiredService<Domain.Interfaces.IKnowledgeChunkRepository>(),
+            sp.GetRequiredService<Domain.Interfaces.IProjectRepository>(),
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
             config?["OpenAI:ApiKey"], config?["OpenAI:Model"] ?? "gpt-4o-mini"));
         services.AddHttpClient("github", c =>
         {

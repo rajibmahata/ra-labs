@@ -1,43 +1,47 @@
-# CURRENT SESSION: Voice assistant and admin notifications
+# CURRENT SESSION: Admin modal-free overhaul and dynamic 3D AI hero
 
-**Date:** 2026-08-08
-**Focus:** Voice-enabled chatbot escalation and admin activity notifications
-**Owner:** GitHub Copilot
+**Date:** 2026-08-09
+**Focus:** Popup-free admin UX and LLM-driven public hero banner
+**Owner:** opencode
 
 ## Objective
 
-Let visitors speak to the public assistant, receive a warm human handoff when
-needed, and give the team a secure notification workflow for new requests and
-customer activity.
+Make the admin panel platform-independent (no modal popups — everything inline
+and state-based) and give the public homepage a dynamic 3D hero driven by
+LLM-generated visual variables.
 
 ## Tasks
 
-- [x] Add warm retrieval fallback and free brainstorming copy.
-- [x] Add browser voice input to the public chatbot.
-- [x] Persist admin notifications and wire lead/chat/customer events.
-- [x] Add admin notification center, polling, and foreground browser alerts.
-- [x] Make the admin app installable with a notification-aware service worker.
-- [ ] Configure VAPID/Web Push sender for background delivery while the app is closed.
+- [x] Phase 1: per-page audit matrix recorded in `docs/FEATURE_INDEX.md`.
+- [x] Phase 2: Portfolio, Team, Content, Leads, Settings, Reviews, Customers made
+  modal-free (`InlineConfirm` row-level destructive morph, `inline-edit-panel`
+  forms, `inline-confirm-bar` bulk confirms); `Modal.tsx` + modal CSS deleted.
+- [x] Phase 3: Content admin grouped by key prefix with a tab rail; ProjectDetails
+  master-detail tabs (Overview/Docs/PRD/Demos/Invoices/Feedback).
+- [x] Phase 4: `HeroScenarioService` + `GET /api/v1/hero-scenarios` endpoint
+  (LLM-generated theme/colors/orbits/labels, `IMemoryCache` 1 h TTL, deterministic
+  data-driven fallback), DI registration, `AddMemoryCache()`, 6 new tests.
+- [x] Phase 4b: public `Hero.tsx` CSS-3D renderer (layers/orbit/grid, reduced-motion
+  support, fallback to deterministic default while the endpoint is unavailable).
+- [x] Phase 5: full suite passes (74 tests), all three frontends build, live
+  smoke test of `/api/v1/hero-scenarios` returns 200.
 
 ## Decisions
 
-- Passwords remain on `/customer/register`; the public assistant never collects
-	or transmits credentials.
-- Voice input is an enhancement over the existing text submission path and is
-	hidden when Web Speech API support is unavailable.
-- Notification endpoints are admin-role protected and notification text avoids
-	raw customer chat content because it may appear on a phone lock screen.
-- Foreground browser notifications work for a logged-in admin after permission;
-	background phone delivery requires VAPID sender configuration.
+- 3D engine is pure CSS transforms — no new frontend dependencies.
+- The LLM only produces visual variables; headline/CTA copy stays i18n-key based.
+- Hero scenarios are cached for 1 hour so public page loads never trigger model calls.
 
 ## Blockers
 
-None for this slice.
+None. The concurrent customer-management slice was committed mid-flight by other
+agents; this work merged on top without touching its shared files beyond the
+approved Program.cs/DI wiring.
 
 ## Next
 
-Add VAPID subscription storage/sending and Playwright coverage for voice,
-notification permission, unread state, and installed-phone behavior.
+Playwright spot checks for the inline destructive morphs, tabs, and hero scenes;
+seed parity for the new public copy remains part of the homepage task.
 
 ## Continuation update: admin governance and RAG
 
@@ -55,3 +59,21 @@ notification permission, unread state, and installed-phone behavior.
 - Validation: 68 backend tests pass, the API build passes, and the
 	`web-admin` production build passes.
 - Checkpoint: `docs/checkpoints/task-admin-governance.md`.
+
+## Continuation update: consolidated customer management
+
+- Added the consolidated admin-management implementation prompt at
+	`docs/prd/admin-management-consolidated-prompt.md`.
+- Added customer search, active/inactive filtering, complete pagination
+	metadata, detail, edit, delete, bulk delete, CSV import, and CSV export
+	contracts and UI actions.
+- Customer export excludes password hashes, refresh tokens, reset tokens, and
+	other credential fields.
+- Customer deletion explicitly removes project-scoped knowledge chunks before
+	the EF customer cascade removes dependent customer projects.
+- Existing admin creation and status flows remain available; status changes
+	now revoke refresh tokens when deactivating through the management service.
+- Validation: 68 backend tests pass, isolated API build passes, and the
+	`web-admin` production build passes.
+- Remaining gates: dedicated customer-management tests, MCP validation, and
+	Playwright coverage for import/export and destructive actions.

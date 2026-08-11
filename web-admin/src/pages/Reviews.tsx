@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reviews as reviewsApi, ApiClientError } from '../api/client';
-import { ConfirmDialog } from '../components/Modal';
+import { InlineConfirm } from '../components/InlineConfirm';
+import { Pagination } from '../components/Pagination';
 import { useToast } from '../components/useToast';
 
 type Review = Awaited<ReturnType<typeof reviewsApi.list>>['data'][number];
@@ -15,6 +16,7 @@ export default function Reviews() {
   const [publishedFilter, setPublishedFilter] = useState<'all' | 'published' | 'pending'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ ids: string[]; approved: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -31,6 +33,7 @@ export default function Reviews() {
       });
       setItems(result.data);
       setTotalPages(result.pagination.totalPages);
+      setTotalCount(result.pagination.totalCount);
       setSelected(new Set());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load reviews');
@@ -74,6 +77,23 @@ export default function Reviews() {
     void fetchReviews();
   };
 
+  const handleExport = async () => {
+    try {
+      const blob = await reviewsApi.exportCsv({
+        search: search.trim() || undefined,
+        published: publishedFilter === 'all' ? undefined : publishedFilter === 'published',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'reviews.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'Failed to export CSV', 'error');
+    }
+  };
+
   return (
     <div>
       <ToastContainer />
@@ -83,6 +103,7 @@ export default function Reviews() {
           <p className="page-subtitle">Review, approve, and manage customer feedback before it appears publicly.</p>
         </div>
         <div className="form-inline">
+          <button className="btn btn--outline" onClick={handleExport}>Export CSV</button>
           <button className="btn btn--primary" disabled={selected.size === 0} onClick={() => setConfirm({ ids: [...selected], approved: true })}>Approve selected</button>
           <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setConfirm({ ids: [...selected], approved: false })}>Unpublish selected</button>
         </div>
@@ -123,7 +144,14 @@ export default function Reviews() {
                       <td>{'★'.repeat(item.rating)}<span style={{ color: 'var(--content-muted)' }}>{'★'.repeat(5 - item.rating)}</span></td>
                       <td style={{ maxWidth: '360px' }}>{item.comment}</td>
                       <td><span className={`badge ${item.isPublished ? 'badge--published' : 'badge--unpublished'}`}>{item.isPublished ? 'Published' : 'Pending'}</span></td>
-                      <td><button className="btn btn--outline btn--sm" onClick={() => setConfirm({ ids: [item.id], approved: !item.isPublished })}>{item.isPublished ? 'Unpublish' : 'Approve'}</button></td>
+                      <td>
+                        <InlineConfirm
+                          onConfirm={() => setConfirm({ ids: [item.id], approved: !item.isPublished })}
+                          buttonLabel={item.isPublished ? 'Unpublish' : 'Approve'}
+                          confirmLabel={item.isPublished ? 'Unpublish' : 'Approve'}
+                          className="btn btn--outline btn--sm"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -131,18 +159,24 @@ export default function Reviews() {
             </div>
           )}
         </div>
-        {totalPages > 1 && <div className="card-header" style={{ justifyContent: 'center' }}><div className="form-inline"><button className="btn btn--outline btn--sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button><span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--content-muted)' }}>Page {page} of {totalPages}</span><button className="btn btn--outline btn--sm" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>Next</button></div></div>}
+        {totalPages > 1 && <Pagination page={page} pageSize={20} totalCount={totalCount} onPageChange={setPage} />}
       </div>
 
-      <ConfirmDialog
-        open={confirm !== null}
-        onClose={() => setConfirm(null)}
-        onConfirm={() => void moderate()}
-        title={confirm?.approved ? 'Approve review?' : 'Unpublish review?'}
-        message={confirm?.approved ? 'This review will become eligible for public display.' : 'This review will be removed from public display.'}
-        confirmLabel={confirm?.approved ? 'Approve' : 'Unpublish'}
-        loading={saving}
-      />
+      {confirm && (
+        <div className="inline-confirm-bar" role="region" aria-label="Confirm review moderation">
+          <span>
+            {confirm.approved
+              ? `Approve ${confirm.ids.length} review(s) for public display?`
+              : `Unpublish ${confirm.ids.length} review(s) from public display?`}
+          </span>
+          <div className="form-inline">
+            <button type="button" className="btn btn--primary btn--sm" disabled={saving} onClick={() => void moderate()}>
+              {saving ? '...' : confirm.approved ? 'Approve' : 'Unpublish'}
+            </button>
+            <button type="button" className="btn btn--outline btn--sm" disabled={saving} onClick={() => setConfirm(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

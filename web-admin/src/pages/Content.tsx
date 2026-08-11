@@ -1,10 +1,18 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { content as contentApi, ApiClientError } from '../api/client';
-import { Modal, ConfirmDialog } from '../components/Modal';
+import { InlineConfirm } from '../components/InlineConfirm';
+import { SortableTh, type SortDirection } from '../components/SortableTh';
 import { useToast } from '../components/useToast';
 import type { ContentEntry } from '../types';
 
 const SUPPORTED_LOCALES = ['en', 'bn', 'hi', 'es', 'fr', 'pt', 'sw', 'de', 'ja', 'ko', 'zh'];
+
+type EditingPanel =
+  | { mode: 'create' }
+  | { mode: 'edit'; entry: ContentEntry }
+  | null;
+
+const groupOf = (key: string): string => key.split('.')[0] || 'other';
 
 export default function Content() {
   const { addToast, ToastContainer } = useToast();
@@ -12,13 +20,14 @@ export default function Content() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [localeFilter, setLocaleFilter] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<ContentEntry | null>(null);
+  const [groupFilter, setGroupFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
+  const [sortKey, setSortKey] = useState('');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [editingPanel, setEditingPanel] = useState<EditingPanel>(null);
   const [form, setForm] = useState({ key: '', locale: 'en', value: '' });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<ContentEntry | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const fetchEntries = async () => {
     setLoading(true);
@@ -37,24 +46,69 @@ export default function Content() {
 
   useEffect(() => { fetchEntries(); }, [localeFilter]);
 
+  const groups = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of entries) {
+      const group = groupOf(entry.key);
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
+  }, [entries]);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const visibleEntries = useMemo(() => {
+    let filtered = groupFilter ? entries.filter((entry) => groupOf(entry.key) === groupFilter) : entries;
+    const q = searchFilter.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter((entry) =>
+        [entry.key, entry.locale, entry.value].some((v) => v.toLowerCase().includes(q)),
+      );
+    }
+    const sorted = [...filtered];
+    if (sortKey) {
+      const dir = sortDirection === 'asc' ? 1 : -1;
+      sorted.sort((a, b) => {
+        const av = (a as unknown as Record<string, string>)[sortKey] ?? '';
+        const bv = (b as unknown as Record<string, string>)[sortKey] ?? '';
+        return String(av).localeCompare(String(bv)) * dir;
+      });
+    }
+    return sorted;
+  }, [entries, groupFilter, searchFilter, sortKey, sortDirection]);
+
   const openCreate = () => {
-    setEditingEntry(null);
+    setEditingPanel({ mode: 'create' });
     setForm({ key: '', locale: 'en', value: '' });
     setFieldErrors({});
-    setModalOpen(true);
   };
 
   const openEdit = (entry: ContentEntry) => {
-    setEditingEntry(entry);
+    setEditingPanel({ mode: 'edit', entry });
     setForm({ key: entry.key, locale: entry.locale, value: entry.value });
     setFieldErrors({});
-    setModalOpen(true);
+  };
+
+  const closePanel = () => {
+    setEditingPanel(null);
+    setFieldErrors({});
   };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-    if (!editingEntry && !form.key.trim()) errs.key = 'Key is required';
-    else if (!editingEntry && form.key.length > 200) errs.key = 'Key must be 200 characters or fewer';
+    if (editingPanel?.mode !== 'edit') {
+      if (!form.key.trim()) errs.key = 'Key is required';
+      else if (form.key.length > 200) errs.key = 'Key must be 200 characters or fewer';
+    }
     if (!form.locale) errs.locale = 'Locale is required';
     if (!form.value.trim()) errs.value = 'Value is required';
     setFieldErrors(errs);
@@ -66,15 +120,15 @@ export default function Content() {
     if (!validate()) return;
     setSaving(true);
     try {
-      if (editingEntry) {
-        // Use PUT /api/v1/admin/content/{key}
-        await contentApi.update(editingEntry.key, { locale: form.locale, value: form.value.trim() });
+      const isEdit = editingPanel?.mode === 'edit';
+      if (isEdit) {
+        await contentApi.update(editingPanel.entry.key, { locale: form.locale, value: form.value.trim() });
         addToast('Content updated', 'success');
       } else {
         await contentApi.create({ key: form.key.trim(), locale: form.locale, value: form.value.trim() });
         addToast('Content created', 'success');
       }
-      setModalOpen(false);
+      closePanel();
       fetchEntries();
     } catch (e) {
       if (e instanceof ApiClientError) {
@@ -90,18 +144,27 @@ export default function Content() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
+  const handleDelete = async (entry: ContentEntry) => {
     try {
-      await contentApi.delete(deleteTarget.key, deleteTarget.locale);
+      await contentApi.delete(entry.key, entry.locale);
       addToast('Content deleted', 'success');
-      setDeleteTarget(null);
       fetchEntries();
     } catch (e) {
       addToast(e instanceof ApiClientError ? e.message : 'Failed to delete content', 'error');
-    } finally {
-      setDeleting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await contentApi.exportCsv(localeFilter || undefined);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'content.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'Failed to export CSV', 'error');
     }
   };
 
@@ -113,42 +176,132 @@ export default function Content() {
           <h1 className="page-title">Content</h1>
           <p className="page-subtitle">Manage multi-language page content. Changes appear live on the public site.</p>
         </div>
-        <button className="btn btn--primary" onClick={openCreate}>Add Entry</button>
+        <div className="form-inline">
+          <button className="btn btn--outline" onClick={handleExport}>Export CSV</button>
+          <button className="btn btn--primary" onClick={openCreate}>Add Entry</button>
+        </div>
       </div>
 
       <div className="filter-bar">
+        <input
+          className="form-input"
+          style={{ minWidth: '220px' }}
+          value={searchFilter}
+          placeholder="Search key, value, locale..."
+          aria-label="Search content entries"
+          onChange={(e) => setSearchFilter(e.target.value)}
+        />
         <select className="form-select" value={localeFilter} onChange={(e) => setLocaleFilter(e.target.value)}>
           <option value="">All locales</option>
           {SUPPORTED_LOCALES.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--content-muted)', marginLeft: 'auto' }}>
+          {visibleEntries.length} of {entries.length} entries
+        </span>
       </div>
 
+      {groups.length > 1 && (
+        <div className="content-tabs" role="tablist" aria-label="Content groups">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!groupFilter}
+            className={`content-tab${!groupFilter ? ' content-tab--active' : ''}`}
+            onClick={() => setGroupFilter('')}
+          >
+            All <span className="content-tab-count">{entries.length}</span>
+          </button>
+          {groups.map((group) => (
+            <button
+              key={group.name}
+              type="button"
+              role="tab"
+              aria-selected={groupFilter === group.name}
+              className={`content-tab${groupFilter === group.name ? ' content-tab--active' : ''}`}
+              onClick={() => setGroupFilter(group.name)}
+            >
+              {group.name} <span className="content-tab-count">{group.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && <div className="alert alert--error" role="alert">{error}</div>}
+
+      {editingPanel && (
+        <div className="card inline-edit-panel" role="region" aria-label={editingPanel.mode === 'edit' ? 'Edit content entry' : 'Create content entry'}>
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="inline-edit-panel-title">
+              <h2 className="page-title">{editingPanel.mode === 'edit' ? 'Edit Content Entry' : 'Create Content Entry'}</h2>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Key {editingPanel.mode !== 'edit' && '*'}</label>
+              <input
+                className={`form-input${fieldErrors.key ? ' form-input--error' : ''}`}
+                value={form.key}
+                onChange={(e) => setForm((p) => ({ ...p, key: e.target.value }))}
+                disabled={editingPanel.mode === 'edit'}
+                placeholder="hero.headline"
+                maxLength={200}
+              />
+              {fieldErrors.key && <div className="form-error">{fieldErrors.key}</div>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Locale *</label>
+              <select
+                className={`form-select${fieldErrors.locale ? ' form-select--error' : ''}`}
+                value={form.locale}
+                onChange={(e) => setForm((p) => ({ ...p, locale: e.target.value }))}
+                disabled={editingPanel.mode === 'edit'}
+              >
+                {SUPPORTED_LOCALES.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+              {fieldErrors.locale && <div className="form-error">{fieldErrors.locale}</div>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Value *</label>
+              <textarea
+                className={`form-textarea${fieldErrors.value ? ' form-textarea--error' : ''}`}
+                value={form.value}
+                onChange={(e) => setForm((p) => ({ ...p, value: e.target.value }))}
+                rows={5}
+              />
+              {fieldErrors.value && <div className="form-error">{fieldErrors.value}</div>}
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn--outline" onClick={closePanel}>Cancel</button>
+              <button type="submit" className="btn btn--primary" disabled={saving}>
+                {saving ? 'Saving...' : (editingPanel.mode === 'edit' ? 'Update' : 'Create')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body card-body--flush">
           {loading ? (
             <div className="page-loader"><div className="spinner" /></div>
-          ) : entries.length === 0 ? (
+          ) : visibleEntries.length === 0 ? (
             <div className="state-message">
               <span className="state-message-icon">📝</span>
               <h3>No content entries</h3>
-              <p>{localeFilter ? `No entries found for locale "${localeFilter}".` : 'Create content entries to manage site copy.'}</p>
+              <p>{localeFilter || groupFilter ? `No entries found for "${groupFilter || 'all keys'}" in locale "${localeFilter || 'all locales'}".` : 'Create content entries to manage site copy.'}</p>
             </div>
           ) : (
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>Key</th>
-                    <th>Locale</th>
+                    <SortableTh label="Key" sortKey="key" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
+                    <SortableTh label="Locale" sortKey="locale" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
                     <th>Value</th>
-                    <th>Updated</th>
+                    <SortableTh label="Updated" sortKey="updatedAt" activeKey={sortKey} direction={sortDirection} onSort={handleSort} />
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry) => (
+                  {visibleEntries.map((entry) => (
                     <tr key={`${entry.key}-${entry.locale}`}>
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)' }}>{entry.key}</td>
                       <td><span className="badge badge--neutral">{entry.locale}</span></td>
@@ -157,7 +310,12 @@ export default function Content() {
                       <td>
                         <div className="form-inline">
                           <button className="btn btn--outline btn--sm" onClick={() => openEdit(entry)}>Edit</button>
-                          <button className="btn btn--ghost btn--sm" style={{ color: '#dc2626' }} onClick={() => setDeleteTarget(entry)}>Delete</button>
+                          <InlineConfirm
+                            onConfirm={() => handleDelete(entry)}
+                            buttonLabel="Delete"
+                            confirmLabel="Delete"
+                            className="btn btn--ghost btn--sm"
+                          />
                         </div>
                       </td>
                     </tr>
@@ -168,61 +326,6 @@ export default function Content() {
           )}
         </div>
       </div>
-
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingEntry ? 'Edit Content Entry' : 'Create Content Entry'} width="560px">
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="form-group">
-            <label className="form-label">Key {!editingEntry && '*'}</label>
-            <input
-              className={`form-input${fieldErrors.key ? ' form-input--error' : ''}`}
-              value={form.key}
-              onChange={(e) => setForm((p) => ({ ...p, key: e.target.value }))}
-              disabled={!!editingEntry}
-              placeholder="hero.headline"
-              maxLength={200}
-            />
-            {fieldErrors.key && <div className="form-error">{fieldErrors.key}</div>}
-          </div>
-          <div className="form-group">
-            <label className="form-label">Locale *</label>
-            <select
-              className={`form-select${fieldErrors.locale ? ' form-select--error' : ''}`}
-              value={form.locale}
-              onChange={(e) => setForm((p) => ({ ...p, locale: e.target.value }))}
-              disabled={!!editingEntry}
-            >
-              {SUPPORTED_LOCALES.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-            {fieldErrors.locale && <div className="form-error">{fieldErrors.locale}</div>}
-          </div>
-          <div className="form-group">
-            <label className="form-label">Value *</label>
-            <textarea
-              className={`form-textarea${fieldErrors.value ? ' form-textarea--error' : ''}`}
-              value={form.value}
-              onChange={(e) => setForm((p) => ({ ...p, value: e.target.value }))}
-              rows={5}
-            />
-            {fieldErrors.value && <div className="form-error">{fieldErrors.value}</div>}
-          </div>
-          <div className="form-actions">
-            <button type="button" className="btn btn--outline" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn--primary" disabled={saving}>
-              {saving ? 'Saving...' : (editingEntry ? 'Update' : 'Create')}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Delete Content Entry"
-        message={`Delete content entry "${deleteTarget?.key}" (${deleteTarget?.locale})? This cannot be undone.`}
-        confirmLabel="Delete"
-        loading={deleting}
-      />
     </div>
   );
 }

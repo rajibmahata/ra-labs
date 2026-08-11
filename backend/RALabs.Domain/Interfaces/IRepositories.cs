@@ -9,10 +9,14 @@ public interface IProjectRepository
     Task<Project?> GetBySlugAsync(string slug);
     Task<List<Project>> GetPublishedAsync(int page, int pageSize, string? tag);
     Task<int> CountPublishedAsync(string? tag);
+    Task<List<Project>> GetFeaturedAsync(int page, int pageSize);
+    Task<int> CountFeaturedAsync();
+    Task<(List<Project> Items, int TotalCount)> ListAdminAsync(string? search, string? category, string? status, bool? featured, bool? active, bool? published, int page, int pageSize);
     Task<List<Project>> GetAllAsync(bool includeUnpublished);
     Task<Guid> AddAsync(Project project);
     Task UpdateAsync(Project project);
     Task<bool> SlugExistsAsync(string slug, Guid? excludeId = null);
+    Task<bool> LiveSiteUrlExistsAsync(string url, Guid? excludeId = null);
 }
 
 public interface ITeamRepository
@@ -49,6 +53,8 @@ public interface ILeadRepository
     Task<Lead?> GetByIdAsync(Guid id);
     Task<List<Lead>> GetAllAsync(LeadStatus? status, LeadSource? source, int page, int pageSize);
     Task<int> CountAsync(LeadStatus? status, LeadSource? source);
+    Task<bool> ContactInfoExistsAsync(string contactInfo);
+    Task<int> CountNewSinceAsync(DateTime since);
     Task UpdateAsync(Lead lead);
 }
 
@@ -76,12 +82,14 @@ public interface IAgentTaskRepository
     Task<Guid> AddAsync(AgentTask task);
     Task UpdateAsync(AgentTask task);
     Task<List<AgentTask>> ListRecentAsync(string? type, int page, int pageSize);
+    Task<Dictionary<AgentTaskStatus, int>> CountByStatusAsync();
 }
 
 public interface IContentDraftRepository
 {
     Task<ContentDraft?> GetByIdAsync(Guid id);
     Task<List<ContentDraft>> ListAsync(string? status, int page, int pageSize);
+    Task<int> CountAsync(string? status);
     Task<Guid> AddAsync(ContentDraft draft);
     Task UpdateAsync(ContentDraft draft);
 }
@@ -110,8 +118,24 @@ public interface IKnowledgeChunkRepository
     Task AddAsync(KnowledgeChunk chunk);
     Task DeleteBySourceAsync(string sourceType, string sourceId);
     Task DeleteBySourcePrefixAsync(string sourceType, string sourcePrefix);
+    Task DeleteByProjectAsync(Guid customerProjectId);
     Task<List<KnowledgeChunk>> GetPublicChunksAsync();
     Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId);
+    Task<int> CountAsync();
+}
+
+public interface ISettingRepository
+{
+    Task<List<SystemSetting>> GetAllAsync();
+    Task<SystemSetting?> GetByKeyAsync(string key);
+    Task UpsertAsync(string key, string value);
+}
+
+public interface IAuditLogRepository
+{
+    Task AddAsync(AuditLog entry);
+    Task<List<AuditLog>> ListAsync(int page, int pageSize, string? action, string? actorName);
+    Task<int> CountAsync(string? action, string? actorName);
 }
 
 public interface IEmailSender
@@ -124,11 +148,12 @@ public interface ICustomerRepository
     Task<Customer?> GetByIdAsync(Guid id);
     Task<Customer?> GetByEmailAsync(string email);
     Task<Customer?> GetByRefreshTokenHashAsync(string hash);
-    Task<bool> EmailExistsAsync(string email);
+    Task<bool> EmailExistsAsync(string email, Guid? excludeId = null);
     Task<Guid> AddAsync(Customer customer);
     Task UpdateAsync(Customer customer);
-    Task<List<Customer>> GetAllAsync(int page, int pageSize);
-    Task<int> CountAllAsync();
+    Task DeleteAsync(Customer customer);
+    Task<List<Customer>> GetAllAsync(int page, int pageSize, string? search = null, bool? isActive = null);
+    Task<int> CountAllAsync(string? search = null, bool? isActive = null);
 }
 
 public interface ICustomerProjectRepository
@@ -136,10 +161,12 @@ public interface ICustomerProjectRepository
     Task<CustomerProject?> GetByIdAsync(Guid id);
     Task<CustomerProject?> GetByIdIncludingAsync(Guid id);
     Task<List<CustomerProject>> GetByCustomerAsync(Guid customerId, int page, int pageSize);
+    Task<List<Guid>> GetIdsByCustomerAsync(Guid customerId);
     Task<int> CountByCustomerAsync(Guid customerId);
     Task<List<CustomerProject>> GetAllAsync(int page, int pageSize);
     Task<List<CustomerProject>> GetAllForAdminAsync(int page, int pageSize, CustomerProjectStatus? status, string? search, Guid? customerId);
     Task<int> CountAllAsync();
+    Task<Dictionary<CustomerProjectStatus, int>> CountByStatusAsync();
     Task<Guid> AddAsync(CustomerProject project);
     Task UpdateAsync(CustomerProject project);
     Task<Document> AddDocumentAsync(Document document);

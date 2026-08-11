@@ -1,4 +1,4 @@
-import type { AdminNotification, ApiError } from '../types';
+import type { AdminNotification, ApiError, Customer } from '../types';
 
 const STORAGE_PREFIX = 'admin.';
 const TOKEN_KEY = `${STORAGE_PREFIX}auth.token`;
@@ -65,10 +65,12 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  contentType?: string,
+  responseType?: 'json' | 'blob',
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
+  if (contentType) headers['Content-Type'] = contentType;
+  else if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json';
 
   const token = getToken();
   if (token) {
@@ -78,7 +80,7 @@ async function request<T>(
   const res = await fetch(path, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
@@ -107,6 +109,10 @@ async function request<T>(
 
   if (res.status === 204) {
     return undefined as T;
+  }
+
+  if (responseType === 'blob') {
+    return (await res.blob()) as T;
   }
 
   return (await res.json()) as T;
@@ -166,6 +172,20 @@ export const team = {
       `/api/v1/admin/team/${id}/status`,
       { isActive },
     ),
+
+  importCsv: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ data: { created: number; skipped: number; errors: { row: number; message: string }[] } }>(
+      'POST',
+      '/api/v1/admin/team/import',
+      form,
+      'multipart/form-data',
+    );
+  },
+
+  exportCsv: () =>
+    request<Blob>('GET', '/api/v1/admin/team/export', undefined, undefined, 'blob'),
 };
 
 export const github = {
@@ -173,26 +193,73 @@ export const github = {
 };
 
 // Projects (admin)
+export interface Project {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  stackTags: string[];
+  status: string;
+  githubUrl?: string | null;
+  liveSiteUrl?: string | null;
+  category?: string | null;
+  businessPurpose?: string | null;
+  problemSolved?: string | null;
+  solution?: string | null;
+  keyFeatures: string[];
+  caseStudyBody?: string | null;
+  coverImageUrl?: string | null;
+  screenshots: string[];
+  duration?: string | null;
+  teamMemberIds: string[];
+  completedAt?: string | null;
+  customerReference?: string | null;
+  showCustomerReference: boolean;
+  sortOrder: number;
+  isFeatured: boolean;
+  isActive: boolean;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  pagination: { page: number; pageSize: number; totalCount: number; totalPages: number };
+}
+
 export const projects = {
-  list: () =>
-    request<{ data: { id: string; slug: string; title: string; summary: string; stackTags: string[]; status: string; githubUrl?: string | null; caseStudyBody?: string | null; coverImageUrl?: string | null; sortOrder: number; isPublished: boolean; createdAt: string; updatedAt?: string }[] }>(
-      'GET',
-      '/api/v1/admin/projects',
-    ),
+  list: (params?: {
+    search?: string;
+    category?: string;
+    status?: string;
+    featured?: boolean;
+    active?: boolean;
+    published?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.category) query.set('category', params.category);
+    if (params?.status) query.set('status', params.status);
+    if (params?.featured !== undefined) query.set('featured', String(params.featured));
+    if (params?.active !== undefined) query.set('active', String(params.active));
+    if (params?.published !== undefined) query.set('published', String(params.published));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.pageSize) query.set('pageSize', String(params.pageSize));
+    const qs = query.toString();
+    return request<Paginated<Project>>('GET', `/api/v1/admin/projects${qs ? `?${qs}` : ''}`);
+  },
+
+  get: (id: string) =>
+    request<{ data: Project }>('GET', `/api/v1/admin/projects/${id}`),
 
   create: (body: Record<string, unknown>) =>
-    request<{ data: { id: string; slug: string; title: string; summary: string; stackTags: string[]; status: string; githubUrl?: string | null; caseStudyBody?: string | null; coverImageUrl?: string | null; sortOrder: number; isPublished: boolean; createdAt: string } }>(
-      'POST',
-      '/api/v1/admin/projects',
-      body,
-    ),
+    request<{ data: Project }>('POST', '/api/v1/admin/projects', body),
 
   update: (id: string, body: Record<string, unknown>) =>
-    request<{ data: { id: string; slug: string; title: string; summary: string; stackTags: string[]; status: string; githubUrl?: string | null; caseStudyBody?: string | null; coverImageUrl?: string | null; sortOrder: number; isPublished: boolean; createdAt: string; updatedAt?: string } }>(
-      'PUT',
-      `/api/v1/admin/projects/${id}`,
-      body,
-    ),
+    request<{ data: Project }>('PUT', `/api/v1/admin/projects/${id}`, body),
 
   setPublished: (id: string, isPublished: boolean) =>
     request<{ data: { id: string; isPublished: boolean } }>(
@@ -200,6 +267,42 @@ export const projects = {
       `/api/v1/admin/projects/${id}/published`,
       { isPublished },
     ),
+
+  setActive: (id: string, isActive: boolean) =>
+    request<{ data: { id: string; isActive: boolean } }>(
+      'PATCH',
+      `/api/v1/admin/projects/${id}/active`,
+      { isActive },
+    ),
+
+  setFeatured: (id: string, isFeatured: boolean) =>
+    request<{ data: { id: string; isFeatured: boolean } }>(
+      'PATCH',
+      `/api/v1/admin/projects/${id}/featured`,
+      { isFeatured },
+    ),
+
+  importCsv: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ data: { created: number; updated: number; skipped: number; errors: { row: number; message: string }[] } }>(
+      'POST',
+      '/api/v1/admin/projects/import',
+      form,
+      'multipart/form-data',
+    );
+  },
+
+  exportCsv: (params?: { ids?: string[]; search?: string; category?: string; featured?: boolean; active?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.ids?.length) query.set('ids', params.ids.join(','));
+    if (params?.search) query.set('search', params.search);
+    if (params?.category) query.set('category', params.category);
+    if (params?.featured !== undefined) query.set('featured', String(params.featured));
+    if (params?.active !== undefined) query.set('active', String(params.active));
+    const qs = query.toString();
+    return request<Blob>('GET', `/api/v1/admin/projects/export${qs ? `?${qs}` : ''}`, undefined, undefined, 'blob');
+  },
 
   delete: (id: string) =>
     request<void>('DELETE', `/api/v1/admin/projects/${id}`),
@@ -209,6 +312,10 @@ export const drafts = {
   list: (status = 'pending') =>
     request<{ data: { id: string; title: string; summary: string; body?: string | null; sourceUrl?: string | null; status: string; createdAt: string }[] }>(
       'GET', `/api/v1/admin/content-drafts?status=${encodeURIComponent(status)}`,
+    ),
+  generateForProject: (projectId: string) =>
+    request<{ data: { id: string; title: string; summary: string; status: string } }>(
+      'POST', `/api/v1/admin/content-drafts/generate-for-project/${projectId}`,
     ),
   review: (id: string, decision: 'approve' | 'reject', note?: string) =>
     request<{ data: { id: string; status: string } }>(
@@ -237,6 +344,25 @@ export const leads = {
       `/api/v1/admin/leads/${id}`,
       body,
     ),
+
+  importCsv: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ data: { created: number; skipped: number; errors: { row: number; message: string }[] } }>(
+      'POST',
+      '/api/v1/admin/leads/import',
+      form,
+      'multipart/form-data',
+    );
+  },
+
+  exportCsv: (params?: { status?: string; source?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.source) qs.set('source', params.source);
+    const query = qs.toString();
+    return request<Blob>('GET', `/api/v1/admin/leads/export${query ? `?${query}` : ''}`, undefined, undefined, 'blob');
+  },
 };
 
 // Admin notifications
@@ -290,6 +416,13 @@ export const content = {
       'DELETE',
       `/api/v1/admin/content/${encodeURIComponent(key)}?locale=${encodeURIComponent(locale)}`,
     ),
+
+  exportCsv: (locale?: string) => {
+    const qs = new URLSearchParams();
+    if (locale) qs.set('locale', locale);
+    const query = qs.toString();
+    return request<Blob>('GET', `/api/v1/admin/content/export${query ? `?${query}` : ''}`, undefined, undefined, 'blob');
+  },
 };
 
 // Chat (admin)
@@ -336,7 +469,7 @@ export const admins = {
       '/api/v1/admin/admins',
     ),
 
-  create: (body: { name: string; email: string; password: string; teamMemberId?: string | null }) =>
+  create: (body: { name: string; email: string; password: string; teamMemberId?: string | null; role?: string }) =>
     request<{ data: { id: string; name: string; email: string; role: string; isActive: boolean; teamMemberId?: string | null; createdAt?: string } }>(
       'POST',
       '/api/v1/admin/admins',
@@ -353,12 +486,14 @@ export const admins = {
 
 // Customers & Customer Projects (admin)
 export const customerProjects = {
-  listCustomers: (params?: { page?: number; pageSize?: number }) => {
+  listCustomers: (params?: { page?: number; pageSize?: number; search?: string; isActive?: boolean }) => {
     const qs = new URLSearchParams();
     if (params?.page) qs.set('page', String(params.page));
     if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    if (params?.search) qs.set('search', params.search);
+    if (params?.isActive !== undefined) qs.set('isActive', String(params.isActive));
     const query = qs.toString();
-    return request<{ data: { id: string; name: string; email: string; isActive: boolean; createdAt: string; projectCount: number }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+    return request<{ data: { id: string; name: string; email: string; isActive: boolean; createdAt: string; updatedAt?: string | null; projectCount: number }[]; pagination?: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
       'GET',
       `/api/v1/admin/customers${query ? `?${query}` : ''}`,
     );
@@ -373,6 +508,33 @@ export const customerProjects = {
       `/api/v1/admin/customers/${id}/status`,
       { isActive },
     ),
+
+  getCustomer: (id: string) =>
+    request<{ data: Customer }>('GET', `/api/v1/admin/customers/${id}`),
+
+  updateCustomer: (id: string, body: { name: string; email: string; password?: string }) =>
+    request<{ data: Customer }>('PUT', `/api/v1/admin/customers/${id}`, body),
+
+  deleteCustomer: (id: string) => request<void>('DELETE', `/api/v1/admin/customers/${id}`),
+
+  bulkDeleteCustomers: (ids: string[]) => request<void>('POST', '/api/v1/admin/customers/bulk-delete', ids),
+
+  importCustomers: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<{ data: { created: number; skipped: number; errors: { row: number; message: string }[] } }>('POST', '/api/v1/admin/customers/import', body);
+  },
+
+  exportCustomers: async (params?: { ids?: string[]; search?: string; isActive?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (params?.ids?.length) qs.set('ids', params.ids.join(','));
+    if (params?.search) qs.set('search', params.search);
+    if (params?.isActive !== undefined) qs.set('isActive', String(params.isActive));
+    const token = getToken();
+    const response = await fetch(`/api/v1/admin/customers/export?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+    if (!response.ok) throw new ApiClientError(response.status, 'EXPORT_FAILED', 'Failed to export customers.');
+    return response.blob();
+  },
 
   list: (params?: { status?: string; customerId?: string; search?: string }) => {
     const qs = new URLSearchParams();
@@ -490,4 +652,66 @@ export const reviews = {
       `/api/v1/admin/reviews/${id}/moderate`,
       { approved },
     ),
+
+  exportCsv: (params?: { search?: string; published?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.published !== undefined) qs.set('published', String(params.published));
+    const query = qs.toString();
+    return request<Blob>('GET', `/api/v1/admin/reviews/export${query ? `?${query}` : ''}`, undefined, undefined, 'blob');
+  },
+};
+
+export const settings = {
+  get: () =>
+    request<{ data: Record<string, string> }>('GET', '/api/v1/admin/settings'),
+
+  update: (body: Record<string, string>) =>
+    request<{ data: Record<string, string> }>('PUT', '/api/v1/admin/settings', body),
+};
+
+export const audit = {
+  list: (params?: { page?: number; pageSize?: number; action?: string; actorName?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    if (params?.action) qs.set('action', params.action);
+    if (params?.actorName) qs.set('actorName', params.actorName);
+    const query = qs.toString();
+    return request<{ data: { id: string; actorId?: string | null; actorName?: string | null; action: string; entityType?: string | null; entityId?: string | null; details?: string | null; ipAddress?: string | null; createdAt: string }[]; pagination: { page: number; pageSize: number; totalCount: number; totalPages: number } }>(
+      'GET',
+      `/api/v1/admin/audit-logs${query ? `?${query}` : ''}`,
+    );
+  },
+};
+
+export interface DashboardStats {
+  customersTotal: number;
+  customersActive: number;
+  customersInactive: number;
+  customerProjectsTotal: number;
+  customerProjectsByStatus: Record<string, number>;
+  leadsTotal: number;
+  leadsNewTotal: number;
+  leadsNew7d: number;
+  leadsByStatus: Record<string, number>;
+  reviewsTotal: number;
+  reviewsPublished: number;
+  reviewsPending: number;
+  teamTotal: number;
+  teamActive: number;
+  portfolioTotal: number;
+  portfolioPublished: number;
+  draftsPending: number;
+  chatIntervention: number;
+  notificationsUnread: number;
+  githubSyncedAt: string | null;
+  githubLastCommitAt: string | null;
+  githubRepositories: number;
+  knowledgeChunks: number;
+  agentTasksPending: number;
+}
+
+export const stats = {
+  get: () => request<{ data: DashboardStats }>('GET', '/api/v1/admin/dashboard/stats'),
 };

@@ -11,6 +11,7 @@ import type {
   Invoice,
   ChatThread,
   ChatMessage,
+  PlatformConfig,
 } from '../types';
 
 const STORAGE_PREFIX = 'ralabs-customer';
@@ -388,5 +389,60 @@ export const api = {
       }
     );
     return parseResponse<ChatMessage>(response);
+  },
+
+  /* AI Agent (registration handoff) */
+  async createAgentThread(): Promise<ApiResponse<{ id: string }>> {
+    const response = await authFetch('/api/v1/customer/agent/thread', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    return parseResponse<{ id: string }>(response);
+  },
+
+  async getAgentThread(threadId: string): Promise<ApiResponse<ChatThread>> {
+    const response = await authFetch(
+      `/api/v1/customer/agent/thread/${encodeURIComponent(threadId)}`
+    );
+    return parseResponse<ChatThread>(response);
+  },
+
+  async claimAgentThread(threadId: string): Promise<ApiResponse<unknown>> {
+    const response = await authFetch(
+      `/api/v1/customer/agent/thread/${encodeURIComponent(threadId)}/claim`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }
+    );
+    return parseResponse<unknown>(response);
+  },
+
+  async sendAgentMessage(
+    threadId: string,
+    body: { content: string; attachmentUrl: string | null }
+  ): Promise<ApiResponse<unknown>> {
+    const response = await authFetch(
+      `/api/v1/customer/agent/thread/${encodeURIComponent(threadId)}/messages`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<unknown>(response);
+  },
+
+  getConfig(): Promise<ApiResponse<PlatformConfig>> {
+    return authFetch('/api/v1/config').then(parseResponse<PlatformConfig>);
+  },
+
+  async uploadChatAttachment(file: File): Promise<ApiResponse<{ url: string }>> {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await authFetch('/api/v1/chat/attachments', {
+      method: 'POST',
+      headers: {},
+      body: form,
+    });
+    return parseResponse<{ url: string }>(response);
   },
 };

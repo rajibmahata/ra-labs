@@ -9,6 +9,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import Chat from './pages/Chat';
+import AgentChat from './pages/AgentChat';
 import Account from './pages/Account';
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
           }
         >
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/agent" element={<AgentChat />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/projects/:id/chat" element={<Chat />} />
           <Route path="/account" element={<Account />} />

@@ -51,6 +51,7 @@ public interface ICustomerProjectService
     Task<FeedbackDto?> GetFeedbackAsync(Guid id);
     Task<FeedbackDto> ApproveFeedbackAsync(Guid id);
     Task<PaginatedResult<AdminFeedbackDto>> GetFeedbacksForAdminAsync(int? page, int? pageSize, string? search, bool? published);
+    Task<byte[]> ExportFeedbacksAsync(string? search, bool? published);
     Task<FeedbackDto> ModerateFeedbackAsync(Guid id, bool approved);
 }
 

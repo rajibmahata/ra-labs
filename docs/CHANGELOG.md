@@ -1,5 +1,72 @@
 # CHANGELOG: ra-labs
 
+## [Unreleased] - live portfolio + RA Labs AI agent (2026-08-09)
+
+### Added
+- **Portfolio live-site showcase (GAP-013..018):** `Project` case-study fields
+  (live site URL with HTTPS-preferred validation and duplicate check, category,
+  business purpose, problem, solution, key features, screenshots, duration,
+  team member links, completed date, gated customer reference, featured/active
+  flags); admin portfolio management (server-side filters, feature/active
+  toggles, CSV import/export, bulk actions, AI refresh drafts); public featured
+  homepage section and structured case-study detail pages; incremental per-
+  project RAG sync on every mutation; project-grounded AI refresh pipeline that
+  applies on approval without auto-publishing. Migrations `PortfolioLiveSiteFields`
+  (20260809102238) and `ContentDraftProjectLink` (20260809103250).
+- **RA Labs AI agent (GAP-019..024):** `AgentChatService` orchestrator driving
+  public + customer chat — guided 7-step project intake with confirm
+  (customers get a real project; anonymous briefs are preserved and flagged
+  for the team), quick actions + per-message suggested actions, RAG-grounded
+  QA fallback, registration handoff (`?agent=<threadId>`) with thread claiming;
+  full-screen `/agent` pages in `web-public` and `web-customer`; shared
+  `useVoice` hook (states, permission UX, TTS with interrupt) gated by admin
+  settings; SSE streaming with honest fallback (409 `STREAMING_DISABLED` when
+  no provider key or setting off); chat attachments (rate-limited, 10 MB,
+  allowlist, private storage); `SystemSetting` store + safe public
+  `GET /api/v1/config` + super-admin settings UI; Super Admin hardening
+  (`CreateAdminRequest.Role`, MCP role hierarchy) and full audit log
+  (`AuditLog` entity, `/admin/audit-logs` endpoint, admin Audit page with
+  filters/pagination). Migration `AgentSystemSettingsAuditAndChatAgent`
+  (20260809143610).
+- Backend regression coverage now totals 77 passing tests (+3 agent tests);
+  all three frontend production builds pass.
+
+### Fixed
+- Chat escalations, pending briefs, and chat-created projects now all create
+  admin notifications (previously only escalations did, despite the agent
+  promising the team had been notified).
+- Streaming route falls back to the deterministic reply when the AI provider
+  fails mid-stream instead of aborting; forbidden threads return 403.
+- Audit-log pagination payload includes `totalPages`.
+- Public agent page: last-agent-message lookup off-by-one (handoff banner +
+  voice TTS crash), duplicate optimistic message in the streaming path, and
+  partial streaming bubble cleanup on error.
+- Voice input guards `recognition.start()` synchronous failures (permission
+  denied no longer leaves the UI stuck in "listening").
+
+## [Unreleased] - admin modal-free overhaul + dynamic 3D AI hero
+
+### Added
+- **Admin panel is now 100% popup-free:** all `Modal`/`ConfirmDialog`/modal-backdrop
+  usage replaced with inline patterns — `InlineConfirm` row-level destructive morph,
+  `inline-edit-panel` create/edit forms, `inline-confirm-bar` bulk confirmations
+  (Portfolio, Team, Content, Leads, Settings, Reviews, Customers). `Modal.tsx`
+  and the modal CSS were deleted; shared classes `.inline-edit-panel`,
+  `.inline-confirm-bar`, `.content-tabs` added to `web-admin` styles.
+- **Content section prefix tabs:** keys grouped by first-dot prefix in a tab rail
+  (All + per-group counts) above the table; locale filter unchanged.
+- **ProjectDetails master-detail tabs:** Overview / Docs / PRD / Demos / Invoices /
+  Feedback rail with live counts; all existing handlers preserved.
+- **Dynamic 3D AI hero banner:** `GET /api/v1/hero-scenarios` returns LLM-generated
+  visual variables (theme, colors, orbit count/speed, labels, project focus)
+  grounded in public knowledge chunks and published projects, cached in
+  `IMemoryCache` for 1 h with a deterministic data-driven fallback when OpenAI is
+  not configured. `HeroScenarioService` + DI registration + `AddMemoryCache()`.
+  Public `Hero.tsx` renders the scene with pure CSS 3D transforms (layers / orbit /
+  grid themes, `prefers-reduced-motion` respected) and falls back to the
+  deterministic default when the endpoint is unavailable.
+- Backend regression coverage now totals 74 passing tests (+6 hero scenario tests).
+
 ## [Unreleased] - admin governance + public RAG synchronization
 
 ### Added
@@ -17,6 +84,9 @@
   Customers-to-Projects customer filter is enforced by the API.
 - Customer-project filters are applied before pagination, with case-insensitive
   matching across the SQL Server and in-memory providers.
+- Added the consolidated admin-management prompt and the first full customer
+  management slice: search/status filtering, detail/edit/delete, bulk delete,
+  CSV import/export, filtered pagination metadata, and private knowledge cleanup.
 - Backend regression coverage now totals 68 passing tests.
 
 ## [Unreleased] - voice assistant + admin notifications

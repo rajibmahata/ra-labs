@@ -58,6 +58,9 @@ export default function Nav() {
       </button>
 
       <nav id="main-navigation" aria-label="Main navigation" className={menuOpen.open ? 'open' : ''}>
+        <Link to="/agent" className={isActive('/agent')} onClick={closeMenu}>
+          AI Agent
+        </Link>
         <Link to="/work" className={isActive('/work')} onClick={closeMenu}>
           {t('nav.work', 'Work')}
         </Link>

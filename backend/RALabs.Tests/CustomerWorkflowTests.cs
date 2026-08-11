@@ -29,7 +29,7 @@ public class CustomerWorkflowTests : IDisposable
         _chat = new ChatService(chatRepo, chatbot, new LeadRepository(_db));
         _customerAuth = new CustomerAuthService(customers, _hasher,
             new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
-        _projects = new CustomerProjectService(projectRepo, customers, _chat, new LocalPrivateFileStorage(_storageRoot));
+        _projects = new CustomerProjectService(projectRepo, customers, chatRepo, new LocalPrivateFileStorage(_storageRoot));
     }
 
     public void Dispose()
@@ -190,7 +190,7 @@ public class CustomerWorkflowTests : IDisposable
         // prd_signed → in_build → demo
         await _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("in_build", null));
         var demo = await _projects.AddDemoAsync(pid, new AddDemoRequest("url", "https://demo.example.com", "v1"));
-        Assert.NotNull(demo.Id);
+        Assert.NotEqual(Guid.Empty, demo.Id);
         await _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("demo", null));
         await _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("delivered", null));
 

@@ -276,11 +276,21 @@ public class McpToolRegistry
             "create_project" => EnsureAdmin(role, await prj.CreateAsync(new CreateProjectRequest(
                 RequireStr(args, "title"), GetStr(args, "slug"), RequireStr(args, "summary"),
                 GetList(args, "stackTags"), GetStr(args, "status"), GetStr(args, "githubUrl"),
-                GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"), GetInt(args, "sortOrder"), GetBool(args, "isPublished")))),
+                GetStr(args, "liveSiteUrl"), GetStr(args, "category"),
+                GetStr(args, "businessPurpose"), GetStr(args, "problemSolved"), GetStr(args, "solution"),
+                GetList(args, "keyFeatures"), GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"),
+                GetList(args, "screenshots"), GetStr(args, "duration"), GetGuidList(args, "teamMemberIds"),
+                GetDateTime(args, "completedAt"), GetStr(args, "customerReference"), GetBool(args, "showCustomerReference"),
+                GetInt(args, "sortOrder"), GetBool(args, "isFeatured"), GetBool(args, "isActive"), GetBool(args, "isPublished")))),
             "update_project" => EnsureAdmin(role, await prj.UpdateAsync(ParseGuid(RequireStr(args, "id")),
                 new UpdateProjectRequest(RequireStr(args, "title"), GetStr(args, "slug"), RequireStr(args, "summary"),
                     GetList(args, "stackTags"), GetStr(args, "status"), GetStr(args, "githubUrl"),
-                    GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"), GetInt(args, "sortOrder"), GetBool(args, "isPublished")))),
+                    GetStr(args, "liveSiteUrl"), GetStr(args, "category"),
+                    GetStr(args, "businessPurpose"), GetStr(args, "problemSolved"), GetStr(args, "solution"),
+                    GetList(args, "keyFeatures"), GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"),
+                    GetList(args, "screenshots"), GetStr(args, "duration"), GetGuidList(args, "teamMemberIds"),
+                    GetDateTime(args, "completedAt"), GetStr(args, "customerReference"), GetBool(args, "showCustomerReference"),
+                    GetInt(args, "sortOrder"), GetBool(args, "isFeatured"), GetBool(args, "isActive"), GetBool(args, "isPublished")))),
             "delete_project" => await DeleteProjectAsync(role, args, prj),
             "create_team_member" => EnsureAdmin(role, await team.CreateAsync(new CreateTeamRequest(
                 RequireStr(args, "name"), GetStr(args, "slug"), RequireStr(args, "role"), RequireStr(args, "bio"),
@@ -321,7 +331,9 @@ public class McpToolRegistry
             "generate_project_draft" => EnsureAdmin(role, await drafts.GenerateProjectDraftAsync(
                 RequireStr(args, "sourceUrl"), RequireStr(args, "sourceText"), CancellationToken.None)),
             "review_content_draft" => EnsureAdmin(role, await drafts.ReviewAsync(
-                ParseGuid(RequireStr(args, "id")), RequireStr(args, "decision").Trim().ToLowerInvariant(), GetStr(args, "note"), projectRepository)),
+                ParseGuid(RequireStr(args, "id")), RequireStr(args, "decision").Trim().ToLowerInvariant(), GetStr(args, "note"), projectRepository, rag)),
+            "generate_project_refresh" => EnsureAdmin(role, await drafts.GenerateProjectRefreshAsync(
+                ParseGuid(RequireStr(args, "projectId")), projectRepository, CancellationToken.None)),
             "rag_query" => await QueryRagAsync(rag, role, args),
             _ => throw new ArgumentException($"Unknown MCP tool: {tool}")
         };
@@ -349,14 +361,25 @@ public class McpToolRegistry
     private static List<string>? GetList(IDictionary<string, object?> args, string key)
         => args.TryGetValue(key, out var v) && v is IEnumerable<string> list ? list.ToList() : null;
 
+    private static List<Guid>? GetGuidList(IDictionary<string, object?> args, string key)
+    {
+        if (!args.TryGetValue(key, out var v) || v is not IEnumerable<string> list) return null;
+        var ids = list.Select(s => Guid.TryParse(s, out var g) ? g : (Guid?)null).Where(g => g.HasValue).Select(g => g!.Value).ToList();
+        return ids.Count > 0 ? ids : null;
+    }
+
+    private static DateTime? GetDateTime(IDictionary<string, object?> args, string key)
+        => args.TryGetValue(key, out var v) && v is not null && DateTime.TryParse(v.ToString(), out var d) ? d : null;
+
     private static Guid? GetGuid(IDictionary<string, object?> args, string key)
         => args.TryGetValue(key, out var v) && v is not null && Guid.TryParse(v.ToString(), out var g) ? g : null;
 
     private static Guid ParseGuid(string s)
         => Guid.TryParse(s, out var g) ? g : throw new ArgumentException($"Invalid GUID: {s}");
 
+    // Role hierarchy: super_admin satisfies "admin" (GAP-023).
     private static T EnsureAdmin<T>(string? role, T result)
-        => role == "admin" ? result : throw new ForbiddenMcpException("This MCP tool requires the admin role.");
+        => role is "admin" or "super_admin" ? result : throw new ForbiddenMcpException("This MCP tool requires the admin role.");
 
     private static T EnsureRole<T>(string? role, string required, T result)
         => role == required ? result : throw new ForbiddenMcpException($"This MCP tool requires the '{required}' role.");

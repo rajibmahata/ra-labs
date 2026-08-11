@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using RALabs.Application.Common;
 using RALabs.Application.DTOs;
 using RALabs.Application.Exceptions;
@@ -12,11 +14,11 @@ public class CustomerProjectService : ICustomerProjectService
 {
     private readonly ICustomerProjectRepository _repo;
     private readonly ICustomerRepository _customers;
-    private readonly IChatService _chat;
+    private readonly IChatRepository _chat;
     private readonly INotificationService? _notifications;
     private readonly IPrivateFileStorage? _fileStorage;
 
-    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatService chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null)
+    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatRepository chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null)
     {
         _repo = repo;
         _customers = customers;
@@ -37,13 +39,12 @@ public class CustomerProjectService : ICustomerProjectService
         Guard.MaxLength(request.ReferenceLinks, "referenceLinks", 3000);
         Guard.ThrowIfAny("project");
 
-        var thread = await _chat.CreateThreadAsync(ChatThreadType.CustomerProject, null);
+        var thread = await _chat.CreateThreadAsync(new ChatThread { Id = Guid.NewGuid(), Type = ChatThreadType.CustomerProject, CreatedAt = DateTime.UtcNow });
         var project = new CustomerProject
         {
             Id = Guid.NewGuid(),
             CustomerId = customerId,
-            Title = request.Title.Trim(),
-            Goal = request.Goal?.Trim(),
+            Title = request.Title.Trim(),            Goal = request.Goal?.Trim(),
             Audience = request.Audience?.Trim(),
             Requirements = request.Requirements?.Trim(),
             Timeline = request.Timeline?.Trim(),
@@ -485,6 +486,26 @@ public class CustomerProjectService : ICustomerProjectService
         };
     }
 
+    public async Task<byte[]> ExportFeedbacksAsync(string? search, bool? published)
+    {
+        var page = await GetFeedbacksForAdminAsync(1, int.MaxValue, search, published);
+        var builder = new StringBuilder("id,customerProjectId,customerName,projectTitle,rating,comment,consentToPublish,isPublished,createdAt\r\n");
+        foreach (var feedback in page.Items)
+        {
+            builder.AppendLine(string.Join(',',
+                feedback.Id,
+                feedback.CustomerProjectId,
+                CsvHelper.Escape(feedback.CustomerName),
+                CsvHelper.Escape(feedback.ProjectTitle),
+                feedback.Rating,
+                CsvHelper.Escape(feedback.Comment),
+                feedback.ConsentToPublish,
+                feedback.IsPublished,
+                feedback.CreatedAt.ToString("O", CultureInfo.InvariantCulture)));
+        }
+        return Encoding.UTF8.GetBytes(builder.ToString());
+    }
+
     public async Task<FeedbackDto> ModerateFeedbackAsync(Guid id, bool approved)
     {
         var project = await _repo.GetByIdIncludingAsync(id)
@@ -507,7 +528,7 @@ public class CustomerProjectService : ICustomerProjectService
         var thread = knownThreadId ?? p.Threads.FirstOrDefault()?.Id ?? Guid.Empty;
         if (thread == Guid.Empty)
         {
-            var created = await _chat.CreateThreadAsync(ChatThreadType.CustomerProject, p.Id);
+            var created = await _chat.CreateThreadAsync(new ChatThread { Id = Guid.NewGuid(), Type = ChatThreadType.CustomerProject, CustomerProjectId = p.Id, CreatedAt = DateTime.UtcNow });
             thread = created.Id;
         }
         return new CustomerProjectDto(

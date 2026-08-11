@@ -102,6 +102,7 @@ export interface ChatMessage {
   content: string;
   attachmentUrl: string | null;
   createdAt: string;
+  suggestedActions?: string[] | null;
 }
 
 export interface ChatThread {
@@ -111,6 +112,17 @@ export interface ChatThread {
   customerProjectId: string | null;
   createdAt: string;
   messages: ChatMessage[];
+}
+
+export interface PlatformConfig {
+  voiceEnabled: boolean;
+  voiceResponse: boolean;
+  streamingEnabled: boolean;
+  chatModel: string | null;
+  sttProvider: string | null;
+  ttsProvider: string | null;
+  maxAudioDuration: number;
+  customerPortalUrl: string | null;
 }
 
 /* ===== API Envelope ===== */

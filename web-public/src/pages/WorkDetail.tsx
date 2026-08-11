@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api, type ProjectDetail } from '../api/client';
+import { api, type ProjectDetail, type ProjectDetailResponse } from '../api/client';
 import { useI18n } from '../i18n';
 
 function formatMarkdown(md: string): string {
@@ -89,6 +89,7 @@ export default function WorkDetail() {
   const { t } = useI18n();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [teamMembers, setTeamMembers] = useState<ProjectDetailResponse['teamMembers']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,7 +104,8 @@ export default function WorkDetail() {
       .getProject(slug)
       .then((res) => {
         if (!cancelled) {
-          setProject(res.data);
+          setProject(res.data.project);
+          setTeamMembers(res.data.teamMembers);
           setLoading(false);
         }
       })
@@ -192,6 +194,17 @@ export default function WorkDetail() {
                   View on GitHub
                 </a>
               )}
+
+              {project.liveSiteUrl && (
+                <a
+                  href={project.liveSiteUrl}
+                  className="github-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Live site &nearr;
+                </a>
+              )}
             </header>
 
             {project.coverImageUrl && (
@@ -200,6 +213,87 @@ export default function WorkDetail() {
                 alt={`${project.title} cover`}
                 className="work-detail-cover"
               />
+            )}
+
+            {(project.category || project.duration || project.completedAt || project.customerReference) && (
+              <dl className="work-detail-facts">
+                {project.category && (
+                  <div><dt>Category</dt><dd>{project.category}</dd></div>
+                )}
+                {project.duration && (
+                  <div><dt>Duration</dt><dd>{project.duration}</dd></div>
+                )}
+                {project.completedAt && (
+                  <div><dt>Completed</dt><dd>{new Date(project.completedAt).toLocaleDateString()}</dd></div>
+                )}
+                {project.customerReference && project.showCustomerReference && (
+                  <div><dt>Customer</dt><dd>{project.customerReference}</dd></div>
+                )}
+              </dl>
+            )}
+
+            {teamMembers.length > 0 && (
+              <div className="work-detail-section">
+                <h2>Built by</h2>
+                <div className="team-inline">
+                  {teamMembers.map((member) => (
+                    <div key={member.id} className="team-inline-member">
+                      {member.avatarUrl && (
+                        <img src={member.avatarUrl} alt="" className="team-inline-avatar" loading="lazy" />
+                      )}
+                      <div>
+                        <strong>{member.name}</strong>
+                        <span>{member.role}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {project.businessPurpose && (
+              <div className="work-detail-section">
+                <h2>Business purpose</h2>
+                <p>{project.businessPurpose}</p>
+              </div>
+            )}
+
+            {project.problemSolved && (
+              <div className="work-detail-section">
+                <h2>The problem</h2>
+                <p>{project.problemSolved}</p>
+              </div>
+            )}
+
+            {project.solution && (
+              <div className="work-detail-section">
+                <h2>The solution</h2>
+                <p>{project.solution}</p>
+              </div>
+            )}
+
+            {project.keyFeatures.length > 0 && (
+              <div className="work-detail-section">
+                <h2>Key features</h2>
+                <ul className="feature-list">
+                  {project.keyFeatures.map((feature) => (
+                    <li key={feature}>{feature}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {project.screenshots.length > 0 && (
+              <div className="work-detail-section">
+                <h2>Screenshots</h2>
+                <div className="screenshot-grid">
+                  {project.screenshots.map((src, i) => (
+                    <a key={`${src}-${i}`} href={src} target="_blank" rel="noopener noreferrer">
+                      <img src={src} alt={`${project.title} screenshot ${i + 1}`} loading="lazy" />
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
 
             {project.caseStudyBody && (

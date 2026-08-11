@@ -22,6 +22,55 @@ namespace RALabs.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("RALabs.Domain.Entities.AdminNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RelatedCustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RelatedCustomerProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RelatedLeadId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RelatedThreadId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsRead", "CreatedAt");
+
+                    b.ToTable("AdminNotifications");
+                });
+
             modelBuilder.Entity("RALabs.Domain.Entities.AdminUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -48,11 +97,6 @@ namespace RALabs.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
                     b.Property<string>("PasswordResetToken")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -66,6 +110,11 @@ namespace RALabs.Infrastructure.Migrations
                     b.Property<string>("RefreshTokenHash")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<Guid?>("TeamMemberId")
                         .HasColumnType("uniqueidentifier");
@@ -123,6 +172,50 @@ namespace RALabs.Infrastructure.Migrations
                     b.ToTable("AgentTasks");
                 });
 
+            modelBuilder.Entity("RALabs.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActorName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("EntityId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("RALabs.Domain.Entities.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -149,6 +242,9 @@ namespace RALabs.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("SuggestedActions")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("ThreadId")
                         .HasColumnType("uniqueidentifier");
 
@@ -165,8 +261,14 @@ namespace RALabs.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AgentContext")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CustomerProjectId")
                         .HasColumnType("uniqueidentifier");
@@ -257,6 +359,9 @@ namespace RALabs.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("ProjectDraftId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ReviewNote")
                         .HasColumnType("nvarchar(max)");
@@ -800,8 +905,18 @@ namespace RALabs.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("BusinessPurpose")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CaseStudyBody")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("CoverImageUrl")
                         .HasMaxLength(500)
@@ -813,20 +928,55 @@ namespace RALabs.Infrastructure.Migrations
                     b.Property<Guid?>("CustomerProjectId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CustomerReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Duration")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("GithubUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("KeyFeatures")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LiveSiteUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ProblemSolved")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Screenshots")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ShowCustomerReference")
                         .HasColumnType("bit");
 
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Solution")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
@@ -845,6 +995,10 @@ namespace RALabs.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("TeamMemberIds")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -859,6 +1013,33 @@ namespace RALabs.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("RALabs.Domain.Entities.SystemSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("SystemSettings");
                 });
 
             modelBuilder.Entity("RALabs.Domain.Entities.TeamMember", b =>

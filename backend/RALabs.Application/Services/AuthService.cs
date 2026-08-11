@@ -31,7 +31,7 @@ public interface IAuthService
     Task<AdminUserDto> SetActiveAsync(Guid id, bool isActive, Guid actorId);
 }
 
-public record CreateAdminRequest(string Name, string Email, string Password, Guid? TeamMemberId);
+public record CreateAdminRequest(string Name, string Email, string Password, Guid? TeamMemberId, string? Role = null);
 
 public class AuthService : IAuthService
 {
@@ -147,6 +147,16 @@ public class AuthService : IAuthService
         Guard.Password(request.Password);
         Guard.ThrowIfAny("admin account");
 
+        // Role enforcement: super_admin is granted only by an existing super_admin
+        // (checked at the route level); the service hard-defaults to "admin".
+        var role = string.IsNullOrWhiteSpace(request.Role) ? "admin" : request.Role.Trim().ToLowerInvariant();
+        if (role is not ("admin" or "super_admin"))
+            throw new Exceptions.ValidationException("Role must be \"admin\" or \"super_admin\".");
+
+        var actor = await _admins.GetByIdAsync(actorId);
+        if (role == "super_admin" && actor?.Role != "super_admin")
+            throw new Exceptions.ForbiddenAccessException("Only a super admin can grant the super_admin role.");
+
         var email = request.Email.Trim().ToLowerInvariant();
         if (await _admins.EmailExistsAsync(email))
             throw new Exceptions.ConflictException("An account with this email already exists.");
@@ -156,6 +166,7 @@ public class AuthService : IAuthService
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             Email = email,
+            Role = role,
             PasswordHash = _hasher.Hash(request.Password),
             TeamMemberId = request.TeamMemberId,
             CreatedAt = DateTime.UtcNow

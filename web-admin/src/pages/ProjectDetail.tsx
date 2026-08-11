@@ -46,6 +46,9 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Active tab
+  const [activeTab, setActiveTab] = useState<'overview' | 'docs' | 'prd' | 'demos' | 'invoices' | 'feedback'>('overview');
+
   // Admin notes
   const [adminNotes, setAdminNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
@@ -381,6 +384,34 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* ================================================================
+          TABS
+          ================================================================ */}
+      <div className="content-tabs" role="tablist" aria-label="Project sections">
+        {([
+          ['overview', 'Overview', 0],
+          ['docs', 'Docs', documents.length],
+          ['prd', 'PRD', prd ? 1 : 0],
+          ['demos', 'Demos', demo ? 1 : 0],
+          ['invoices', 'Invoices', invoices.length],
+          ['feedback', 'Feedback', feedback ? 1 : 0],
+        ] as const).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === key}
+            className={`content-tab${activeTab === key ? ' content-tab--active' : ''}`}
+            onClick={() => setActiveTab(key)}
+          >
+            {label}
+            {count > 0 && <span className="content-tab-count">{count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' && (
+        <>
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Customer Brief</h2>
@@ -463,10 +494,10 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+        </>
+      )}
 
-      {/* ================================================================
-          DOCUMENTS
-          ================================================================ */}
+      {activeTab === 'docs' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Documents</h2>
@@ -517,10 +548,9 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+      )}
 
-      {/* ================================================================
-          PRD EDITOR + SIGN STATUS
-          ================================================================ */}
+      {activeTab === 'prd' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">PRD (Product Requirements Document)</h2>
@@ -618,10 +648,9 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+      )}
 
-      {/* ================================================================
-          DEMO
-          ================================================================ */}
+      {activeTab === 'demos' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Demo</h2>
@@ -693,10 +722,9 @@ export default function ProjectDetail() {
           </form>
         </div>
       </div>
+      )}
 
-      {/* ================================================================
-          INVOICES
-          ================================================================ */}
+      {activeTab === 'invoices' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Invoices</h2>
@@ -799,10 +827,9 @@ export default function ProjectDetail() {
           </form>
         </div>
       </div>
+      )}
 
-      {/* ================================================================
-          FEEDBACK
-          ================================================================ */}
+      {activeTab === 'feedback' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Customer Feedback</h2>
@@ -862,6 +889,7 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

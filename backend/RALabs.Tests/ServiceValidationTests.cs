@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RALabs.Application.DTOs;
 using RALabs.Application.Exceptions;
 using RALabs.Application.Services;
+using RALabs.Domain.Entities;
 using RALabs.Domain.Enums;
 using RALabs.Infrastructure.Data;
 using RALabs.Infrastructure.Services;
@@ -38,12 +39,15 @@ public class ServiceValidationTests : IDisposable
         await _db.SaveChangesAsync();
     }
 
+    private ProjectService NewProjectService() =>
+        new(new ProjectRepository(_db), new FakeTeamRepository(), new FakeRagService());
+
     [Fact]
     public async Task ProjectService_Create_MissingTitle_ThrowsValidation()
     {
-        var svc = new ProjectService(new ProjectRepository(_db));
+        var svc = NewProjectService();
         await Assert.ThrowsAsync<ValidationException>(() =>
-            svc.CreateAsync(new CreateProjectRequest("", null, "summary", null, null, null, null, null, null, null)));
+            svc.CreateAsync(new CreateProjectRequest("", null, "summary", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)));
     }
 
     [Fact]
@@ -55,9 +59,9 @@ public class ServiceValidationTests : IDisposable
         });
         await _db.SaveChangesAsync();
 
-        var svc = new ProjectService(new ProjectRepository(_db));
+        var svc = NewProjectService();
         await Assert.ThrowsAsync<ConflictException>(() =>
-            svc.CreateAsync(new CreateProjectRequest("LexVault Again", "lexvault", "summary", null, null, null, null, null, null, null)));
+            svc.CreateAsync(new CreateProjectRequest("LexVault Again", "lexvault", "summary", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)));
     }
 
     [Fact]
@@ -69,7 +73,7 @@ public class ServiceValidationTests : IDisposable
         });
         await _db.SaveChangesAsync();
 
-        var svc = new ProjectService(new ProjectRepository(_db));
+        var svc = NewProjectService();
         await Assert.ThrowsAsync<NotFoundException>(() => svc.GetBySlugAsync("draft"));
     }
 
@@ -201,4 +205,28 @@ internal sealed class FakeEmailSender : RALabs.Domain.Interfaces.IEmailSender
         Sent.Add($"{to}|{subject}|{htmlBody}");
         return Task.CompletedTask;
     }
+}
+
+internal sealed class FakeTeamRepository : RALabs.Domain.Interfaces.ITeamRepository
+{
+    public Task<TeamMember?> GetByIdAsync(Guid id) => Task.FromResult<TeamMember?>(null);
+    public Task<TeamMember?> GetBySlugAsync(string slug) => Task.FromResult<TeamMember?>(null);
+    public Task<List<TeamMember>> GetPublishedAsync() => Task.FromResult(new List<TeamMember>());
+    public Task<List<TeamMember>> GetAllAsync() => Task.FromResult(new List<TeamMember>());
+    public Task<Guid> AddAsync(TeamMember member) => Task.FromResult(member.Id);
+    public Task UpdateAsync(TeamMember member) => Task.CompletedTask;
+    public Task<bool> SlugExistsAsync(string slug, Guid? excludeId = null) => Task.FromResult(false);
+    public Task<TeamMember?> GetByAdminUserIdAsync(Guid adminUserId) => Task.FromResult<TeamMember?>(null);
+    public Task<GithubSnapshot> AddSnapshotAsync(GithubSnapshot snapshot) => Task.FromResult(snapshot);
+    public Task<GithubSnapshot?> GetLatestSnapshotAsync(Guid teamMemberId) => Task.FromResult<GithubSnapshot?>(null);
+    public Task<Dictionary<Guid, GithubSnapshot>> GetLatestSnapshotsAsync(IEnumerable<Guid> teamMemberIds) =>
+        Task.FromResult(new Dictionary<Guid, GithubSnapshot>());
+}
+
+internal sealed class FakeRagService : RALabs.Application.Services.IRagIngestionService
+{
+    public Task<int> IngestPublicContentAsync(CancellationToken ct) => Task.FromResult(0);
+    public Task SyncProjectAsync(Guid projectId, CancellationToken ct) => Task.CompletedTask;
+    public Task<List<RagQueryResult>> QueryAsync(string query, Guid? customerProjectId, CancellationToken ct) =>
+        Task.FromResult(new List<RagQueryResult>());
 }
