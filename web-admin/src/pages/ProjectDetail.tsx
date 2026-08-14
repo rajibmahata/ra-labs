@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { customerProjects as cpApi, ApiClientError } from '../api/client';
 import { useToast } from '../components/useToast';
@@ -48,6 +48,21 @@ export default function ProjectDetail() {
 
   // Active tab
   const [activeTab, setActiveTab] = useState<'overview' | 'docs' | 'prd' | 'demos' | 'invoices' | 'feedback'>('overview');
+
+  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, tabs: readonly string[]) => {
+    const idx = tabs.indexOf(activeTab);
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = (idx + 1) % tabs.length;
+      setActiveTab(tabs[next] as typeof activeTab);
+      (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = (idx - 1 + tabs.length) % tabs.length;
+      setActiveTab(tabs[prev] as typeof activeTab);
+      (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+    }
+  };
 
   // Admin notes
   const [adminNotes, setAdminNotes] = useState('');
@@ -399,10 +414,13 @@ export default function ProjectDetail() {
           <button
             key={key}
             type="button"
+            id={`tab-${key}`}
             role="tab"
             aria-selected={activeTab === key}
+            tabIndex={activeTab === key ? 0 : -1}
             className={`content-tab${activeTab === key ? ' content-tab--active' : ''}`}
             onClick={() => setActiveTab(key)}
+            onKeyDown={(e) => handleTabKeyDown(e, ['overview', 'docs', 'prd', 'demos', 'invoices', 'feedback'])}
           >
             {label}
             {count > 0 && <span className="content-tab-count">{count}</span>}
@@ -410,6 +428,7 @@ export default function ProjectDetail() {
         ))}
       </div>
 
+      <div role="tabpanel" id="tabpanel-overview" aria-labelledby="tab-overview" hidden={activeTab !== 'overview'}>
       {activeTab === 'overview' && (
         <>
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
@@ -496,7 +515,9 @@ export default function ProjectDetail() {
       </div>
         </>
       )}
+      </div>
 
+      <div role="tabpanel" id="tabpanel-docs" aria-labelledby="tab-docs" hidden={activeTab !== 'docs'}>
       {activeTab === 'docs' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
@@ -549,7 +570,9 @@ export default function ProjectDetail() {
         </div>
       </div>
       )}
+      </div>
 
+      <div role="tabpanel" id="tabpanel-prd" aria-labelledby="tab-prd" hidden={activeTab !== 'prd'}>
       {activeTab === 'prd' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
@@ -649,7 +672,9 @@ export default function ProjectDetail() {
         </div>
       </div>
       )}
+      </div>
 
+      <div role="tabpanel" id="tabpanel-demos" aria-labelledby="tab-demos" hidden={activeTab !== 'demos'}>
       {activeTab === 'demos' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
@@ -723,7 +748,9 @@ export default function ProjectDetail() {
         </div>
       </div>
       )}
+      </div>
 
+      <div role="tabpanel" id="tabpanel-invoices" aria-labelledby="tab-invoices" hidden={activeTab !== 'invoices'}>
       {activeTab === 'invoices' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
@@ -828,7 +855,9 @@ export default function ProjectDetail() {
         </div>
       </div>
       )}
+      </div>
 
+      <div role="tabpanel" id="tabpanel-feedback" aria-labelledby="tab-feedback" hidden={activeTab !== 'feedback'}>
       {activeTab === 'feedback' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
@@ -890,6 +919,7 @@ export default function ProjectDetail() {
         </div>
       </div>
       )}
+      </div>
     </div>
   );
 }

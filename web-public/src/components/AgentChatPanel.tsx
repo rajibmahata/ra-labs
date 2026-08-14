@@ -6,8 +6,6 @@ import { useI18n } from '../i18n';
 export const AGENT_THREAD_KEY = 'ralabs-public.chat.thread';
 
 interface AgentChatPanelProps {
-  /** 'page' — full-page assistant screen (/agent). 'home' — embedded hero panel;
-   * collapses to a floating trigger + bottom sheet below the desktop breakpoint. */
   mode: 'page' | 'home';
 }
 
@@ -17,6 +15,22 @@ interface UiMessage extends ChatMessage {
 
 const STATUS_ONLINE = 'online';
 const STATUS_OFFLINE = 'offline';
+
+const QUICK_STARTERS: { emoji: string; key: string; fallback: string }[] = [
+  { emoji: '\uD83D\uDE80', key: 'agent.starters.create', fallback: 'Start a Project' },
+  { emoji: '\uD83D\uDCA1', key: 'agent.starters.about', fallback: 'Tell Me About RA Labs' },
+  { emoji: '\uD83E\uDDE9', key: 'agent.starters.work', fallback: 'Explore Our Work' },
+  { emoji: '\u2699\uFE0F', key: 'agent.starters.services', fallback: 'Our Services' },
+  { emoji: '\uD83D\uDC65', key: 'agent.starters.team', fallback: 'Meet the Team' },
+  { emoji: '\uD83D\uDCDE', key: 'agent.starters.contact', fallback: 'Contact Us' },
+];
+
+const QUICK_ACTIONS: { emoji: string; key: string; fallback: string }[] = [
+  { emoji: '\uD83D\uDE80', key: 'agent.quick.start', fallback: 'Start a Project' },
+  { emoji: '\u2039/\u203A', key: 'agent.quick.services', fallback: 'Our Services' },
+  { emoji: '\uD83D\uDCC1', key: 'agent.quick.work', fallback: 'Our Work' },
+  { emoji: '\uD83D\uDCA1', key: 'agent.quick.ask', fallback: 'Ask Anything' },
+];
 
 export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
   const { t } = useI18n();
@@ -33,23 +47,30 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
   const [pendingFile, setPendingFile] = useState<{ name: string; url: string } | null>(null);
   const [handoffUrl, setHandoffUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'online' | 'offline'>(STATUS_ONLINE);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState<string>('');
+  const [dragOver, setDragOver] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const lastVisitorSentRef = useRef<string>('');
-
-  // Draft = composer holds text that has not been finalized (sent) yet.
-  const isDraft = drafting && input.trim().length > 0;
+  const dropRef = useRef<HTMLDivElement>(null);
 
   const voice = useVoice({
     enabled: config?.voiceEnabled ?? false,
     voiceResponse: config?.voiceResponse ?? false,
     maxDurationSeconds: config?.maxAudioDuration ?? 60,
-    onTranscript: (text) => setInput((current) => `${current.trim()}${current.trim() ? ' ' : ''}${text}`),
+    onTranscript: (text) => {
+      setInput((current) => `${current.trim()}${current.trim() ? ' ' : ''}${text.trim()}`);
+      setInterimTranscript('');
+    },
+    onInterimTranscript: (text) => {
+      setInterimTranscript(text);
+    },
   });
+
+  const isDraft = drafting && input.trim().length > 0;
 
   const ensureThread = useCallback(async (): Promise<string> => {
     const saved = getSessionItem(AGENT_THREAD_KEY);
@@ -91,7 +112,6 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
     })();
     return () => {
       cancelled = true;
-      voice.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,9 +120,6 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thinking]);
 
-  // Conversation continuity: the agent thread is shared between the homepage
-  // panel and the /agent page (same session key), so a brief started in the
-  // hero follows the visitor to the full screen.
   useEffect(() => {
     const last = [...messages].reverse().find((m) => m.senderType === 'agent');
     setHandoffUrl(null);
@@ -113,10 +130,6 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, threadId, config]);
 
-  const speakReply = useCallback((reply: UiMessage | undefined) => {
-    if (reply && config?.voiceResponse) voice.speak(reply.content);
-  }, [config, voice]);
-
   const send = useCallback(
     async (content: string) => {
       const text = content.trim();
@@ -124,6 +137,7 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
       setError(null);
       setInput('');
       setDrafting(false);
+      setInterimTranscript('');
       lastVisitorSentRef.current = text;
       const attachmentUrl = pendingFile?.url ?? null;
       setPendingFile(null);
@@ -146,7 +160,6 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
         setSending(true);
         const thread = threadId ?? (await ensureThread());
 
-        // Streaming path (only when enabled server-side and no guided flow pending).
         let streamed = false;
         if (config?.streamingEnabled) {
           setStreaming(true);
@@ -185,7 +198,7 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
           const updated = await api.getChatThread(thread);
           setMessages((updated.data.messages ?? []).map((m) => ({ ...m, copied: false })));
           const agentReply = [...(updated.data.messages ?? [])].reverse().find((m) => m.senderType === 'agent');
-          if (agentReply) speakReply(agentReply);
+          if (agentReply && config?.voiceResponse) voice.speak(agentReply.content);
         }
       } catch (err) {
         setMessages((current) => current.filter((m) => m.id !== optimistic.id && m.id !== streamedId));
@@ -208,7 +221,7 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
         setStreamingId(null);
       }
     },
-    [threadId, sending, pendingFile, ensureThread, speakReply]
+    [threadId, sending, pendingFile, ensureThread, config, voice],
   );
 
   const pickFile = async (file: File | undefined) => {
@@ -234,8 +247,15 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
     }
   };
 
+  const autosize = useCallback(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
+  }, []);
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && e.shiftKey) return; // newline
+    if (e.key === 'Enter' && e.shiftKey) return;
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       void send(input);
@@ -253,46 +273,53 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
     }
   };
 
-  // Focus the composer when the mobile sheet opens; lock body scroll so the
-  // page does not scroll behind the sheet.
   useEffect(() => {
-    if (mode === 'home' && sheetOpen) {
-      composerRef.current?.focus();
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-    return undefined;
-  }, [mode, sheetOpen]);
-
-  // Esc closes the mobile bottom sheet (home mode). On the page mode there is
-  // nothing to dismiss, so Esc just blurs the composer.
-  useEffect(() => {
-    if (mode === 'home' && !sheetOpen) return;
-    const onEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (mode === 'home' && sheetOpen) {
-          setSheetOpen(false);
-          return;
-        }
-        composerRef.current?.blur();
-      }
-    };
-    document.addEventListener('keydown', onEsc);
-    return () => document.removeEventListener('keydown', onEsc);
-  }, [mode, sheetOpen]);
+    autosize();
+  }, [input, autosize]);
 
   const agentList = messages.filter((m) => m.senderType === 'agent');
   const suggested = agentList[agentList.length - 1]?.suggestedActions ?? null;
-  const showQuickActions = messages.length === 0 || (suggested?.length ?? 0) === 0;
+  const showWelcome = messages.length === 0;
 
-  const QUICK_ACTIONS = [
-    t('agent.starters.create', 'Create a project'),
-    t('agent.starters.about', 'Tell me about RA Labs'),
-    t('agent.starters.work', 'Explore projects'),
-    t('agent.starters.contact', 'Contact us'),
-  ];
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      void pickFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleVoiceClick = () => {
+    if (voice.status === 'listening' || voice.status === 'transcribing') {
+      voice.stop();
+    } else if (voice.status === 'speaking') {
+      voice.stopSpeaking();
+    } else {
+      voice.listen();
+    }
+  };
+
+  const voiceButtonLabel = () => {
+    switch (voice.status) {
+      case 'listening': return t('agent.voice.stop', 'Stop voice input');
+      case 'transcribing': return t('agent.voice.transcribing', 'Processing speech…');
+      case 'speaking': return t('agent.voice.stopSpeaking', 'Stop speaking');
+      default: return t('agent.voice.start', 'Speak your message');
+    }
+  };
 
   const renderPanel = (inSheet: boolean) => (
     <section
@@ -313,29 +340,57 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
             </span>
           </div>
         </div>
-        {inSheet && (
-          <button
-            type="button"
-            className="agent-panel-close"
-            aria-label={t('agent.close', 'Close assistant')}
-            onClick={() => setSheetOpen(false)}
-          >
-            &times;
-          </button>
+        {mode === 'page' && (
+          <div className="agent-panel-tools" aria-hidden="true">
+            <button type="button" tabIndex={-1} aria-hidden="true">{'\u25D6'}</button>
+            <button type="button" tabIndex={-1} aria-hidden="true">{'\u2667'}</button>
+            <button type="button" tabIndex={-1} aria-hidden="true">{'\u22EE'}</button>
+          </div>
         )}
       </header>
 
-      <div className="agent-messages" role="log" aria-live="polite">
-        {messages.length === 0 && (
-          <div className="agent-welcome">
-            <p>
-              {t(
-                'agent.welcome',
-                "Hi! I'm the R&A Labs assistant. Ask about our work, services and process — or tell me about your project and I'll collect a brief for the team."
-              )}
-            </p>
+      <div className="agent-quick-row" role="group" aria-label={t('agent.quick.label', 'Quick actions')}>
+        {QUICK_ACTIONS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className="agent-quick-chip"
+            onClick={() => void send(t(item.key, item.fallback))}
+            disabled={sending}
+          >
+            <span aria-hidden="true">{item.emoji}</span> {t(item.key, item.fallback)}
+          </button>
+        ))}
+      </div>
+
+      {showWelcome && (
+        <div className="agent-welcome-premium">
+          <h2 className="agent-welcome-heading">
+            {t('agent.welcome.heading', "Hi, I'm the RA Labs assistant")}
+          </h2>
+          <div className="agent-bubble agent">
+            <span className="visually-hidden">{t('agent.welcome.sr', 'RA Labs agent says:')}</span>
+            {t('agent.welcome.body', "Hi! I am the R&A Labs assistant. Ask about our work, services and process — or tell me about your project and I will collect a brief for the team.")}
           </div>
-        )}
+          <div className="agent-starter-cards" role="list" aria-label={t('agent.starters.label', 'Conversation starters')}>
+            {QUICK_STARTERS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className="agent-starter-card"
+                role="listitem"
+                onClick={() => void send(t(item.key, item.fallback))}
+                disabled={sending}
+              >
+                <span className="agent-starter-emoji" aria-hidden="true">{item.emoji}</span>
+                <span>{t(item.key, item.fallback)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="agent-messages" role="log" aria-live="polite" aria-busy={streaming}>
 
         {messages.map((message) => (
           <div key={message.id} className={`agent-message ${message.senderType}`}>
@@ -349,10 +404,13 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
               </div>
             )}
             <div className="agent-bubble">
-              <span className="visually-hidden">{message.senderType === 'agent' ? 'RA Labs agent' : 'You'}:</span>
+              <span className="visually-hidden">{message.senderType === 'agent' ? t('agent.sender.agent', 'RA Labs agent') : t('agent.sender.visitor', 'You')}:</span>
               {message.content}
             </div>
             <div className="agent-message-meta">
+              <span className="agent-msg-time">
+                {new Date(message.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              </span>
               {message.senderType === 'visitor' && (
                 <span className="agent-msg-tag">{t('agent.draft.final', 'Sent')}</span>
               )}
@@ -374,6 +432,22 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
             </div>
           </div>
         ))}
+
+        {suggested && !thinking && !streaming && (
+          <div className="agent-suggested-chips" role="group" aria-label={t('agent.suggested.label', 'Suggested actions')}>
+            {suggested.map((action) => (
+              <button
+                key={action}
+                type="button"
+                className="agent-action-chip"
+                onClick={() => void send(action)}
+                disabled={sending}
+              >
+                {action}
+              </button>
+            ))}
+          </div>
+        )}
 
         {thinking && !streaming && (
           <div className="agent-message agent">
@@ -404,7 +478,20 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
         </div>
       )}
 
-      <div className="agent-composer">
+      {voice.errorMessage && (
+        <div className="agent-error" role="alert">
+          {voice.errorMessage}
+        </div>
+      )}
+
+      <div
+        className={`agent-composer${dragOver ? ' agent-composer--drop' : ''}`}
+        ref={dropRef}
+        onDragOver={onDragOver}
+        onDragEnter={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
         <input
           ref={fileRef}
           type="file"
@@ -419,35 +506,28 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
           title={t('agent.attach', 'Attach a file')}
           onClick={() => fileRef.current?.click()}
         >
-          +
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
         </button>
         {pendingFile && (
           <span className="agent-file-chip">
-            {pendingFile.name}{' '}
+            <span className="agent-file-chip-name">{pendingFile.name}</span>
             <button type="button" aria-label={t('agent.attach.remove', 'Remove attachment')} onClick={() => setPendingFile(null)}>
               &times;
             </button>
           </span>
         )}
-        {(config?.voiceEnabled && voice.supported) ? (
-          <button
-            type="button"
-            className={`agent-tool-btn ${voice.status === 'listening' ? 'agent-voice-on' : ''}`}
-            aria-label={voice.status === 'listening' ? t('agent.voice.stop', 'Stop voice input') : t('agent.voice.start', 'Speak your message')}
-            title={voice.status === 'listening' ? t('agent.voice.stop', 'Stop') : t('agent.voice.start', 'Speak')}
-            onClick={() => (voice.status === 'listening' ? voice.stop() : voice.listen())}
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="9" y="2" width="6" height="12" rx="3" />
-              <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" />
-            </svg>
-          </button>
-        ) : null}
         <label className="agent-composer-field">
           <span className="visually-hidden">{t('agent.composer.label', 'Message')}</span>
           {isDraft && (
             <span className="agent-draft-chip">
               {t('agent.draft.label', 'Draft')}
+            </span>
+          )}
+          {interimTranscript && (
+            <span className="agent-interim-text" aria-live="polite">
+              {interimTranscript}
             </span>
           )}
           <textarea
@@ -456,6 +536,9 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
             onChange={(e) => {
               setInput(e.target.value);
               setDrafting(true);
+              if (!e.target.value.trim() && !interimTranscript) {
+                setInterimTranscript('');
+              }
             }}
             onKeyDown={onKeyDown}
             placeholder={t('agent.composer.placeholder', 'Ask the agent or describe your project…')}
@@ -463,6 +546,30 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
             aria-label={t('agent.composer.label', 'Message')}
           />
         </label>
+        {(config?.voiceEnabled && voice.supported) ? (
+          <button
+            type="button"
+            className={`agent-tool-btn agent-voice-btn${voice.status === 'listening' ? ' agent-voice-btn--listening' : ''}${voice.status === 'transcribing' ? ' agent-voice-btn--transcribing' : ''}${voice.status === 'speaking' ? ' agent-voice-btn--speaking' : ''}`}
+            aria-label={voiceButtonLabel()}
+            title={voiceButtonLabel()}
+            onClick={handleVoiceClick}
+          >
+            {voice.status === 'speaking' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+              </svg>
+            ) : voice.status === 'transcribing' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="2" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" />
+              </svg>
+            )}
+          </button>
+        ) : null}
         <button
           type="button"
           className="agent-send"
@@ -473,14 +580,15 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
         </button>
       </div>
 
-      {showQuickActions && (
-        <div className="agent-starters">
-          <span className="agent-starters-label">{t('agent.starters.label', 'Conversation starters')}</span>
-          {QUICK_ACTIONS.map((action) => (
-            <button key={action} type="button" onClick={() => void send(action)} disabled={sending}>
-              {action}
-            </button>
-          ))}
+      {dragOver && (
+        <div className="agent-dropoverlay" aria-hidden="true">
+          {t('agent.drop.hint', 'Drop your file here to attach it')}
+        </div>
+      )}
+
+      {!inSheet && mode === 'page' && (
+        <div className="agent-voice-note">
+          {t('agent.voice.note', '\u2662 You can type or use your voice to talk to the agent.')}
         </div>
       )}
     </section>
@@ -490,28 +598,9 @@ export default function AgentChatPanel({ mode }: AgentChatPanelProps) {
     return <div className="agent-page">{renderPanel(false)}</div>;
   }
 
-  // Home mode: one panel instance. On desktop it sits inline in the hero grid;
-  // below the breakpoint the same instance becomes a bottom sheet (CSS), opened
-  // by the floating trigger. Single instance = one thread, one config fetch.
   return (
-    <>
-      <div className={`agent-home-inline${sheetOpen ? ' agent-home-inline--open' : ''}`}>
-        {renderPanel(sheetOpen)}
-      </div>
-      <button
-        type="button"
-        className="agent-fab"
-        aria-label={sheetOpen ? t('agent.close', 'Close assistant') : t('agent.open', 'Open assistant')}
-        aria-expanded={sheetOpen}
-        onClick={() => setSheetOpen((open) => !open)}
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          {sheetOpen ? (<><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>) : (<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 9h8M8 13h5" /></>)}
-        </svg>
-      </button>
-      {sheetOpen && (
-        <div className="agent-sheet-scrim agent-sheet-scrim--show" onClick={() => setSheetOpen(false)} aria-hidden="true" />
-      )}
-    </>
+    <div className="agent-home-inline">
+      {renderPanel(false)}
+    </div>
   );
 }

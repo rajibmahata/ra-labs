@@ -11,13 +11,17 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then((registration) => {
-        console.debug(
-          'ServiceWorker registered:',
-          registration.scope
-        );
+        if (import.meta.env.DEV) {
+          console.debug(
+            'ServiceWorker registered:',
+            registration.scope
+          );
+        }
       })
       .catch((err) => {
-        console.debug('ServiceWorker registration failed:', err);
+        if (import.meta.env.DEV) {
+          console.debug('ServiceWorker registration failed:', err);
+        }
       });
   });
 }

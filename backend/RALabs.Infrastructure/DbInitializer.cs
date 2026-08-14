@@ -227,6 +227,8 @@ public static class DbInitializer
         {
             var defaults = new Dictionary<string, string>
             {
+                ["ai.agent.enabled"] = "true",
+                ["ai.rag.enabled"] = "true",
                 ["ai.voice.enabled"] = "false",
                 ["ai.voice.response"] = "false",
                 ["ai.streaming.enabled"] = "false",

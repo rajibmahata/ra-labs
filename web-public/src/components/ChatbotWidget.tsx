@@ -5,6 +5,8 @@ import {
   type ChatMessage,
 } from '../api/client';
 import { getSessionItem, setSessionItem, removeSessionItem } from '../api/client';
+import { useI18n } from '../i18n';
+import { useVoice } from '../hooks/useVoice';
 
 const THREAD_STORAGE_KEY = 'chat.thread';
 
@@ -21,17 +23,25 @@ function clearThreadId(): void {
 }
 
 export default function ChatbotWidget() {
+  const { t } = useI18n();
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const speechSupported = typeof window !== 'undefined'
-    && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const voice = useVoice({
+    enabled: true,
+    voiceResponse: false,
+    onTranscript: (text) => {
+      setInput((current) => `${current.trim()}${current.trim() ? ' ' : ''}${text.trim()}`);
+    },
+  });
 
   const showRegistrationCta = messages.some(
     (message) =>
@@ -48,11 +58,44 @@ export default function ChatbotWidget() {
   useEffect(() => {
     if (open) {
       inputRef.current?.focus();
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    } else {
+      triggerRef.current?.focus();
     }
+    return undefined;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), a[href]'
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
   useEffect(() => () => {
-    recognitionRef.current?.stop();
+    voice.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load existing thread on open
@@ -74,11 +117,9 @@ export default function ChatbotWidget() {
       .catch((err: unknown) => {
         if (cancelled) return;
         if (err instanceof ApiClientError && err.status === 404) {
-          // Thread not found on server — recreate
           clearThreadId();
           setMessages([]);
         }
-        // Other errors: keep messages as-is, user can retry
       });
 
     return () => {
@@ -97,7 +138,6 @@ export default function ChatbotWidget() {
       setError(null);
       setSending(true);
 
-      // Optimistic visitor message
       const optimisticId = `opt-${Date.now()}`;
       const optimisticMessage: ChatMessage = {
         id: optimisticId,
@@ -135,7 +175,6 @@ export default function ChatbotWidget() {
           await send(threadId);
         }
 
-        // Poll for agent response (simple approach: fetch thread after short delay)
         setTimeout(async () => {
           try {
             const threadRes = await api.getChatThread(threadId!);
@@ -145,30 +184,29 @@ export default function ChatbotWidget() {
           }
         }, 1500);
       } catch (err: unknown) {
-        // Remove optimistic message on failure
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
 
         if (err instanceof ApiClientError) {
           if (err.status === 404) {
             clearThreadId();
             setError(
-              'Session expired. Please send your message again.'
+              t('chatbot.sessionExpired', 'Session expired. Please send your message again.')
             );
           } else if (err.code === 'RATE_LIMITED') {
             setError(
-              'You are sending messages too quickly. Please wait a moment.'
+              t('chatbot.rateLimited', 'You are sending messages too quickly. Please wait a moment.')
             );
           } else {
             setError(err.message);
           }
         } else {
-          setError('Failed to send message. Please try again.');
+          setError(t('chatbot.sendFailed', 'Failed to send message. Please try again.'));
         }
       } finally {
         setSending(false);
       }
     },
-    [input, sending]
+    [input, sending, t]
   );
 
   const toggleOpen = useCallback(() => {
@@ -176,47 +214,30 @@ export default function ChatbotWidget() {
   }, []);
 
   const toggleVoiceInput = useCallback(() => {
-    if (!speechSupported) return;
-
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
+    if (voice.status === 'listening' || voice.status === 'transcribing') {
+      voice.stop();
+    } else {
+      setError(null);
+      voice.listen();
     }
+  }, [voice]);
 
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) return;
-
-    const recognition = new Recognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = document.documentElement.lang || 'en-US';
-    recognition.onresult = (event) => {
-      const transcript = event.results[event.resultIndex]?.[0]?.transcript?.trim();
-      if (transcript) {
-        setInput((current) => `${current.trim()}${current.trim() ? ' ' : ''}${transcript}`);
-      }
-    };    recognition.onerror = () => {
-      setListening(false);
-      setError('Voice input was not available. You can still type your message.');
-    };
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognitionRef.current = recognition;
-    setError(null);
-    setListening(true);
-    recognition.start();
-  }, [listening, speechSupported]);
+  const voiceButtonLabel = () => {
+    switch (voice.status) {
+      case 'listening': return t('chatbot.voice.stop', 'Stop voice input');
+      case 'transcribing': return t('chatbot.voice.transcribing', 'Processing speech…');
+      default: return t('chatbot.voice.start', 'Use voice input');
+    }
+  };
 
   return (
     <>
       {/* Floating trigger button */}
       <button
         className="chatbot-trigger"
+        ref={triggerRef}
         onClick={toggleOpen}
-        aria-label={open ? 'Close chat' : 'Open chat'}
+        aria-label={open ? t('chatbot.close', 'Close chat') : t('chatbot.open', 'Open chat')}
         aria-expanded={open}
         type="button"
       >
@@ -255,16 +276,17 @@ export default function ChatbotWidget() {
       {open && (
         <div
           className="chatbot-panel"
+          ref={panelRef}
           role="dialog"
-          aria-label="Chat with us"
+          aria-label={t('chatbot.panel.label', 'Chat with us')}
           aria-modal="true"
         >
           <div className="chatbot-header">
-            <h3>Chat with us</h3>
+            <h3>{t('chatbot.panel.label', 'Chat with us')}</h3>
             <button
               className="chatbot-close"
               onClick={toggleOpen}
-              aria-label="Close chat"
+              aria-label={t('chatbot.close', 'Close chat')}
               type="button"
             >
               &times;
@@ -281,7 +303,7 @@ export default function ChatbotWidget() {
                   padding: '24px 8px',
                 }}
               >
-                Ask us anything about our work, process, or how we can help.
+                {t('chatbot.empty', 'Ask us anything about our work, process, or how we can help.')}
               </div>
             )}
 
@@ -291,7 +313,9 @@ export default function ChatbotWidget() {
                 className={`chat-message ${msg.senderType}`}
               >
                 <div className="sender">
-                  {msg.senderType === 'agent' ? 'R&A Assistant' : 'You'}
+                  {msg.senderType === 'agent'
+                    ? t('chatbot.sender.agent', 'R&A Assistant')
+                    : t('chatbot.sender.visitor', 'You')}
                 </div>
                 {msg.content}
               </div>
@@ -299,27 +323,30 @@ export default function ChatbotWidget() {
 
             {showRegistrationCta && (
               <div className="chatbot-registration-cta">
-                <strong>Ready to shape the idea?</strong>
-                <span>Create a private workspace for your brief and project conversation.</span>
-                <a href="/customer/register" className="cta primary">
-                  Create private workspace
+                <strong>{t('chatbot.cta.heading', 'Ready to shape the idea?')}</strong>
+                <span>{t('chatbot.cta.body', 'Create a private workspace for your brief and project conversation.')}</span>
+                <a href="/agent" className="cta primary">
+                  {t('chatbot.cta.button', 'Start with our AI agent')}
                 </a>
               </div>
             )}
 
             {error && (
               <div
+                className="error-banner"
                 role="alert"
-                style={{
-                  fontSize: '12px',
-                  color: '#c44',
-                  textAlign: 'center',
-                  padding: '8px',
-                  background: 'rgba(204,68,68,0.08)',
-                  borderRadius: '10px',
-                }}
               >
                 {error}
+              </div>
+            )}
+
+            {/* Show voice error if any */}
+            {voice.errorMessage && !error && (
+              <div
+                className="error-banner"
+                role="alert"
+              >
+                {voice.errorMessage}
               </div>
             )}
 
@@ -328,7 +355,7 @@ export default function ChatbotWidget() {
 
           <form className="chatbot-input" onSubmit={sendMessage}>
             <label htmlFor="chat-input" className="sr-only">
-              Type your message
+              {t('chatbot.input.label', 'Type your message')}
             </label>
             <input
               id="chat-input"
@@ -336,19 +363,19 @@ export default function ChatbotWidget() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
+              placeholder={t('chatbot.input.placeholder', 'Type a message...')}
               maxLength={5000}
               disabled={sending}
               autoComplete="off"
             />
-            {speechSupported && (
+            {voice.supported && (
               <button
                 type="button"
-                className={`chatbot-voice${listening ? ' listening' : ''}`}
+                className={`chatbot-voice${voice.status === 'listening' ? ' listening' : ''}`}
                 onClick={toggleVoiceInput}
                 disabled={sending}
-                aria-label={listening ? 'Stop voice input' : 'Use voice input'}
-                title={listening ? 'Stop voice input' : 'Use voice input'}
+                aria-label={voiceButtonLabel()}
+                title={voiceButtonLabel()}
               >
                 <svg
                   width="18"
@@ -367,7 +394,7 @@ export default function ChatbotWidget() {
               </button>
             )}
             <button type="submit" disabled={sending || !input.trim()}>
-              {sending ? '...' : 'Send'}
+              {sending ? t('chatbot.sending', '...') : t('chatbot.send', 'Send')}
             </button>
           </form>
         </div>

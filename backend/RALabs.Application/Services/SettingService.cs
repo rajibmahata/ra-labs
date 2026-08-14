@@ -58,6 +58,8 @@ public sealed class SettingService : ISettingService
     /// <summary>Keys safe to expose to unauthenticated callers. Never keys/secrets.</summary>
     private static readonly HashSet<string> PublicKeys = new()
     {
+        "ai.agent.enabled",
+        "ai.rag.enabled",
         "ai.voice.enabled",
         "ai.voice.response",
         "ai.streaming.enabled",

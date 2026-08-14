@@ -39,7 +39,7 @@ export default function Notifications() {
           <h1 className="page-title">Notifications</h1>
           <p className="page-subtitle">Requests and activity that may need a team response.</p>
         </div>
-        <button className="btn btn--secondary" type="button" onClick={() => void load()}>Refresh</button>
+        <button className="btn btn--outline" type="button" onClick={() => void load()}>Refresh</button>
       </div>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
@@ -62,7 +62,7 @@ export default function Notifications() {
                   <p>{item.message}</p>
                   <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
                 </div>
-                {!item.isRead && <button className="btn btn--secondary btn--small" type="button" onClick={() => void markRead(item)}>Mark read</button>}
+                {!item.isRead && <button className="btn btn--outline btn--sm" type="button" onClick={() => void markRead(item)}>Mark read</button>}
               </article>
             ))}
           </div>

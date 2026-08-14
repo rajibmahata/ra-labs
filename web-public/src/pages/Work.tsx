@@ -75,9 +75,9 @@ export default function Work() {
             <div className="eyebrow">
               {t('portfolio.eyebrow', 'Our work')}
             </div>
-            <h2 id="work-heading">
+            <h1 id="work-heading">
               {t('portfolio.title', 'Systems we have built')}
-            </h2>
+            </h1>
           </div>
         </div>
 
@@ -112,14 +112,14 @@ export default function Work() {
         {loading && (
           <div className="state-placeholder" aria-live="polite">
             <div className="spinner" />
-            <p>Loading projects...</p>
+            <p>{t('portfolio.loading', 'Loading projects...')}</p>
           </div>
         )}
 
         {/* State: error */}
         {error && !loading && (
           <div className="state-placeholder" role="alert">
-            <h3>Could not load projects</h3>
+            <h3>{t('portfolio.error', 'Could not load projects')}</h3>
             <p>{error}</p>
           </div>
         )}
@@ -129,13 +129,13 @@ export default function Work() {
           <div className="state-placeholder">
             <h3>
               {currentTag
-                ? `No projects tagged "${currentTag}"`
-                : 'No projects yet'}
+                ? t('portfolio.empty.filtered', `No projects tagged "${currentTag}"`)
+                : t('portfolio.empty.heading', 'No projects yet')}
             </h3>
             <p>
               {currentTag
-                ? 'Try a different filter or check back later.'
-                : 'Our portfolio is coming soon. Check back for updates.'}
+                ? t('portfolio.empty.filteredHint', 'Try a different filter or check back later.')
+                : t('portfolio.empty.body', 'Our portfolio is coming soon. Check back for updates.')}
             </p>
           </div>
         )}

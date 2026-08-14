@@ -4,25 +4,36 @@ const STORAGE_PREFIX = 'admin.';
 const TOKEN_KEY = `${STORAGE_PREFIX}auth.token`;
 const USER_KEY = `${STORAGE_PREFIX}auth.user`;
 const EXPIRES_KEY = `${STORAGE_PREFIX}auth.expiresAt`;
+const REMEMBER_KEY = `${STORAGE_PREFIX}auth.remember`;
 
-function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+function getStorage(): Storage {
+  return localStorage.getItem(REMEMBER_KEY) === 'session' ? sessionStorage : localStorage;
 }
 
-export function setAuth(token: string, user: unknown, expiresAt: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  localStorage.setItem(EXPIRES_KEY, expiresAt);
+function getToken(): string | null {
+  return getStorage().getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuth(token: string, user: unknown, expiresAt: string, remember = true): void {
+  const storage = remember ? localStorage : sessionStorage;
+  storage.setItem(TOKEN_KEY, token);
+  storage.setItem(USER_KEY, JSON.stringify(user));
+  storage.setItem(EXPIRES_KEY, expiresAt);
+  localStorage.setItem(REMEMBER_KEY, remember ? 'persist' : 'session');
 }
 
 export function clearAuth(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(EXPIRES_KEY);
+  localStorage.removeItem(REMEMBER_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(EXPIRES_KEY);
 }
 
 export function getStoredUser<T>(): T | null {
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = getStorage().getItem(USER_KEY) || localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as T;
@@ -34,7 +45,7 @@ export function getStoredUser<T>(): T | null {
 export function isAuthenticated(): boolean {
   const token = getToken();
   if (!token) return false;
-  const expiresAt = localStorage.getItem(EXPIRES_KEY);
+  const expiresAt = getStorage().getItem(EXPIRES_KEY) || localStorage.getItem(EXPIRES_KEY);
   if (expiresAt && new Date(expiresAt) < new Date()) {
     clearAuth();
     return false;
@@ -58,7 +69,12 @@ export class ApiClientError extends Error {
 
 function redirectToLogin(): void {
   clearAuth();
-  window.location.href = '/admin/login';
+  try {
+    window.dispatchEvent(new Event('auth:expired'));
+  } catch {
+    // fallback to hard redirect if no listener
+    window.location.href = '/admin/login';
+  }
 }
 
 async function request<T>(

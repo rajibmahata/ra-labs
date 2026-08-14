@@ -1,10 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { projects as projectsApi, team as teamApi, drafts as draftsApi, ApiClientError, type Project } from '../api/client';
 import { InlineConfirm } from '../components/InlineConfirm';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Pagination } from '../components/Pagination';
 import { SortableTh, type SortDirection } from '../components/SortableTh';
 import { useToast } from '../components/useToast';
 import type { ProjectForm } from '../types';
+
+function useFocusPanel(open: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open && ref.current) {
+      const first = ref.current.querySelector<HTMLElement>('input, select, textarea, button, h2');
+      first?.focus();
+    }
+  }, [open]);
+  return ref;
+}
 
 const emptyForm: ProjectForm = {
   title: '',
@@ -55,7 +67,6 @@ export default function Portfolio() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<{ ids: string[]; kind: BulkKind } | null>(null);
-  const [bulkSaving, setBulkSaving] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -67,6 +78,7 @@ export default function Portfolio() {
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
   const pageSize = 10;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editPanelRef = useFocusPanel(!!editingPanel);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -299,7 +311,6 @@ export default function Portfolio() {
 
   const handleBulkAction = async () => {
     if (!bulkAction) return;
-    setBulkSaving(true);
     try {
       const ids = bulkAction.ids;
       if (bulkAction.kind === 'delete') await Promise.all(ids.map((id) => projectsApi.delete(id)));
@@ -312,8 +323,6 @@ export default function Portfolio() {
       await fetchProjects();
     } catch (e) {
       addToast(e instanceof ApiClientError ? e.message : 'Failed to update selected projects', 'error');
-    } finally {
-      setBulkSaving(false);
     }
   };
 
@@ -395,27 +404,26 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {bulkAction && (
-        <div className="inline-confirm-bar" role="region" aria-label="Confirm bulk action">
-          <span>
-            {bulkAction.kind === 'delete'
-              ? `Delete ${bulkAction.ids.length} selected project(s)?`
-              : bulkAction.kind === 'publish'
-                ? `Publish ${bulkAction.ids.length} selected project(s) on the public site?`
-                : bulkAction.kind === 'unpublish'
-                  ? `Unpublish ${bulkAction.ids.length} selected project(s)?`
-                  : bulkAction.kind === 'feature'
-                    ? `Feature ${bulkAction.ids.length} selected project(s) on the public site?`
-                    : `Unfeature ${bulkAction.ids.length} selected project(s)?`}
-          </span>
-          <div className="form-inline">
-            <button type="button" className="btn btn--primary btn--sm" disabled={bulkSaving} onClick={() => void handleBulkAction()}>
-              {bulkSaving ? '...' : bulkAction.kind === 'delete' ? 'Delete' : bulkAction.kind.startsWith('un') ? 'Apply' : 'Apply'}
-            </button>
-            <button type="button" className="btn btn--outline btn--sm" disabled={bulkSaving} onClick={() => setBulkAction(null)}>Cancel</button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!bulkAction}
+        title={
+          bulkAction?.kind === 'delete'
+            ? `Delete ${bulkAction?.ids.length ?? 0} selected project(s)?`
+            : bulkAction?.kind === 'publish'
+              ? `Publish ${bulkAction?.ids.length ?? 0} selected project(s)?`
+              : bulkAction?.kind === 'unpublish'
+                ? `Unpublish ${bulkAction?.ids.length ?? 0} selected project(s)?`
+                : bulkAction?.kind === 'feature'
+                  ? `Feature ${bulkAction?.ids.length ?? 0} selected project(s)?`
+                  : `Unfeature ${bulkAction?.ids.length ?? 0} selected project(s)?`
+        }
+        description={bulkAction?.kind === 'delete' ? 'Deleted projects cannot be recovered. This will permanently remove the selected projects and all associated data.' : 'This change will take effect immediately on the public site.'}
+        confirmLabel={bulkAction?.kind === 'delete' ? 'Delete' : bulkAction?.kind?.startsWith('un') ? 'Apply' : 'Apply'}
+        cancelLabel="Cancel"
+        danger={bulkAction?.kind === 'delete'}
+        onConfirm={async () => { await handleBulkAction(); }}
+        onCancel={() => setBulkAction(null)}
+      />
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
 
@@ -455,10 +463,10 @@ export default function Portfolio() {
       </div>
 
       {editingPanel && (
-        <div className="card inline-edit-panel" role="region" aria-label={editingPanel.mode === 'create' ? 'Create project' : 'Edit project'}>
+        <div className="card inline-edit-panel" role="region" aria-label={editingPanel.mode === 'create' ? 'Create project' : 'Edit project'} ref={editPanelRef}>
           <form onSubmit={handleSubmit} noValidate>
             <div className="inline-edit-panel-title">
-              <h2 className="page-title">{editingPanel.mode === 'create' ? 'Create Project' : 'Edit Project'}</h2>
+              <h2 className="page-title" tabIndex={-1}>{editingPanel.mode === 'create' ? 'Create Project' : 'Edit Project'}</h2>
             </div>
             <div className="form-grid">
               <div className="form-group">

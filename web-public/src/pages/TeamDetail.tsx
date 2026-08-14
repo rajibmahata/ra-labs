@@ -77,17 +77,17 @@ export default function TeamDetail() {
         {loading && (
           <div className="state-placeholder" aria-live="polite">
             <div className="spinner" />
-            <p>Loading profile...</p>
+            <p>{t('team.detail.loading', 'Loading profile...')}</p>
           </div>
         )}
 
         {/* State: error */}
         {error && !loading && (
           <div className="state-placeholder" role="alert">
-            <h3>Team member not found</h3>
+            <h3>{t('team.detail.error', 'Team member not found')}</h3>
             <p>{error}</p>
             <Link to="/team" className="cta ghost" style={{ marginTop: 16 }}>
-              Back to team
+              {t('team.detail.back', 'Back to team')}
             </Link>
           </div>
         )}
@@ -119,7 +119,7 @@ export default function TeamDetail() {
                 <div
                   style={{
                     fontSize: '14px',
-                    color: 'var(--brass)',
+                    color: 'var(--blue)',
                     fontWeight: 600,
                     marginBottom: 16,
                   }}
@@ -190,7 +190,7 @@ export default function TeamDetail() {
 
             {!member.bio && (
               <div className="state-placeholder" style={{ marginTop: 24 }}>
-                <p>No bio available yet.</p>
+                <p>{t('team.detail.noBio', 'No bio available yet.')}</p>
               </div>
             )}
           </article>

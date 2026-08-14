@@ -27,6 +27,8 @@ export default function Layout() {
   const [notificationItems, setNotificationItems] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [searchHint, setSearchHint] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const knownNotificationIds = useRef<Set<string> | null>(null);
 
   const displayName = teamProfile?.name ?? user?.name ?? 'Admin';
@@ -101,10 +103,70 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar" aria-hidden="true">{initials}</div>
+          <div>
+            <div className="sidebar-user-name">{displayName}</div>
+            <div className="sidebar-user-role">Administrator</div>
+          </div>
+        </div>
       </aside>
 
       <div className="main-area">
         <header className="topbar">
+          <div style={{ position: 'relative', flex: 1, maxWidth: '320px' }}>
+            <input
+              className="topbar-search"
+              type="search"
+              placeholder="⌕  Search anything..."
+              aria-label="Search"
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                if (!raw) { setSearchHint(''); return; }
+                if (searchTimer.current) clearTimeout(searchTimer.current);
+                searchTimer.current = setTimeout(() => {
+                  const q = raw.toLowerCase();
+                  const paths: Record<string, string> = {
+                    portfolio: '/admin/portfolio',
+                    projects: '/admin/projects',
+                    project: '/admin/projects',
+                    leads: '/admin/leads',
+                    lead: '/admin/leads',
+                    team: '/admin/team',
+                    members: '/admin/team',
+                    content: '/admin/content',
+                    chat: '/admin/chat',
+                    settings: '/admin/settings',
+                    reviews: '/admin/reviews',
+                    review: '/admin/reviews',
+                    dashboard: '/admin/',
+                    audit: '/admin/audit',
+                    log: '/admin/audit',
+                    drafts: '/admin/drafts',
+                    draft: '/admin/drafts',
+                    customers: '/admin/customers',
+                    customer: '/admin/customers',
+                    notifications: '/admin/notifications',
+                    profile: '/admin/my-profile',
+                  };
+                  for (const [kw, path] of Object.entries(paths)) {
+                    if (q.includes(kw)) {
+                      setSearchHint('');
+                      navigate(`${path}?search=${encodeURIComponent(raw)}`);
+                      return;
+                    }
+                  }
+                  setSearchHint('No matching page');
+                  setTimeout(() => setSearchHint(''), 2500);
+                }, 400);
+              }}
+            />
+            {searchHint && (
+              <span style={{ position: 'absolute', left: '12px', bottom: '-18px', fontSize: 'var(--font-size-xs)', color: 'var(--color-warning)', whiteSpace: 'nowrap' }}>
+                {searchHint}
+              </span>
+            )}
+          </div>
           <div className="notification-center">
             <button
               className="notification-button"

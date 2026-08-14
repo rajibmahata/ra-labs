@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { audit as auditApi, ApiClientError } from '../api/client';
+import { Pagination } from '../components/Pagination';
 
 interface AuditEntry {
   id: string;
@@ -147,15 +148,7 @@ export default function AuditLog() {
           )}
         </div>
         {totalPages > 1 && (
-          <div className="card-footer pagination">
-            <button className="btn btn--sm btn--outline" disabled={page <= 1} onClick={() => { const next = page - 1; setPage(next); load(next); }}>
-              Previous
-            </button>
-            <span>Page {page} of {totalPages}</span>
-            <button className="btn btn--sm btn--outline" disabled={page >= totalPages} onClick={() => { const next = page + 1; setPage(next); load(next); }}>
-              Next
-            </button>
-          </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={(p) => { setPage(p); load(p); }} />
         )}
       </div>
     </div>

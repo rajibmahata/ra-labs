@@ -41,9 +41,9 @@ export default function Team() {
         <div className="section-head">
           <div>
             <div className="eyebrow">{t('team.eyebrow', 'Team')}</div>
-            <h2 id="team-heading">
+            <h1 id="team-heading">
               {t('team.title', 'The people behind the work')}
-            </h2>
+            </h1>
           </div>
         </div>
 
@@ -51,14 +51,14 @@ export default function Team() {
         {loading && (
           <div className="state-placeholder" aria-live="polite">
             <div className="spinner" />
-            <p>Loading team...</p>
+            <p>{t('team.loading', 'Loading team...')}</p>
           </div>
         )}
 
         {/* State: error */}
         {error && !loading && (
           <div className="state-placeholder" role="alert">
-            <h3>Could not load team</h3>
+            <h3>{t('team.error', 'Could not load team')}</h3>
             <p>{error}</p>
           </div>
         )}
@@ -66,8 +66,8 @@ export default function Team() {
         {/* State: empty */}
         {!loading && !error && members.length === 0 && (
           <div className="state-placeholder">
-            <h3>No team members yet</h3>
-            <p>Team profiles are coming soon.</p>
+            <h3>{t('team.empty.heading', 'No team members yet')}</h3>
+            <p>{t('team.empty.body', 'Team profiles are coming soon.')}</p>
           </div>
         )}
 

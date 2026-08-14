@@ -1,4 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useI18n } from './i18n';
 import Nav from './components/Nav';
 import Footer from './components/Footer';
 import ChatbotWidget from './components/ChatbotWidget';
@@ -12,26 +14,38 @@ import TeamDetail from './pages/TeamDetail';
 import Contact from './pages/Contact';
 
 function ScrollToTop() {
-  // Scroll restoration — React Router v6 doesn't do this by default with BrowserRouter
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (!hash) {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, hash]);
+
   return null;
 }
 
 function AppLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const location = useLocation();
-  const embedAgentOnHome = location.pathname === '/';
+  const isHome = location.pathname === '/';
+  const isAgentPage = location.pathname === '/agent';
 
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        {t('a11y.skipToContent', 'Skip to main content')}
+      </a>
       <OfflineBanner />
       <div className="wrap">
         <Nav />
       </div>
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       <div className="wrap">
         <Footer />
       </div>
-      {/* The homepage owns its own agent entry point (hero panel / bottom sheet). */}
-      {!embedAgentOnHome && <ChatbotWidget />}
+      {/* The homepage and /agent page own their own agent entry points. */}
+      {!isHome && !isAgentPage && <ChatbotWidget />}
     </>
   );
 }

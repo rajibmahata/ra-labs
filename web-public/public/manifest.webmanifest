@@ -1,12 +1,12 @@
 {
   "name": "R&A Labs",
   "short_name": "R&A Labs",
-  "description": "Engineering studio — we build software that ships.",
+  "description": "AI engineering studio — we build software that scales, performs, and ships.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#1F5C46",
-  "background_color": "#FAF6EF",
+  "theme_color": "#030b12",
+  "background_color": "#030b12",
   "icons": [
     {
       "src": "/icons/icon-192.svg",

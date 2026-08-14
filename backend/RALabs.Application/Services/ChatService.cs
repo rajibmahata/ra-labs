@@ -119,8 +119,31 @@ public class ChatService : IChatService
                                     ? "A customer message in project chat needs a team response."
                                     : "A visitor chat was escalated for a personal team response.")
                         };
-                        await _notifications.CreateAsync(notifType, notifTitle, notifBody,
-                            threadId: thread.Id, customerProjectId: thread.CustomerProjectId);
+                        if (notifType == "project_created_via_chat")
+                        {
+                            var ctx = ParseAgentContext(thread.AgentContext);
+                            var brief = ctx?.CompletedBrief ?? ctx?.Brief; // QA-001: read snapshot first
+                            var customerId = ctx?.CreatedCustomerId ?? thread.CustomerId;
+                            var createdByName = brief?.Name;
+                            notifTitle = createdByName is { Length: > 0 }
+                                ? $"Project \"{brief?.Title}\" created via chat"
+                                : "Project created via chat";
+                            notifBody = $"A new project request came through the chat agent:\n" +
+                                $"• Project: {brief?.Title}\n" +
+                                $"• Name: {createdByName ?? "(not provided)"}\n" +
+                                $"• Email: {brief?.Email ?? "(not provided)"}\n" +
+                                $"• Phone: {brief?.Phone ?? "(not provided)"}\n" +
+                                $"• Problem: {Shorten(brief?.Goal)}\n" +
+                                $"• Timeline: {Shorten(brief?.Timeline)}\n" +
+                                $"• Budget: {Shorten(brief?.Budget)}";
+                            await _notifications.CreateAsync(notifType, notifTitle, notifBody,
+                                threadId: thread.Id, customerId: customerId, customerProjectId: ctx?.CreatedProjectId ?? thread.CustomerProjectId);
+                        }
+                        else
+                        {
+                            await _notifications.CreateAsync(notifType, notifTitle, notifBody,
+                                threadId: thread.Id, customerProjectId: thread.CustomerProjectId);
+                        }
                     }
                 }
             }
@@ -272,6 +295,16 @@ public class ChatService : IChatService
         includeMessages ? t.Messages.OrderBy(m => m.CreatedAt)
             .Select(m => new ChatMessageDto(m.Id, m.ThreadId.ToString(), m.SenderType.ToString().ToLowerInvariant(),
                 m.SenderName, m.Content, m.AttachmentUrl, m.CreatedAt, ParseActions(m.SuggestedActions))).ToList() : null);
+
+    private static AgentContext? ParseAgentContext(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return System.Text.Json.JsonSerializer.Deserialize<AgentContext>(json); }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
+    private static string? Shorten(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : (value.Length > 140 ? value[..140] + "…" : value);
 
     private static List<string>? ParseActions(string? json)
     {

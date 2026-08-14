@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react';
 import { team as teamApi, github as githubApi, ApiClientError, getStoredUser } from '../api/client';
 import { InlineConfirm } from '../components/InlineConfirm';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Pagination } from '../components/Pagination';
 import { SortableTh, type SortDirection } from '../components/SortableTh';
 import { useToast } from '../components/useToast';
@@ -37,7 +38,6 @@ export default function Team() {
   const [syncing, setSyncing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [statusConfirm, setStatusConfirm] = useState<{ ids: string[]; isActive: boolean } | null>(null);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [sortKey, setSortKey] = useState('');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -223,7 +223,6 @@ export default function Team() {
 
   const handleStatus = async () => {
     if (!statusConfirm) return;
-    setUpdatingStatus(true);
     try {
       await Promise.all(statusConfirm.ids.map((id) => teamApi.setStatus(id, statusConfirm.isActive)));
       addToast(statusConfirm.isActive ? 'Team members activated and left unpublished' : 'Team members deactivated', 'success');
@@ -231,8 +230,6 @@ export default function Team() {
       await fetchMembers();
     } catch (e) {
       addToast(e instanceof ApiClientError ? e.message : 'Failed to update team member status', 'error');
-    } finally {
-      setUpdatingStatus(false);
     }
   };
 
@@ -248,6 +245,16 @@ export default function Team() {
       setSyncing(false);
     }
   };
+
+  async function handleStatusForMember(id: string, isActive: boolean) {
+    try {
+      await teamApi.setStatus(id, isActive);
+      addToast(isActive ? 'Team member activated and left unpublished' : 'Team member deactivated', 'success');
+      await fetchMembers();
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'Failed to update team member status', 'error');
+    }
+  }
 
   return (
     <div>
@@ -277,21 +284,20 @@ export default function Team() {
         </div>
       </div>
 
-      {statusConfirm && (
-        <div className="inline-confirm-bar" role="region" aria-label="Confirm status change">
-          <span>
-            {statusConfirm.isActive
-              ? `Activate ${statusConfirm.ids.length} team member${statusConfirm.ids.length === 1 ? '' : 's'}? Public profiles will remain hidden until explicitly published.`
-              : `Deactivate ${statusConfirm.ids.length} team member${statusConfirm.ids.length === 1 ? '' : 's'}? Their public profiles will be hidden.`}
-          </span>
-          <div className="form-inline">
-            <button type="button" className="btn btn--primary btn--sm" disabled={updatingStatus} onClick={() => void handleStatus()}>
-              {updatingStatus ? '...' : statusConfirm.isActive ? 'Activate' : 'Deactivate'}
-            </button>
-            <button type="button" className="btn btn--outline btn--sm" disabled={updatingStatus} onClick={() => setStatusConfirm(null)}>Cancel</button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!statusConfirm}
+        title={
+          statusConfirm?.isActive
+            ? `Activate ${statusConfirm?.ids.length ?? 0} team member(s)?`
+            : `Deactivate ${statusConfirm?.ids.length ?? 0} team member(s)?`
+        }
+        description={statusConfirm?.isActive ? 'Public profiles will remain hidden until explicitly published.' : 'Their public profiles will be hidden from the public site.'}
+        confirmLabel={statusConfirm?.isActive ? 'Activate' : 'Deactivate'}
+        cancelLabel="Cancel"
+        danger={!statusConfirm?.isActive}
+        onConfirm={async () => { await handleStatus(); }}
+        onCancel={() => setStatusConfirm(null)}
+      />
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
 
@@ -453,14 +459,4 @@ export default function Team() {
       </div>
     </div>
   );
-
-  async function handleStatusForMember(id: string, isActive: boolean) {
-    try {
-      await teamApi.setStatus(id, isActive);
-      addToast(isActive ? 'Team member activated and left unpublished' : 'Team member deactivated', 'success');
-      await fetchMembers();
-    } catch (e) {
-      addToast(e instanceof ApiClientError ? e.message : 'Failed to update team member status', 'error');
-    }
-  }
 }

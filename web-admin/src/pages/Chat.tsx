@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { chat as chatApi, ApiClientError } from '../api/client';
 import { useToast } from '../components/useToast';
@@ -16,6 +16,7 @@ export default function Chat() {
   const [threadLoading, setThreadLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
+  const deepLinkOpened = useRef(false);
 
   const fetchThreads = async () => {
     setLoading(true);
@@ -35,13 +36,15 @@ export default function Chat() {
 
   useEffect(() => { fetchThreads(); }, [typeFilter, interventionFilter]);
 
-  // Auto-open thread from query param
+  // Auto-open thread from query param — retries when thread list loads
   useEffect(() => {
     const threadId = searchParams.get('threadId');
-    if (threadId && threads.length > 0 && !loading) {
-      // Check if the thread exists in the loaded list
+    if (!threadId) return;
+    if (deepLinkOpened.current) return;
+    if (threads.length > 0 && !loading) {
       const exists = threads.some((t) => t.id === threadId);
       if (exists) {
+        deepLinkOpened.current = true;
         openThread(threadId);
       }
     }

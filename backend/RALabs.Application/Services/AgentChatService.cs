@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using RALabs.Application.Common;
+using RALabs.Domain.Entities;
 using RALabs.Domain.Interfaces;
 
 namespace RALabs.Application.Services;
@@ -14,6 +15,11 @@ public class AgentContext
     public string? Flow { get; set; }
     public int Step { get; set; }
     public AgentBrief Brief { get; set; } = new();
+    /// <summary>Snapshot of the brief at the moment a project was created, preserved
+    /// after <c>Brief</c> is reset so that admin notifications can reference the collected
+    /// fields (QA-001). Contains PII (name, email, phone); do NOT log or expose via
+    /// summary endpoints.</summary>
+    public AgentBrief? CompletedBrief { get; set; }
     public bool PendingBrief { get; set; }
     public bool ProjectCreated { get; set; }
     public Guid? CreatedCustomerId { get; set; }
@@ -89,13 +95,13 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
     private readonly IEmailSender? _email;
     private readonly string? _portalUrl;
     private readonly string? _openAiKey;
-    private readonly string _openAiModel;
+    private readonly string _openAiModel = "gpt-4o-mini";
     private bool _canStream;
 
     public AgentChatService(IChatbotService chatbot, ICustomerProjectService? projects = null,
         ISettingService? settings = null, IHttpClientFactory? httpFactory = null,
         ICustomerRepository? customers = null, IEmailSender? email = null, string? portalUrl = null,
-        string? openAiKey = null, string? openAiModel = "gpt-4o-mini")
+        string? openAiKey = null, string? openAiModel = null)
     {
         _chatbot = chatbot;
         _projects = projects;
@@ -105,7 +111,7 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
         _email = email;
         _portalUrl = portalUrl;
         _openAiKey = openAiKey;
-        _openAiModel = openAiModel;
+        _openAiModel = openAiModel ?? "gpt-4o-mini";
         _canStream = !string.IsNullOrWhiteSpace(_openAiKey) && _httpFactory is not null;
     }
 
@@ -221,7 +227,7 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
         if (IsStartIntention(lower))
         {
             var ctx = new AgentContext { Flow = "create-project", Step = 0 };
-            return Reply(IntakePrompt(ctx), ctx, new List<string> { "Skip", "Start over" });
+            return Reply(IntakePrompt(ctx, isCustomer), ctx, new List<string> { "Skip", "Start over" });
         }
 
         // ── Everything else: RAG QA ──
@@ -246,7 +252,7 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
 
         // Contact collection for anonymous visitors (steps 7-9).
         if (!isCustomer && ctx.Step is >= 7 and <= 9)
-            return await HandleContactStepAsync(ctx, text, lower, reviewStep);
+            return HandleContactStepAsync(ctx, text, lower, reviewStep);
 
         if (ctx.Step < reviewStep)
         {
@@ -272,7 +278,7 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
         return Reply(ReviewPrompt(ctx), ctx, new List<string> { "Confirm", "Start over" });
     }
 
-    private async Task<AgentReply> HandleContactStepAsync(AgentContext ctx, string text, string lower, int reviewStep)
+    private AgentReply HandleContactStepAsync(AgentContext ctx, string text, string lower, int reviewStep)
     {
         var value = lower == "skip" ? null : text.Trim();
         switch (ctx.Step)
@@ -308,6 +314,7 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
                 return Reply("I can't create the project right now — please use the project form in your portal.", ctx, QuickActions());
             Guard.Reset();
             var project = await _projects.CreateAsync(customerId.Value, ToRequest(ctx.Brief));
+            ctx.CompletedBrief = SnapshotBrief(ctx.Brief);
             ctx.Flow = null;
             ctx.Step = 0;
             ctx.Brief = new AgentBrief();
@@ -365,27 +372,28 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
         }
 
         Guard.Reset();
-        var project = await _projects.CreateAsync(customer.Id, ToRequest(ctx.Brief));
+        var created = await _projects.CreateAsync(customer.Id, ToRequest(ctx.Brief));
+        ctx.CompletedBrief = SnapshotBrief(ctx.Brief);
         ctx.Flow = null;
         ctx.Step = 0;
         ctx.Brief = new AgentBrief();
         ctx.ProjectCreated = true;
         ctx.CreatedCustomerId = customer.Id;
-        ctx.CreatedProjectId = project.Id;
+        ctx.CreatedProjectId = created.Id;
 
         // Confirmation email — only after the request is persisted. Failures are
-        // logged by the sender; a mail outage must not break the conversation.
+        // logged; a mail outage must not break the conversation.
         try
         {
-            await SendConfirmationEmailAsync(customer, project);
+            await SendConfirmationEmailAsync(customer, created);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Confirmation email failed: {ex.Message}");
+            Console.WriteLine($"Agent confirmation email failed for customer {customer.Id}: {ex.Message}");
         }
 
         return Reply(
-            $"Done, {name} — your project request \"{project.Title}\" has been sent to the RA Labs team. " +
+            $"Done, {name} — your project request \"{created.Title}\" has been sent to the RA Labs team. " +
             (createdCustomer
                 ? "We've set up a customer account for you and emailed a confirmation to " + email + " — use \"forgot password\" in the customer portal to set your own password and track this request."
                 : "We've emailed a confirmation to " + email + ". You can track this request in the customer portal."),
@@ -493,6 +501,22 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
         BudgetOrConstraints: b.Budget,
         ReferenceLinks: b.References);
 
+    /// <summary>Deep-copies the brief so the snapshot survives the subsequent
+    /// reset of the context's active <see cref="AgentContext.Brief"/>.</summary>
+    private static AgentBrief SnapshotBrief(AgentBrief b) => new()
+    {
+        Title = b.Title,
+        Goal = b.Goal,
+        Audience = b.Audience,
+        Requirements = b.Requirements,
+        Timeline = b.Timeline,
+        Budget = b.Budget,
+        References = b.References,
+        Name = b.Name,
+        Email = b.Email,
+        Phone = b.Phone
+    };
+
     private static bool IsStartIntention(string lower)
     {
         return lower.Contains("create") || lower.Contains("start") || lower.Contains("build") ||
@@ -521,6 +545,7 @@ public sealed class AgentChatService : IAgentService, IChatStreamingService
             Flow = context.Flow,
             Step = context.Step,
             Brief = context.Brief,
+            CompletedBrief = context.CompletedBrief,
             PendingBrief = context.PendingBrief,
             ProjectCreated = context.ProjectCreated,
             CreatedCustomerId = context.CreatedCustomerId,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent, type KeyboardEvent } from 'react';
 import { content as contentApi, ApiClientError } from '../api/client';
 import { InlineConfirm } from '../components/InlineConfirm';
 import { SortableTh, type SortDirection } from '../components/SortableTh';
@@ -144,6 +144,22 @@ export default function Content() {
     }
   };
 
+  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, tabNames: string[]) => {
+    const current = groupFilter;
+    const idx = tabNames.indexOf(current);
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = (idx + 1) % tabNames.length;
+      setGroupFilter(tabNames[next]);
+      (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = (idx - 1 + tabNames.length) % tabNames.length;
+      setGroupFilter(tabNames[prev]);
+      (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+    }
+  };
+
   const handleDelete = async (entry: ContentEntry) => {
     try {
       await contentApi.delete(entry.key, entry.locale);
@@ -200,14 +216,19 @@ export default function Content() {
         </span>
       </div>
 
-      {groups.length > 1 && (
+      {groups.length > 1 && (() => {
+        const tabNames = ['', ...groups.map((g) => g.name)];
+        return (
         <div className="content-tabs" role="tablist" aria-label="Content groups">
           <button
             type="button"
             role="tab"
+            id="tab-group-all"
             aria-selected={!groupFilter}
+            tabIndex={!groupFilter ? 0 : -1}
             className={`content-tab${!groupFilter ? ' content-tab--active' : ''}`}
             onClick={() => setGroupFilter('')}
+            onKeyDown={(e) => handleTabKeyDown(e, tabNames)}
           >
             All <span className="content-tab-count">{entries.length}</span>
           </button>
@@ -216,15 +237,19 @@ export default function Content() {
               key={group.name}
               type="button"
               role="tab"
+              id={`tab-group-${group.name}`}
               aria-selected={groupFilter === group.name}
+              tabIndex={groupFilter === group.name ? 0 : -1}
               className={`content-tab${groupFilter === group.name ? ' content-tab--active' : ''}`}
               onClick={() => setGroupFilter(group.name)}
+              onKeyDown={(e) => handleTabKeyDown(e, tabNames)}
             >
               {group.name} <span className="content-tab-count">{group.count}</span>
             </button>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
 
@@ -278,7 +303,7 @@ export default function Content() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card" role="tabpanel" id="tabpanel-content" aria-labelledby={groupFilter ? `tab-group-${groupFilter}` : 'tab-group-all'}>
         <div className="card-body card-body--flush">
           {loading ? (
             <div className="page-loader"><div className="spinner" /></div>

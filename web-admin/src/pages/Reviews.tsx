@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reviews as reviewsApi, ApiClientError } from '../api/client';
 import { InlineConfirm } from '../components/InlineConfirm';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Pagination } from '../components/Pagination';
 import { useToast } from '../components/useToast';
 
@@ -19,7 +20,6 @@ export default function Reviews() {
   const [totalCount, setTotalCount] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ ids: string[]; approved: boolean } | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const fetchReviews = async () => {
     setLoading(true);
@@ -58,7 +58,6 @@ export default function Reviews() {
 
   const moderate = async () => {
     if (!confirm) return;
-    setSaving(true);
     try {
       await Promise.all(confirm.ids.map((id) => reviewsApi.moderate(id, confirm.approved)));
       addToast(confirm.approved ? 'Review approved for publishing' : 'Review unpublished', 'success');
@@ -66,8 +65,6 @@ export default function Reviews() {
       await fetchReviews();
     } catch (e) {
       addToast(e instanceof ApiClientError ? e.message : 'Failed to update review status', 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -113,7 +110,7 @@ export default function Reviews() {
         <div className="card-body form-inline">
           <input className="form-input" style={{ minWidth: '280px' }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, project, or review" aria-label="Search reviews" />
           <button className="btn btn--outline" type="submit">Search</button>
-          <select className="form-input" value={publishedFilter} onChange={(event) => { setPage(1); setPublishedFilter(event.target.value as typeof publishedFilter); }} aria-label="Review status">
+          <select className="form-select" value={publishedFilter} onChange={(event) => { setPage(1); setPublishedFilter(event.target.value as typeof publishedFilter); }} aria-label="Review status">
             <option value="all">All reviews</option>
             <option value="pending">Pending approval</option>
             <option value="published">Published</option>
@@ -162,21 +159,20 @@ export default function Reviews() {
         {totalPages > 1 && <Pagination page={page} pageSize={20} totalCount={totalCount} onPageChange={setPage} />}
       </div>
 
-      {confirm && (
-        <div className="inline-confirm-bar" role="region" aria-label="Confirm review moderation">
-          <span>
-            {confirm.approved
-              ? `Approve ${confirm.ids.length} review(s) for public display?`
-              : `Unpublish ${confirm.ids.length} review(s) from public display?`}
-          </span>
-          <div className="form-inline">
-            <button type="button" className="btn btn--primary btn--sm" disabled={saving} onClick={() => void moderate()}>
-              {saving ? '...' : confirm.approved ? 'Approve' : 'Unpublish'}
-            </button>
-            <button type="button" className="btn btn--outline btn--sm" disabled={saving} onClick={() => setConfirm(null)}>Cancel</button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!confirm}
+        title={
+          confirm?.approved
+            ? `Approve ${confirm?.ids.length ?? 0} review(s) for public display?`
+            : `Unpublish ${confirm?.ids.length ?? 0} review(s) from public display?`
+        }
+        description={confirm?.approved ? 'Approved reviews will be visible on the public site immediately.' : 'Unpublished reviews will be hidden from the public site.'}
+        confirmLabel={confirm?.approved ? 'Approve' : 'Unpublish'}
+        cancelLabel="Cancel"
+        danger={!confirm?.approved}
+        onConfirm={async () => { await moderate(); }}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }

@@ -17,12 +17,15 @@ public static class DependencyInjection
         services.AddScoped<IAgentService, AgentChatService>();
         services.AddScoped<IChatStreamingService>(sp =>
             new AgentChatService(
-                sp.GetRequiredService<IChatbotService>(),
-                sp.GetRequiredService<ICustomerProjectService>(),
-                sp.GetRequiredService<ISettingService>(),
-                sp.GetRequiredService<IHttpClientFactory>(),
-                config?["OpenAI:ApiKey"],
-                config?["OpenAI:Model"] ?? "gpt-4o-mini"));
+                chatbot: sp.GetRequiredService<IChatbotService>(),
+                projects: sp.GetRequiredService<ICustomerProjectService>(),
+                settings: sp.GetRequiredService<ISettingService>(),
+                httpFactory: sp.GetRequiredService<IHttpClientFactory>(),
+                customers: sp.GetRequiredService<Domain.Interfaces.ICustomerRepository>(),
+                email: sp.GetRequiredService<Domain.Interfaces.IEmailSender>(),
+                portalUrl: config?["App:CustomerPortalUrl"],
+                openAiKey: config?["OpenAI:ApiKey"],
+                openAiModel: config?["OpenAI:Model"] ?? "gpt-4o-mini"));
         services.AddScoped<ISettingService, SettingService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IDashboardStatsService, DashboardStatsService>();

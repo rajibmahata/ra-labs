@@ -6,6 +6,8 @@ import type { AdminEntry, TeamMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AiVoiceSettings {
+  'ai.agent.enabled': string;
+  'ai.rag.enabled': string;
   'ai.voice.enabled': string;
   'ai.voice.response': string;
   'ai.streaming.enabled': string;
@@ -16,6 +18,8 @@ interface AiVoiceSettings {
 }
 
 const EMPTY_AI_VOICE: AiVoiceSettings = {
+  'ai.agent.enabled': 'true',
+  'ai.rag.enabled': 'true',
   'ai.voice.enabled': 'false',
   'ai.voice.response': 'false',
   'ai.streaming.enabled': 'false',
@@ -183,6 +187,22 @@ export default function Settings() {
             ) : (
               <form onSubmit={saveAiVoice} noValidate>
                 <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">AI Agent</label>
+                    <select className="form-select" value={aiVoice['ai.agent.enabled']} onChange={(e) => setAiVoice((p) => ({ ...p, 'ai.agent.enabled': e.target.value }))}>
+                      <option value="false">Off</option>
+                      <option value="true">On</option>
+                    </select>
+                    <div className="form-hint">Enables the AI agent on the public site and customer portal.</div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Knowledge retrieval (RAG)</label>
+                    <select className="form-select" value={aiVoice['ai.rag.enabled']} onChange={(e) => setAiVoice((p) => ({ ...p, 'ai.rag.enabled': e.target.value }))}>
+                      <option value="false">Off</option>
+                      <option value="true">On</option>
+                    </select>
+                    <div className="form-hint">The agent answers knowledge questions from the content and project knowledge base.</div>
+                  </div>
                   <div className="form-group">
                     <label className="form-label">Voice input (STT)</label>
                     <select className="form-select" value={aiVoice['ai.voice.enabled']} onChange={(e) => setAiVoice((p) => ({ ...p, 'ai.voice.enabled': e.target.value }))}>

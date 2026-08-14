@@ -255,6 +255,8 @@ app.MapGet("/api/v1/config", async (ISettingService settings, IConfiguration con
     {
         data = new
         {
+            agentEnabled = bool.TryParse(dict.GetValueOrDefault("ai.agent.enabled"), out var ae) && ae,
+            ragEnabled = bool.TryParse(dict.GetValueOrDefault("ai.rag.enabled"), out var re) && re,
             voiceEnabled = bool.TryParse(dict.GetValueOrDefault("ai.voice.enabled"), out var v) && v,
             voiceResponse = bool.TryParse(dict.GetValueOrDefault("ai.voice.response"), out var vr) && vr,
             streamingEnabled = bool.TryParse(dict.GetValueOrDefault("ai.streaming.enabled"), out var s) && s,

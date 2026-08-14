@@ -21,6 +21,7 @@ export interface SpeechRecognitionLike {
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
+  abort: () => void;
 }
 
 export type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;

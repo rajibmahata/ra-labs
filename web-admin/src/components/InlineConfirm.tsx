@@ -1,4 +1,5 @@
-import { useState, ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface InlineConfirmProps {
   onConfirm: () => void | Promise<void>;
@@ -12,57 +13,36 @@ interface InlineConfirmProps {
 export function InlineConfirm({
   onConfirm,
   buttonLabel = 'Delete',
-  confirmLabel = 'Confirm',
+  confirmLabel = 'Delete',
   cancelLabel = 'Cancel',
   className = 'btn btn--outline btn--sm',
   disabled = false,
 }: InlineConfirmProps) {
-  const [asking, setAsking] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  if (!asking) {
-    return (
+  return (
+    <>
       <button
         type="button"
         className={className}
         disabled={disabled}
-        onClick={() => setAsking(true)}
+        onClick={() => setOpen(true)}
       >
         {buttonLabel}
       </button>
-    );
-  }
-
-  const handleConfirm = async () => {
-    setLoading(true);
-    try {
-      await onConfirm();
-    } finally {
-      // The parent component typically re-renders or unmounts the row,
-      // but we reset state safely here just in case.
-      setAsking(false);
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
-      <button
-        type="button"
-        className="btn btn--primary btn--sm"
-        disabled={loading}
-        onClick={() => void handleConfirm()}
-      >
-        {loading ? '...' : confirmLabel}
-      </button>
-      <button
-        type="button"
-        className="btn btn--outline btn--sm"
-        disabled={loading}
-        onClick={() => setAsking(false)}
-      >
-        {cancelLabel}
-      </button>
-    </div>
+      <ConfirmDialog
+        open={open}
+        title={`${String(confirmLabel)}?`}
+        description="This action cannot be undone."
+        confirmLabel={String(confirmLabel)}
+        cancelLabel={cancelLabel}
+        danger={String(buttonLabel).toLowerCase().includes('delete') || String(confirmLabel).toLowerCase().includes('delete')}
+        onConfirm={async () => {
+          await onConfirm();
+          setOpen(false);
+        }}
+        onCancel={() => setOpen(false)}
+      />
+    </>
   );
 }

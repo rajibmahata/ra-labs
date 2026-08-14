@@ -294,6 +294,8 @@ export interface HeroScenario {
 }
 
 export interface PlatformConfig {
+  agentEnabled: boolean;
+  ragEnabled: boolean;
   voiceEnabled: boolean;
   voiceResponse: boolean;
   streamingEnabled: boolean;
