@@ -17,14 +17,16 @@ public class CustomerProjectService : ICustomerProjectService
     private readonly IChatRepository _chat;
     private readonly INotificationService? _notifications;
     private readonly IPrivateFileStorage? _fileStorage;
+    private readonly IProjectRepository? _projectRepository;
 
-    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatRepository chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null)
+    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatRepository chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null, IProjectRepository? projectRepository = null)
     {
         _repo = repo;
         _customers = customers;
         _chat = chat;
         _fileStorage = fileStorage;
         _notifications = notifications;
+        _projectRepository = projectRepository;
     }
 
     public async Task<CustomerProjectDto> CreateAsync(Guid customerId, CreateCustomerProjectRequest request)
@@ -268,6 +270,15 @@ public class CustomerProjectService : ICustomerProjectService
             existing.UpdatedAt = DateTime.UtcNow;
         }
         await _repo.SavePrdAsync(existing);
+
+        // ADR-005: intake → prd_draft once a ClientPrd record exists (admin drafted it).
+        if (project.Status == CustomerProjectStatus.Intake)
+        {
+            project.Status = CustomerProjectStatus.PrdDraft;
+            project.UpdatedAt = DateTime.UtcNow;
+            await _repo.UpdateAsync(project);
+        }
+
         return ToPrdDto(existing);
     }
 
@@ -516,11 +527,50 @@ public class CustomerProjectService : ICustomerProjectService
         feedback.IsPublished = approved;
         await _repo.SaveFeedbackAsync(feedback);
 
-        // BR-005: feedback approved → auto-publish a public Project entry.
-        // (Publishing entry creation is handled by a publisher service hook; here we
-        //  return the feedback state and the public Project entry is created via the
-        //  project repository if it does not already exist.)
+        // BR-005: delivered/closed + approved feedback → auto-create the public
+        // portfolio entry (idempotent — only once per customer project).
+        if (approved && project.Status is CustomerProjectStatus.Delivered or CustomerProjectStatus.Closed)
+            await PublishPortfolioEntryAsync(project);
+
         return ToFeedbackDto(feedback);
+    }
+
+    private async Task PublishPortfolioEntryAsync(CustomerProject project)
+    {
+        if (_projectRepository is null || await _projectRepository.ExistsForCustomerProjectAsync(project.Id))
+            return;
+
+        var baseSlug = Guard.Slugify(project.Title);
+        var slug = baseSlug;
+        var suffix = 1;
+        while (await _projectRepository.SlugExistsAsync(slug))
+            slug = $"{baseSlug}-{suffix++}";
+
+        var demo = project.Demos.OrderByDescending(d => d.CreatedAt).FirstOrDefault();
+        var sections = new List<string>();
+        if (!string.IsNullOrWhiteSpace(project.Goal))
+            sections.Add($"## Goal\n\n{project.Goal}");
+        if (!string.IsNullOrWhiteSpace(project.Audience))
+            sections.Add($"## Audience\n\n{project.Audience}");
+        if (!string.IsNullOrWhiteSpace(project.Requirements))
+            sections.Add($"## Requirements\n\n{project.Requirements}");
+
+        await _projectRepository.AddAsync(new Project
+        {
+            Id = Guid.NewGuid(),
+            Title = project.Title,
+            Slug = slug,
+            Summary = string.IsNullOrWhiteSpace(project.Goal) ? project.Title : project.Goal.Trim(),
+            StackTags = new List<string>(),
+            Status = ProjectStatus.Live,
+            LiveSiteUrl = demo?.Type == "url" ? demo.UrlOrAsset : null,
+            CaseStudyBody = sections.Count > 0 ? string.Join("\n\n", sections) : null,
+            CompletedAt = project.UpdatedAt ?? DateTime.UtcNow,
+            CustomerProjectId = project.Id,
+            IsActive = true,
+            IsPublished = true,
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     private async Task<CustomerProjectDto> ToDtoAsync(CustomerProject p, Guid? knownThreadId)

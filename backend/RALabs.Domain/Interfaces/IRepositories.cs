@@ -17,6 +17,7 @@ public interface IProjectRepository
     Task UpdateAsync(Project project);
     Task<bool> SlugExistsAsync(string slug, Guid? excludeId = null);
     Task<bool> LiveSiteUrlExistsAsync(string url, Guid? excludeId = null);
+    Task<bool> ExistsForCustomerProjectAsync(Guid customerProjectId);
 }
 
 public interface ITeamRepository

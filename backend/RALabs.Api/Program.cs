@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RALabs.Application;
@@ -23,7 +24,27 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddDataProtection();
+
+// Data Protection: persist keys when a directory is configured so encrypted
+// values (e.g. GitHub tokens) survive container restarts.
+var dataProtectionKeyDirectory = builder.Configuration["DataProtection:KeyDirectory"];
+builder.Services.AddDataProtection()
+    .SetApplicationName("RALabs")
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        string.IsNullOrWhiteSpace(dataProtectionKeyDirectory)
+            ? Path.Combine(AppContext.BaseDirectory, "data-protection-keys")
+            : dataProtectionKeyDirectory));
+
+// CORS: allow the configured frontend origins (no origins configured = same-origin only).
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (corsOrigins.Length > 0)
+{
+    builder.Services.AddCors(o => o.AddPolicy("ApiCors", p => p
+        .WithOrigins(corsOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+}
+
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
@@ -54,12 +75,18 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 var app = builder.Build();
 
+// Explicit routing so UseCors below runs BEFORE endpoint matching — with the
+// implicit routing of WebApplication, middleware registered after build would
+// otherwise never see preflight requests (they'd hit endpoints directly).
+app.UseRouting();
+
 // Apply migrations + seed
 var seedDemo = app.Configuration.GetValue<bool>("Seed:DemoOnStartup");
 await DbInitializer.InitializeAsync(app.Services, seedDemo);
 
 app.UseMiddleware<RALabs.Api.Middleware.ExceptionHandlingMiddleware>();
 app.UseMiddleware<RALabs.Api.Middleware.SecurityHeadersMiddleware>();
+if (corsOrigins.Length > 0) app.UseCors("ApiCors");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -95,16 +122,33 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ── Health ──
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
-   .WithOpenApi();
-
-// ── Seed (one-time; reruns are idempotent) ──
-app.MapPost("/seed/full", async (IServiceProvider sp) =>
+// ── Health (verifies database connectivity for orchestrators) ──
+app.MapGet("/health", async (IServiceProvider sp) =>
 {
-    await DbInitializer.InitializeAsync(sp, seedDemoContent: true);
-    return Results.Ok(new { status = "seeded", timestamp = DateTime.UtcNow });
+    var timestamp = DateTime.UtcNow;
+    try
+    {
+        var db = sp.GetRequiredService<RALabsDbContext>();
+        var connected = await db.Database.CanConnectAsync();
+        return connected
+            ? Results.Ok(new { status = "healthy", database = "up", timestamp })
+            : Results.Json(new { status = "unhealthy", database = "down", timestamp }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch
+    {
+        return Results.Json(new { status = "unhealthy", database = "down", timestamp }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
 }).WithOpenApi();
+
+// ── Seed (one-time; reruns are idempotent; development only) ──
+if (app.Environment.IsDevelopment())
+{
+    app.MapPost("/seed/full", async (IServiceProvider sp) =>
+    {
+        await DbInitializer.InitializeAsync(sp, seedDemoContent: true);
+        return Results.Ok(new { status = "seeded", timestamp = DateTime.UtcNow });
+    }).WithOpenApi();
+}
 
 // ── Public: Portfolio ──
 app.MapGet("/api/v1/projects", async (int? page, int? pageSize, string? tag, IProjectService svc) =>
@@ -235,6 +279,7 @@ app.MapPost("/api/v1/chat/{threadId}/messages/stream", async (Guid threadId, Sen
     {
         // Provider failed mid-stream: fall back to the deterministic reply so the
         // user still gets an answer and the message is persisted.
+        app.Logger.LogWarning(ex, "LLM streaming failed for thread {ThreadId}; falling back to deterministic reply.", threadId);
     }
     var final = accumulated.ToString();
     if (string.IsNullOrWhiteSpace(final))
@@ -991,7 +1036,7 @@ namespace RALabs.Api.Middleware
             h["X-Content-Type-Options"] = "nosniff";
             h["X-Frame-Options"] = "SAMEORIGIN";
             h["Referrer-Policy"] = "strict-origin-when-cross-origin";
-            h["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+            h["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=()";
             h["Content-Security-Policy"] =
                 "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; " +
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +

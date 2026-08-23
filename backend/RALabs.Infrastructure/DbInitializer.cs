@@ -45,6 +45,13 @@ public static class DbInitializer
         // ── Admin accounts (Rajib + Abhishek) ──
         if (!await db.AdminUsers.AnyAsync())
         {
+            var configuration = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+            var seedPassword = configuration["Seed:AdminPassword"];
+            if (string.IsNullOrWhiteSpace(seedPassword) || seedPassword.Length < 8)
+            {
+                logger.LogWarning("Seed:AdminPassword is not configured (or too short); using the default development password. Change it after first login.");
+                seedPassword = "Admin@1234";
+            }
             var rajib = new TeamMember
             {
                 Id = Guid.NewGuid(),
@@ -81,7 +88,7 @@ public static class DbInitializer
                     Id = Guid.NewGuid(),
                     Name = "Rajib Mahata",
                     Email = "rajib@ralabs.dev",
-                    PasswordHash = hasher.Hash("Admin@1234"),
+                    PasswordHash = hasher.Hash(seedPassword),
                     Role = "super_admin",
                     TeamMemberId = rajib.Id,
                     CreatedAt = DateTime.UtcNow
@@ -91,7 +98,7 @@ public static class DbInitializer
                     Id = Guid.NewGuid(),
                     Name = "Abhishek Burnwal",
                     Email = "abhishek@ralabs.dev",
-                    PasswordHash = hasher.Hash("Admin@1234"),
+                    PasswordHash = hasher.Hash(seedPassword),
                     Role = "admin",
                     TeamMemberId = abhishek.Id,
                     CreatedAt = DateTime.UtcNow
@@ -241,6 +248,23 @@ public static class DbInitializer
                 db.SystemSettings.Add(new SystemSetting { Id = Guid.NewGuid(), Key = key, Value = value, UpdatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
             logger.LogInformation("Seeded {Count} system settings.", defaults.Count);
+        }
+
+        // ── Public RAG index ──
+        // Without this, a freshly seeded database has ZERO knowledge chunks and
+        // the agent falls back to escalation on every factual question.
+        var rag = scope.ServiceProvider.GetService<IRagIngestionService>();
+        if (rag is not null)
+        {
+            try
+            {
+                var chunks = await rag.IngestPublicContentAsync(CancellationToken.None);
+                logger.LogInformation("Public RAG index ready ({Count} chunks).", chunks);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Public RAG ingestion failed at startup; the agent will answer without indexed content.");
+            }
         }
     }
 }

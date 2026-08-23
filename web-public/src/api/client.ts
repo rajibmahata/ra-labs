@@ -225,8 +225,10 @@ export interface TeamMember {
   name: string;
   role: string;
   bio: string;
-  githubUsername: string;
-  avatarUrl: string;
+  githubUsername: string | null;
+  avatarUrl: string | null;
+  linkedinUrl: string | null;
+  location: string | null;
   githubSnapshot: {
     commits90d: number;
     activeRepos: number;

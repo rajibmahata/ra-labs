@@ -41,52 +41,60 @@ function formatRelativeTime(isoString: string): string {
 export default function TeamCard({ member, index = 0 }: Props) {
   const snapshot = member.githubSnapshot;
 
-  const stats = snapshot
-    ? [
-        { value: snapshot.commits90d.toLocaleString(), label: 'commits, 90d' },
-        { value: String(snapshot.activeRepos), label: 'active repos' },
-        { value: formatRelativeTime(snapshot.lastCommitAt), label: 'last commit' },
-      ]
-    : [
-        { value: '\u2014', label: 'commits, 90d' },
-        { value: '\u2014', label: 'active repos' },
-        { value: '\u2014', label: 'last commit' },
-      ];
-
   return (
     <Link
       to={`/team/${encodeURIComponent(member.slug)}`}
       className="person"
-      style={{ textDecoration: 'none', color: 'inherit' }}
       aria-label={`View profile: ${member.name}`}
     >
-      <div
-        className={`avatar ${avatarClassForIndex(index)}`}
-        aria-hidden="true"
-      >
+      <div className={`person-avatar avatar ${avatarClassForIndex(index)}`} aria-hidden="true">
         {member.avatarUrl ? (
-          <img src={member.avatarUrl} alt="" />
+          <img src={member.avatarUrl} alt="" loading="lazy" />
         ) : (
           getInitials(member.name)
         )}
       </div>
 
-      <div style={{ flex: 1 }}>
+      <div className="person-body">
         <h3>{member.name}</h3>
         <div className="role">{member.role}</div>
 
+        {member.bio && (
+          <p className="person-bio">
+            {member.bio.replace(/[*`#>[\]()]/g, '').split('\n')[0].slice(0, 140)}
+            {(member.bio.length > 140) ? '\u2026' : ''}
+          </p>
+        )}
+
         <div className="team-stats">
-          {stats.map((stat, i) => (
-            <div className="team-stat" key={i}>
-              <b>{stat.value}</b>
-              <span>{stat.label}</span>
+          {snapshot ? (
+            <>
+              <div className="team-stat">
+                <b>{snapshot.commits90d.toLocaleString()}</b>
+                <span>commits · 90d</span>
+              </div>
+              <div className="team-stat">
+                <b>{snapshot.activeRepos}</b>
+                <span>active repos</span>
+              </div>
+              <div className="team-stat">
+                <b>{formatRelativeTime(snapshot.lastCommitAt)}</b>
+                <span>last commit</span>
+              </div>
+            </>
+          ) : (
+            <div className="team-stat">
+              <b>&mdash;</b>
+              <span>GitHub sync pending</span>
             </div>
-          ))}
+          )}
         </div>
+
+        <span className="person-cta">View profile &rarr;</span>
       </div>
     </Link>
   );
 }
 
-// Export helpers for TeamDetail reuse
+// Export helpers for other pages
 export { getInitials, formatRelativeTime, AVATAR_CLASSES, avatarClassForIndex };

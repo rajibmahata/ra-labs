@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n';
 import { useTheme } from '../hooks/useTheme';
+import { api } from '../api/client';
 
 export default function Nav() {
   const { locale, setLocale, availableLocales, t } = useI18n();
@@ -11,6 +12,27 @@ export default function Nav() {
   const [localeOpen, setLocaleOpen] = useState(false);
   const localeRef = useRef<HTMLDivElement>(null);
   const [theme, toggleTheme, themeIcon] = useTheme();
+  const [portalLoginUrl, setPortalLoginUrl] = useState<string | null>(null);
+  const [agentEnabled, setAgentEnabled] = useState(false);
+
+  // Customer portal login entry point + agent availability (safe public config).
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getConfig()
+      .then((res) => {
+        if (cancelled) return;
+        const base = res.data.customerPortalUrl?.replace(/\/+$/, '');
+        setPortalLoginUrl(base ? `${base}/login` : null);
+        setAgentEnabled(res.data.agentEnabled);
+      })
+      .catch(() => {
+        /* config unavailable — links stay hidden */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const currentLocale = availableLocales.find((l) => l.code === locale) ?? null;
 
@@ -78,6 +100,9 @@ export default function Nav() {
       <Link to="/agent" className={isActive('/agent')} onClick={closeMenu}>
         {t('nav.agent', 'AI Agent')}
       </Link>
+      <Link to="/portfolio" className={isActive('/portfolio')} onClick={closeMenu}>
+        {t('nav.portfolio', 'Portfolio')}
+      </Link>
       <Link to="/work" className={isActive('/work')} onClick={closeMenu}>
         {t('nav.work', 'Work')}
       </Link>
@@ -98,10 +123,21 @@ export default function Nav() {
 
   const mobileExtraItems = (
     <>
-      <span className="badge mobile-badge">
-        <span className="dot" aria-hidden="true" />{' '}
-        {t('nav.liveAgents', 'Studio capacity: Available')}
-      </span>
+      {agentEnabled && (
+        <span className="badge mobile-badge">
+          <span className="dot" aria-hidden="true" />{' '}
+          {t('nav.agentOnline', 'AI agent online')}
+        </span>
+      )}
+      {portalLoginUrl && (
+        <a
+          href={portalLoginUrl}
+          className="nav-portal-link mobile-portal"
+          onClick={closeMenu}
+        >
+          {t('nav.customerLogin', 'Customer Login')}
+        </a>
+      )}
       <button
         type="button"
         className="theme-toggle mobile-theme"
@@ -151,10 +187,21 @@ export default function Nav() {
       </nav>
 
       <div className="navright">
-        <div className="nav-status">
-          <span className="status-dot" aria-hidden="true" />
-          {t('nav.liveAgents', 'Studio capacity: Available')}
-        </div>
+        {agentEnabled && (
+          <div className="nav-status">
+            <span className="status-dot" aria-hidden="true" />
+            {t('nav.agentOnline', 'AI agent online')}
+          </div>
+        )}
+        {portalLoginUrl && (
+          <a
+            href={portalLoginUrl}
+            className="nav-portal-link"
+            aria-label={t('nav.customerLogin.aria', 'Open the customer portal login')}
+          >
+            {t('nav.customerLogin', 'Customer Login')}
+          </a>
+        )}
         <button
           type="button"
           className="theme-toggle"

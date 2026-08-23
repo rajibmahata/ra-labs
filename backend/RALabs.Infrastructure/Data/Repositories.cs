@@ -73,6 +73,9 @@ public class ProjectRepository : IProjectRepository
         return q.AnyAsync();
     }
 
+    public Task<bool> ExistsForCustomerProjectAsync(Guid customerProjectId) =>
+        _db.Projects.AnyAsync(p => p.CustomerProjectId == customerProjectId && !p.IsDeleted);
+
     public async Task<Guid> AddAsync(Project project)
     {
         _db.Projects.Add(project);

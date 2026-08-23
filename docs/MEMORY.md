@@ -3,6 +3,30 @@
 Living project state. Updated as part of finishing a task, not after.
 
 ## Completed Features
+- 2026-08-23 — **Full application audit (docs/IMPLEMENTATION_STATUS.md):** fixed RAG empty-index-at-startup (critical — agent escalated every question; now seeds 14 chunks, DocSignerHub query verified); removed agent-message +1s future-timestamp corruption; public team DTO leak closed (email/token flags no longer exposed); /agent rebuilt truthful (real team members replace fake roster/conversations/admin chip); Portfolio page + nav menu with summaries + live/GitHub links; Customer Login entry point added (portal URL was misconfigured to public site); "Studio capacity" pill → config-driven "AI agent online". Verified live: security role matrix, full anonymous agent intake E2E (customer+project+notification+email), customer lifecycle to portfolio publication. Playwright 10/10; backend 116/116.
+- 2026-08-22 — **Functional + UI validation pass (live E2E):** fixed the PRD
+  workflow deadlock (`SavePrdAsync` now auto-transitions intake → prd_draft;
+  projects could previously never reach prd_signed) and implemented the
+  BR-005 portfolio feedback loop for real (approved feedback on a
+  delivered/closed project auto-publishes an idempotent public `Project`
+  entry linked via `Project.CustomerProjectId`). Fixed web-public mobile nav
+  horizontal overflow (closed off-canvas menu now `display:none` + slide-in
+  keyframe; `overflow-x: clip` guard). Live Production-mode API sweep: all
+  public/admin/customer endpoints, security headers, CORS preflight, MCP
+  auth enforcement + 64 tools verified. Playwright suite **7/7 passing**
+  against live stack. 116/116 backend tests; three frontend builds pass.
+- 2026-08-22 — **Production-readiness pass:** CORS actually wired from
+  `Cors:AllowedOrigins` (was config-only); `/seed/full` restricted to
+  development; `/health` now probes the database (503 when down);
+  Permissions-Policy `microphone=(self)` (voice feature was blocked by the old
+  policy); Data Protection keys persisted (`DataProtection:KeyDirectory`);
+  seeded admin password overridable via `Seed:AdminPassword`; streaming
+  provider failures logged. MCP parity for customer management + admin
+  observability (13 new/updated tools incl. `import_customers`/`export_customers`
+  via CSV text and the previously missing `generate_project_refresh`
+  definition). New `CustomerManagementTests` + `McpToolContractTests`;
+  `Microsoft.Extensions.Caching.Memory` 8.0.0 → 8.0.1 (NU1903). Suite:
+  114 passing tests; backend builds warning-free; all three frontend builds pass.
 - 2026-08-10 — **Frontend dependency audit cleared (GAP-006)**: all three apps on react-router-dom 7.18.2 + vite 6.4.3; `BrowserRouter` v6 future props removed; `npm audit` 0 vulnerabilities in each; builds pass.
 - 2026-08-10 — **Admin import/export consistency (GAP-010)**: shared `CsvHelper`; Leads + Team CSV import (validation, 500-row cap, duplicate skipping, team import audited) and export with filters; Content + Reviews CSV export (export-only by design); Import/Export buttons on the Leads/Team/Content/Reviews pages. Suite: 82 passing tests.
 - 2026-08-10 — **Server-side dashboard aggregate + observability (GAP-011, GAP-012)**: admin-authorized `GET /api/v1/admin/dashboard/stats` returns true counts (customers, projects by status, leads, reviews, team, portfolio, drafts, chat intervention, unread notifications, latest GitHub snapshot, repository count, knowledge chunks, pending+running agent tasks) in one call — no more page-capped client-side counting. web-admin Dashboard `load()` is server-first with a client-side fallback, and the System Status card shows synced repositories, knowledge chunks, and pending agent tasks. Suite: 82 passing tests (with GAP-010).

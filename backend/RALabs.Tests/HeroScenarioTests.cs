@@ -229,6 +229,8 @@ public class HeroScenarioTests
             Task.FromResult(_projects.Any(p => p.Slug == slug && p.Id != excludeId));
         public Task<bool> LiveSiteUrlExistsAsync(string url, Guid? excludeId = null) =>
             Task.FromResult(_projects.Any(p => p.LiveSiteUrl == url && p.Id != excludeId));
+        public Task<bool> ExistsForCustomerProjectAsync(Guid customerProjectId) =>
+            Task.FromResult(_projects.Any(p => p.CustomerProjectId == customerProjectId));
     }
 
     private sealed class StubHttpClientFactory : IHttpClientFactory

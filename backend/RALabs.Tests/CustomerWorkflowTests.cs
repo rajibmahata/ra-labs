@@ -16,6 +16,7 @@ public class CustomerWorkflowTests : IDisposable
     private readonly CustomerAuthService _customerAuth;
     private readonly CustomerProjectService _projects;
     private readonly ChatService _chat;
+    private readonly ProjectRepository _portfolio;
     private readonly string _storageRoot = Path.Combine(Path.GetTempPath(), "ralabs-tests", Guid.NewGuid().ToString("N"));
 
     public CustomerWorkflowTests()
@@ -29,7 +30,8 @@ public class CustomerWorkflowTests : IDisposable
         _chat = new ChatService(chatRepo, chatbot, new LeadRepository(_db));
         _customerAuth = new CustomerAuthService(customers, _hasher,
             new JwtService("RALabs_Test_Secret_Key_2026_MinLength32!", "RALabs", "RALabs"), new FakeEmailSender());
-        _projects = new CustomerProjectService(projectRepo, customers, chatRepo, new LocalPrivateFileStorage(_storageRoot));
+        _portfolio = new ProjectRepository(_db);
+        _projects = new CustomerProjectService(projectRepo, customers, chatRepo, new LocalPrivateFileStorage(_storageRoot), projectRepository: _portfolio);
     }
 
     public void Dispose()
@@ -223,5 +225,73 @@ public class CustomerWorkflowTests : IDisposable
         // intake → in_build is not allowed (must go prd_draft first)
         await Assert.ThrowsAsync<RALabs.Application.Exceptions.ConflictException>(() =>
             _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("in_build", null)));
+    }
+
+    [Fact]
+    public async Task DraftingPrd_AutoTransitions_IntakeToPrdDraft_AndDualSignCompletes()
+    {
+        // Regression: SavePrdAsync must perform the ADR-005 intake → prd_draft
+        // transition itself; previously projects deadlocked at intake because
+        // the sign gates require PrdDraft status and nothing set it.
+        var cid = await RegisterCustomerAsync();
+        var pid = await CreateProjectAsync(cid);
+
+        var before = await _projects.GetMyProjectAsync(cid, pid);
+        Assert.Equal("intake", before.Status);
+
+        await _projects.SavePrdAsync(pid, new SavePrdRequest("# PRD\n\nAuto-drafted."));
+
+        var afterDraft = await _projects.GetMyProjectAsync(cid, pid);
+        Assert.Equal("prd_draft", afterDraft.Status);
+
+        // One signature is not enough to advance the project.
+        await _projects.SignPrdAsync(cid, pid, new SignPrdRequest("Priya Test"));
+        var oneSignature = await _projects.GetMyProjectAsync(cid, pid);
+        Assert.Equal("prd_draft", oneSignature.Status);
+
+        // Both signatures → prd_signed (BR-004), no manual status call needed.
+        await _projects.AdminSignPrdAsync(pid, "Rajib Mahata");
+        var signed = await _projects.GetMyProjectAsync(cid, pid);
+        Assert.Equal("prd_signed", signed.Status);
+    }
+
+    [Fact]
+    public async Task ApprovingFeedback_AfterDelivery_CreatesPublicPortfolioEntry_Once()
+    {
+        // BR-005: delivered + approved feedback auto-publishes the public
+        // Project entry; unapproved feedback must NOT create one.
+        var cid = await RegisterCustomerAsync();
+        var pid = await CreateProjectAsync(cid);
+
+        await _projects.SavePrdAsync(pid, new SavePrdRequest("# PRD"));
+        await _projects.SignPrdAsync(cid, pid, new SignPrdRequest("Priya Test"));
+        await _projects.AdminSignPrdAsync(pid, "Rajib Mahata");
+        await _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("in_build", null));
+        await _projects.AddDemoAsync(pid, new AddDemoRequest("url", "https://demo.example.com", "v1"));
+        await _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("demo", null));
+        await _projects.UpdateStatusAsync(pid, new UpdateCustomerProjectRequest("delivered", null));
+
+        // Feedback not yet approved → no public entry.
+        await _projects.SubmitFeedbackAsync(cid, pid, new SubmitFeedbackRequest(5, "Great work!", true));
+        Assert.False(await _portfolio.ExistsForCustomerProjectAsync(pid));
+        Assert.Empty(await _db.Projects.Where(p => p.CustomerProjectId == pid).ToListAsync());
+
+        // Approval → public entry created, derived from the customer project.
+        var moderated = await _projects.ApproveFeedbackAsync(pid);
+        Assert.True(moderated.IsPublished);
+
+        var published = await _db.Projects.SingleAsync(p => p.CustomerProjectId == pid);
+        Assert.Equal("Dashboard", published.Title);
+        Assert.True(published.IsPublished);
+        Assert.True(published.IsActive);
+        Assert.Equal("https://demo.example.com", published.LiveSiteUrl);
+
+        // Idempotent: re-moderation must not duplicate the entry.
+        await _projects.ApproveFeedbackAsync(pid);
+        Assert.Equal(1, await _db.Projects.CountAsync(p => p.CustomerProjectId == pid));
+
+        // Unpublishing hides feedback but does not delete the portfolio entry.
+        await _projects.ModerateFeedbackAsync(pid, approved: false);
+        Assert.Equal(1, await _db.Projects.CountAsync(p => p.CustomerProjectId == pid));
     }
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AgentChatPanel from '../components/AgentChatPanel';
-import { api, type ProjectSummary } from '../api/client';
+import { api, type ProjectSummary, type TeamMember } from '../api/client';
 import { useI18n } from '../i18n';
+import { getInitials, avatarClassForIndex } from '../components/TeamCard';
 
 interface SideItem {
   key: string;
@@ -25,51 +26,9 @@ const SIDEBAR_GROUPS: SideGroup[] = [
       { key: 'agent.sidebar.dashboard', fallback: 'Dashboard', icon: '\u2302', route: '/' },
       { key: 'agent.sidebar.conversations', fallback: 'Conversations', icon: '\u2371' },
       { key: 'agent.sidebar.projects', fallback: 'Projects', icon: '\u23A3', route: '/work' },
-      { key: 'agent.sidebar.knowledge', fallback: 'Knowledge Base', icon: '\u23A4' },
+      { key: 'agent.sidebar.portfolio', fallback: 'Portfolio', icon: '\u25A3', route: '/portfolio' },
     ],
   },
-  {
-    groupKey: 'agent.sidebar.group.agents',
-    groupFallback: 'AGENTS',
-    items: [
-      { key: 'agent.sidebar.opencode', fallback: 'OpenCode Agents', icon: '\u2726', route: '/team' },
-      { key: 'agent.sidebar.frontend', fallback: 'Frontend Engineer', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.backend', fallback: 'Backend Engineer', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.devops', fallback: 'DevOps Engineer', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.designer', fallback: 'UI/UX Designer', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.qa', fallback: 'QA Engineer', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.database', fallback: 'Database Expert', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.ml', fallback: 'AI/ML Engineer', icon: '+', route: '/team' },
-      { key: 'agent.sidebar.pm', fallback: 'Product Manager', icon: '+', route: '/team' },
-    ],
-  },
-];
-
-/* ── Static rail data ── */
-
-interface ConvItem { key: string; fallback: string; time: string; active?: boolean; }
-interface AgentRow { key: string; fallback: string; version: string; icon: string; }
-interface KnowledgeItem { key: string; fallback: string; updated: string; }
-
-const RAIL_CONVERSATIONS: ConvItem[] = [
-  { key: 'agent.rail.conv1', fallback: 'Booking application for clinic', time: '11:20 AM', active: true },
-  { key: 'agent.rail.conv2', fallback: 'E-commerce platform discussion', time: 'Yesterday' },
-  { key: 'agent.rail.conv3', fallback: 'AI chatbot for website', time: '2 days ago' },
-  { key: 'agent.rail.conv4', fallback: 'Project collaboration workflow', time: '3 days ago' },
-];
-
-const RAIL_AGENTS: AgentRow[] = [
-  { key: 'agent.rail.agent1', fallback: 'Frontend Engineer', version: 'OpenCode \u00B7 v1.2.1', icon: '\u25C9' },
-  { key: 'agent.rail.agent2', fallback: 'Backend Engineer', version: 'OpenCode \u00B7 v1.2.1', icon: '\u25C9' },
-  { key: 'agent.rail.agent3', fallback: 'DevOps Engineer', version: 'OpenCode \u00B7 v1.2.1', icon: '\u25C9' },
-  { key: 'agent.rail.agent4', fallback: 'UI/UX Designer', version: 'OpenCode \u00B7 v1.2.1', icon: '\u2726' },
-  { key: 'agent.rail.agent5', fallback: 'QA Engineer', version: 'OpenCode \u00B7 v1.2.1', icon: '\u2667' },
-];
-
-const RAIL_KNOWLEDGE: KnowledgeItem[] = [
-  { key: 'agent.rail.kb1', fallback: 'Project Requirements Guide', updated: 'Updated 2 days ago' },
-  { key: 'agent.rail.kb2', fallback: 'Our Process & Methodology', updated: 'Updated 5 days ago' },
-  { key: 'agent.rail.kb3', fallback: 'Tech Stack Overview', updated: 'Updated 1 week ago' },
 ];
 
 /* ── Capabilities data ── */
@@ -79,7 +38,7 @@ const CAPABILITIES: CapItem[] = [
   { key: 'agent.cap.ideation', fallback: 'Ideation & Planning', descKey: 'agent.cap.ideation.desc', descFallback: 'Validate ideas, requirements and product direction.', icon: '\u2667' },
   { key: 'agent.cap.design', fallback: 'Design & Development', descKey: 'agent.cap.design.desc', descFallback: 'UI/UX, coding and system architecture.', icon: '\u23A3' },
   { key: 'agent.cap.testing', fallback: 'Testing & QA', descKey: 'agent.cap.testing.desc', descFallback: 'Test cases, automation and quality checks.', icon: '\u2667' },
-  { key: 'agent.cap.deployment', fallback: 'Deployment & DevOps', descKey: 'agent.cap.deployment.desc', descFallback: 'CI/CD, cloud, monitoring and scaling.', icon: '\u2667' },
+  { key: 'agent.cap.deployment', fallback: 'Deployment & DevOps', descKey: 'agent.cap.deployment.desc', descFallback: 'CI/CD, cloud, monitoring and scaling.', icon: '\u23A3' },
   { key: 'agent.cap.support', fallback: 'Support & Growth', descKey: 'agent.cap.support.desc', descFallback: 'Maintenance, analytics and feature growth.', icon: '\u23A3' },
 ];
 
@@ -90,31 +49,34 @@ export default function AgentChat() {
   const location = useLocation();
 
   const [portfolioProjects, setPortfolioProjects] = useState<ProjectSummary[]>([]);
-  const [portfolioLoading, setPortfolioLoading] = useState(true);
-  const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setPortfolioLoading(true);
-    setPortfolioError(null);
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
-        const featured = await api.getFeaturedProjects({ pageSize: 3 });
+        const [featured, team] = await Promise.all([
+          api.getFeaturedProjects({ pageSize: 3 }).then(async (featured) => {
+            const featuredData = featured.data ?? [];
+            if (featuredData.length > 0) return featuredData;
+            const all = await api.getProjects({ pageSize: 3 });
+            return all.data ?? [];
+          }),
+          api.getTeam().then((res) => res.data ?? []),
+        ]);
         if (cancelled) return;
-        const featuredData = featured.data ?? [];
-        if (featuredData.length > 0) {
-          setPortfolioProjects(featuredData);
-        } else {
-          const all = await api.getProjects({ pageSize: 3 });
-          if (cancelled) return;
-          setPortfolioProjects(all.data ?? []);
-        }
+        setPortfolioProjects(featured);
+        setTeamMembers(team);
       } catch (err) {
         if (!cancelled) {
-          setPortfolioError(err instanceof Error ? err.message : 'Failed to load projects');
+          setError(err instanceof Error ? err.message : 'Failed to load data');
         }
       } finally {
-        if (!cancelled) setPortfolioLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -139,7 +101,7 @@ export default function AgentChat() {
               {group.items.map((item) => {
                 const selected = item.route != null
                   ? location.pathname === item.route
-                  : true; // items without a route are current-page (e.g. Conversations, Knowledge Base)
+                  : true; // items without a route are current-page (e.g. Conversations)
                 if (!item.route) {
                   return (
                     <span
@@ -167,11 +129,41 @@ export default function AgentChat() {
           </div>
         ))}
 
-        <div className="agent-side-profile">
-          <div className="agent-side-avatar" aria-hidden="true">RM</div>
+        {/* Real team members — the people behind the agents */}
+        {!loading && teamMembers.length > 0 && (
           <div>
-            <b>{t('agent.sidebar.profile.name', 'Rajib Mahata')}</b>
-            <small>{t('agent.sidebar.profile.role', 'Administrator')}</small>
+            <div className="agent-side-group">
+              {t('agent.sidebar.group.agents', 'AGENTS')}
+            </div>
+            <nav className="agent-side-nav" aria-label={t('agent.sidebar.group.agents', 'AGENTS')}>
+              {teamMembers.map((member, i) => (
+                <Link
+                  key={member.id}
+                  to={`/team/${encodeURIComponent(member.slug)}`}
+                  className={`agent-side-item agent-side-agent${location.pathname === `/team/${member.slug}` ? ' selected' : ''}`}
+                >
+                  <span className={`agent-side-avatar-sm avatar ${avatarClassForIndex(i)}`} aria-hidden="true">
+                    {member.avatarUrl ? (
+                      <img src={member.avatarUrl} alt="" loading="lazy" />
+                    ) : (
+                      getInitials(member.name)
+                    )}
+                  </span>
+                  <span className="agent-side-agent-meta">
+                    <b>{member.name}</b>
+                    <small>{member.role}</small>
+                  </span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        <div className="agent-side-profile">
+          <div className="agent-side-avatar" aria-hidden="true">RA</div>
+          <div>
+            <b>{t('agent.sidebar.profile.studio', 'R&A Labs')}</b>
+            <small>{t('agent.sidebar.profile.tagline', 'AI · Engineering Studio')}</small>
           </div>
         </div>
       </aside>
@@ -221,12 +213,12 @@ export default function AgentChat() {
         </section>
 
         {/* ── Portfolio Showcase ── */}
-        {portfolioProjects.length > 0 && !portfolioLoading && (
+        {portfolioProjects.length > 0 && !loading && (
           <section className="agent-portfolio" aria-labelledby="agent-portfolio-heading">
             <div className="agent-portfolio-head">
               <h2 id="agent-portfolio-heading">{t('agent.portfolio.heading', 'Real products. Real outcomes.')}</h2>
-              <Link to="/work" className="agent-portfolio-view-all">
-                {t('agent.portfolio.viewAll', 'View all work')} &rarr;
+              <Link to="/portfolio" className="agent-portfolio-view-all">
+                {t('agent.portfolio.viewAll', 'View full portfolio')} &rarr;
               </Link>
             </div>
             <div className="agent-portfolio-grid">
@@ -268,22 +260,16 @@ export default function AgentChat() {
           </section>
         )}
 
-        {portfolioLoading && (
+        {loading && (
           <div className="agent-portfolio-loading" aria-live="polite">
             <div className="spinner" />
-            <p>{t('common.loading', 'Loading projects...')}</p>
+            <p>{t('common.loading', 'Loading...')}</p>
           </div>
         )}
 
-        {portfolioError && !portfolioLoading && (
+        {error && !loading && (
           <div className="agent-portfolio-error" role="alert">
-            <p>{t('common.error', 'Could not load projects')}</p>
-          </div>
-        )}
-
-        {!portfolioLoading && !portfolioError && portfolioProjects.length === 0 && (
-          <div className="agent-portfolio-empty">
-            <p>{t('common.empty', 'No projects yet')}</p>
+            <p>{t('common.error', 'Could not load content')}</p>
           </div>
         )}
       </main>
@@ -291,53 +277,65 @@ export default function AgentChat() {
       {/* ── Right Rail ── */}
       <aside className="agent-rail">
 
-        <section className="agent-rail-panel">
-          <div className="agent-rail-panel-head">
-            <b>{t('agent.rail.conversations', 'Your Conversations')}</b>
-          </div>
-          {RAIL_CONVERSATIONS.map((item) => (
-            <div
-              key={item.key}
-              className={`agent-rail-conversation${item.active ? ' active' : ''}`}
-            >
-              {item.active ? '\uD83D\uDFE2 ' : '\u2371 '}
-              {t(item.key, item.fallback)}
-              <small>{item.time}</small>
+        {!loading && portfolioProjects.length > 0 && (
+          <section className="agent-rail-panel">
+            <div className="agent-rail-panel-head">
+              <b>{t('agent.rail.work', 'Recent Work')}</b>
             </div>
-          ))}
-        </section>
+            {portfolioProjects.slice(0, 4).map((project) => (
+              <Link
+                key={project.id}
+                to={`/work/${encodeURIComponent(project.slug)}`}
+                className="agent-rail-conversation"
+              >
+                {'\u23A3 '}
+                {project.title}
+                <small>{project.status === 'live' ? 'Live' : 'In build'}</small>
+              </Link>
+            ))}
+            <Link to="/portfolio" className="agent-rail-view-all">
+              {'\u25A3 \u00A0 '}{t('agent.rail.viewPortfolio', 'View portfolio')}
+            </Link>
+          </section>
+        )}
+
+        {!loading && teamMembers.length > 0 && (
+          <section className="agent-rail-panel">
+            <div className="agent-rail-panel-head">
+              <b>{t('agent.rail.team', 'The Team')}</b>
+            </div>
+            {teamMembers.map((member, i) => (
+              <Link
+                key={member.id}
+                to={`/team/${encodeURIComponent(member.slug)}`}
+                className="agent-rail-agent-row"
+              >
+                <span className={`agent-side-avatar-sm avatar ${avatarClassForIndex(i + 1)}`} aria-hidden="true">
+                  {member.avatarUrl ? (
+                    <img src={member.avatarUrl} alt="" loading="lazy" />
+                  ) : (
+                    getInitials(member.name)
+                  )}
+                </span>
+                <div>
+                  <b>{member.name}</b>
+                  <small>{member.role}</small>
+                </div>
+              </Link>
+            ))}
+            <Link to="/team" className="agent-rail-view-all">
+              {'\u2726 \u00A0 '}{t('agent.rail.viewOurTeam', 'View our team')}
+            </Link>
+          </section>
+        )}
 
         <section className="agent-rail-panel">
           <div className="agent-rail-panel-head">
-            <b>{t('agent.rail.agents', 'OpenCode Agents')}</b>
+            <b>{t('agent.rail.knowledge', 'What the agent knows')}</b>
           </div>
-          {RAIL_AGENTS.map((item) => (
-            <div key={item.key} className="agent-rail-agent-row">
-              <div className="agent-rail-agent-icon" aria-hidden="true">{item.icon}</div>
-              <div>
-                <b>{t(item.key, item.fallback)}</b>
-                <small>{item.version}</small>
-              </div>
-              <span className="agent-rail-agent-online">
-                {'\u25CF '}{t('agent.rail.online', 'Online')}
-              </span>
-            </div>
-          ))}
-          <Link to="/team" className="agent-rail-view-all">
-            {'\u2726 \u00A0 '}{t('agent.rail.viewOurTeam', 'View our team')}
-          </Link>
-        </section>
-
-        <section className="agent-rail-panel">
-          <div className="agent-rail-panel-head">
-            <b>{t('agent.rail.knowledge', 'Knowledge Base')}</b>
-          </div>
-          {RAIL_KNOWLEDGE.map((item) => (
-            <div key={item.key} className="agent-rail-knowledge">
-              {'\u23A4 \u00A0 '}{t(item.key, item.fallback)}
-              <small>{item.updated}</small>
-            </div>
-          ))}
+          <div className="agent-rail-knowledge">{'\u23A4 \u00A0 '}{t('agent.rail.kb1', 'Our portfolio and case studies')}</div>
+          <div className="agent-rail-knowledge">{'\u23A4 \u00A0 '}{t('agent.rail.kb2', 'Services and delivery process')}</div>
+          <div className="agent-rail-knowledge">{'\u23A4 \u00A0 '}{t('agent.rail.kb3', 'Team profiles and expertise')}</div>
         </section>
 
       </aside>

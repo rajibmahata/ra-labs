@@ -71,6 +71,14 @@ public record TeamMemberDto(
     string? Email, string? LinkedinUrl, string? Location, bool IsActive, bool IsPublished,
     GithubSnapshotDto? GithubSnapshot);
 
+/// <summary>Public-facing team profile — never exposes email, GitHub token
+/// presence, account URL, or activation/publish flags.</summary>
+public record PublicTeamMemberDto(
+    Guid Id, string Slug, string Name, string Role, string Bio,
+    string? GithubUsername, string? AvatarUrl,
+    string? LinkedinUrl, string? Location,
+    GithubSnapshotDto? GithubSnapshot);
+
 public record GithubSnapshotDto(
     int Commits90d, int ActiveRepos, DateTime? LastCommitAt, DateTime CapturedAt);
 

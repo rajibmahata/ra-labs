@@ -162,7 +162,9 @@ public class ChatService : IChatService
                 SenderName = "R&A Assistant",
                 Content = reply.Content,
                 SuggestedActions = reply.SuggestedActions.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(reply.SuggestedActions) : null,
-                CreatedAt = DateTime.UtcNow.AddSeconds(1)
+                // Real timestamp: the reply is persisted after the triggering
+                // user message (sequential await), so ordering is already correct.
+                CreatedAt = DateTime.UtcNow
             };
             await _repo.AddMessageAsync(agentMessage);
 

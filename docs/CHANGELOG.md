@@ -1,5 +1,116 @@
 # CHANGELOG: ra-labs
 
+## [Unreleased] - audit + truthful-UI pass (2026-08-23)
+
+### Fixed
+- **RAG empty at startup (critical):** fresh databases had zero knowledge
+  chunks — every factual question escalated. `DbInitializer` now ingests the
+  public index at startup (verified: 14 chunks; "Tell me about DocSignerHub"
+  returns real data).
+- Agent chat messages no longer future-stamped (`AddSeconds(1)` removed) —
+  chronology in admin views and exports is now real.
+- Public team API leaked `email` / `hasGithubToken` / activation flags via the
+  admin DTO; new `PublicTeamMemberDto` exposes only public fields.
+- `App:CustomerPortalUrl` pointed at the public site instead of the portal.
+
+### Added / Changed
+- `/agent`: fake conversations, fake agent roster ("OpenCode · v1.2.1",
+  "Online"), and the hardcoded administrator chip are gone; sidebar + rail now
+  render the REAL team from the API with profile links. Portfolio showcase and
+  trust chips retained.
+- New Portfolio menu + `/portfolio` page: project rows with cover, summary,
+  stack tags, status badge, and Case study / Live site / GitHub links.
+- Nav gains a Customer Login entry (config-driven, mobile + desktop).
+- Status pill is now config-driven ("AI agent online") instead of the
+  unverifiable "Studio capacity: Available".
+
+## [Unreleased] - functional + UI validation pass (2026-08-22)
+
+### Fixed
+- **PRD workflow deadlock (ADR-005/BR-004):** `SavePrdAsync` never performed the
+  `intake → prd_draft` transition, and both sign gates require `prd_draft` —
+  projects created through the normal flow could never reach `prd_signed`.
+  Drafting a PRD now auto-transitions intake → prd_draft. Regression test
+  added (`DraftingPrd_AutoTransitions_IntakeToPrdDraft_AndDualSignCompletes`);
+  the old full-workflow test masked the bug by transitioning manually.
+- **BR-005 portfolio feedback loop was a stub:** approving feedback only set
+  `IsPublished`; no public `Project` entry was ever created. Approval on a
+  delivered/closed project now auto-publishes a portfolio entry derived from
+  the customer project (goal/audience/requirements case study, demo URL as
+  live site, `Project.CustomerProjectId` link), idempotent via new
+  `IProjectRepository.ExistsForCustomerProjectAsync`. Regression test added
+  (`ApprovingFeedback_AfterDelivery_CreatesPublicPortfolioEntry_Once`).
+- **Mobile nav horizontal overflow (web-public):** the closed off-canvas menu
+  (fixed, `translateX(105%)`) expanded `scrollWidth` to ~708px on 390px
+  viewports. Closed nav is now `display:none` (also removes hidden links from
+  keyboard/a11y tree); open state slides in via `nav-slide-in` keyframe;
+  `html { overflow-x: clip }` as belt-and-braces.
+
+### Validated (live API, Production mode, in-memory DB)
+- Public: health (DB probe), projects/featured/team/content/locales/config,
+  lead creation, chat thread + message flow, hero scenarios.
+- Security: `/seed/full` 404 outside Development; security headers present
+  (`microphone=(self)`); CORS preflight 204 for allowed origins, ACAO echoed,
+  disallowed origins get no headers; admin endpoints 401 anonymous; MCP
+  admin tools 403 without role; JWT fails closed without a ≥32-char secret.
+- Customer lifecycle E2E: register → login → create project (intake) → PRD
+  draft (auto prd_draft) → dual sign (prd_signed) → in_build → demo →
+  delivered → invoice (cash-only) → feedback → closed → approve → public
+  portfolio entry appears at `/api/v1/projects`.
+- Admin: login, dashboard stats aggregate, customer search, customer-project
+  listing, PRD save/sign, status transitions, notifications.
+- MCP: all 64 published tools verified; authenticated calls to
+  `list_customers` / `export_customers` / `get_dashboard_stats` return live
+  data; role enforcement holds.
+- Playwright suite: **7/7 passing** against live API + all three dev servers
+  (homepage/hero/agent panel render, portfolio navigation, team page, contact
+  form success path, customer + admin login shells, mobile overflow check).
+  Test selectors hardened (stable `#contact-*` ids, `.or()` combinator for
+  async fetch race, `[role="status"]`/`.form-success`, pan-based overflow
+  assertion).
+
+## [Unreleased] - production-readiness pass (2026-08-22)
+
+### Changed
+- **CORS wired (was config-only):** `Cors:AllowedOrigins` from appsettings now
+  drives a real `AddCors`/`UseCors("ApiCors")` pipeline; no origins configured
+  means same-origin only.
+- **`POST /seed/full` is development-only.** The unauthenticated reseed
+  endpoint no longer exists in production builds.
+- **`GET /health` probes the database** and returns 503 `{status:"unhealthy",
+  database:"down"}` when SQL Server is unreachable — orchestrator-ready.
+- **Permissions-Policy allows `microphone=(self)`** (was `microphone=()`, which
+  contradicted the voice-enabled agent).
+- **Data Protection keys persist** to `DataProtection:KeyDirectory` (default:
+  `data-protection-keys/` beside the binary) so encrypted GitHub tokens survive
+  container restarts; application name pinned to `RALabs`.
+- **Seeded admin password configurable** via `Seed:AdminPassword` (falls back to
+  the documented dev default with a startup warning when unset).
+- Streaming provider failures are now logged before the deterministic fallback.
+
+### Added
+- **MCP parity for customer management + admin observability (ADM-001):** new
+  tools `get_customer`, `update_customer`, `set_customer_status`,
+  `delete_customer`, `delete_customers`, `import_customers` (CSV text),
+  `export_customers` (CSV text), `get_dashboard_stats`, `list_notifications`,
+  `mark_notification_read`, `list_reviews`, `moderate_review`; published
+  definition added for the previously undiscoverable `generate_project_refresh`;
+  `create_admin` exposes the optional `role` parameter; `list_customers`
+  gained search/isActive filters (delegates to `ICustomerManagementService`
+  instead of the raw repository).
+- **Tests:** `CustomerManagementTests` (12 facts: search/filter/pagination,
+  duplicate-email conflict, refresh-token revocation on update/deactivate,
+  delete cleanup of project knowledge chunks, bulk-delete dedupe, import
+  validation/duplicate/max-row behavior, export credential exclusion) and
+  `McpToolContractTests` (role labels, governance tool coverage, unique names).
+  `RALabs.Tests` now references `RALabs.Api`. Suite: 114 passing.
+
+### Fixed
+- `Microsoft.Extensions.Caching.Memory` bumped 8.0.0 → 8.0.1 (NU1903 high-
+  severity advisory GHSA-qj66-m88j-hmgj).
+- Nullable-annotation warnings in `ProjectService` import helpers eliminated;
+  backend builds warning-free.
+
 ## [Unreleased] - live portfolio + RA Labs AI agent (2026-08-09)
 
 ### Added

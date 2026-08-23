@@ -429,14 +429,14 @@ public class ProjectService : IProjectService
         return Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) ? uri.AbsoluteUri.TrimEnd('/') : trimmed;
     }
 
-    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static List<string> SplitList(string value) =>
+    private static List<string> SplitList(string? value) =>
         string.IsNullOrWhiteSpace(value)
             ? new List<string>()
             : value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
-    private static bool ParseBool(string value, bool fallback) =>
+    private static bool ParseBool(string? value, bool fallback) =>
         bool.TryParse(value, out var parsed) ? parsed : fallback;
 
     private static ProjectStatus ParseStatus(string? status) =>
