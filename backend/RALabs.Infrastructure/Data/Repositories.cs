@@ -52,7 +52,13 @@ public class ProjectRepository : IProjectRepository
             q = q.Where(p => p.Title.Contains(needle) || p.Summary.Contains(needle) || p.Category!.Contains(needle));
         }
         if (!string.IsNullOrWhiteSpace(category)) q = q.Where(p => p.Category == category);
-        if (!string.IsNullOrWhiteSpace(status)) q = q.Where(p => p.Status.ToString() == status);
+        // Status is stored via HasConversion<string>; parse to the enum so the
+        // predicate translates to SQL (enum.ToString() does not translate).
+        if (!string.IsNullOrWhiteSpace(status) &&
+            Enum.TryParse<ProjectStatus>(status.Replace(' ', '_'), true, out var parsedStatus))
+        {
+            q = q.Where(p => p.Status == parsedStatus);
+        }
         if (featured.HasValue) q = q.Where(p => p.IsFeatured == featured.Value);
         if (active.HasValue) q = q.Where(p => p.IsActive == active.Value);
         if (published.HasValue) q = q.Where(p => p.IsPublished == published.Value);
@@ -488,8 +494,12 @@ public class KnowledgeChunkRepository : IKnowledgeChunkRepository
 
     public async Task DeleteBySourceAsync(string sourceType, string sourceId)
     {
+        // Enum is stored via HasConversion<string>; parse the caller's string so
+        // the comparison translates to SQL (enum.ToString() does not translate).
+        if (!Enum.TryParse<KnowledgeSourceType>(sourceType, true, out var type))
+            return;
         var items = await _db.KnowledgeChunks
-            .Where(k => k.SourceType.ToString() == sourceType && k.SourceId == sourceId)
+            .Where(k => k.SourceType == type && k.SourceId == sourceId)
             .ToListAsync();
         if (items.Count > 0)
         {
@@ -500,8 +510,10 @@ public class KnowledgeChunkRepository : IKnowledgeChunkRepository
 
     public async Task DeleteBySourcePrefixAsync(string sourceType, string sourcePrefix)
     {
+        if (!Enum.TryParse<KnowledgeSourceType>(sourceType, true, out var type))
+            return;
         var items = await _db.KnowledgeChunks
-            .Where(k => k.SourceType.ToString() == sourceType && k.SourceId.StartsWith(sourcePrefix))
+            .Where(k => k.SourceType == type && k.SourceId.StartsWith(sourcePrefix))
             .ToListAsync();
         if (items.Count == 0) return;
         _db.KnowledgeChunks.RemoveRange(items);

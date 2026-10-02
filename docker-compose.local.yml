@@ -1,0 +1,41 @@
+# RALabs — local Docker override with containerized SQL Server
+# Usage:
+#   run-docker.bat local        -> uses this file automatically
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# This adds a SQL Server (Express) container so the stack runs fully
+# self-contained without needing RAJIB\SQLEXPRESS or an external DB host.
+# .env should have: DB_HOST=mssql  DB_NAME=RALabsDb  DB_USER=sa  DB_PASSWORD=<strong>
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ralabs-mssql
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD:-YourStrong!Passw0rd123}"
+      MSSQL_PID: "Express"
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    networks:
+      - ralabs-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api:
+    ports:
+      - "8080:8080"
+    depends_on:
+      mssql:
+        condition: service_healthy
+
+volumes:
+  mssql_data:
+    name: ralabs-mssql-data

@@ -274,7 +274,31 @@ export default function Home() {
       {/* ================================================================ */}
       {/* LIVE WORK / PORTFOLIO (real API data)                            */}
       {/* ================================================================ */}
-      {displayProjects.length > 0 && (
+      {projectsError && !projectsLoading && (
+        <section aria-labelledby="portfolio-heading">
+          <div className="wrap">
+            <div className="state-placeholder" role="alert">
+              <h3>{t('common.error', 'Could not load projects')}</h3>
+              <p>{t('portfolio.errorHint', 'Please make sure the API is running, then refresh.')}</p>
+              <Link to="/work" className="cta ghost" style={{ marginTop: 12 }}>
+                {t('home.work.viewAll', 'View all work')} &rarr;
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!projectsError && displayProjects.length === 0 && !projectsLoading && (
+        <section aria-labelledby="portfolio-heading">
+          <div className="wrap">
+            <div className="state-placeholder">
+              <p>{t('portfolio.empty.body', 'Delivered client work will appear here.')}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!projectsError && displayProjects.length > 0 && (
         <section aria-labelledby="portfolio-heading">
           <RevealSection>
             <div className="wrap">

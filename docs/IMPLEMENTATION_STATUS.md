@@ -1,6 +1,6 @@
 # IMPLEMENTATION STATUS: ra-labs
 
-Audit date: 2026-08-23 · Method: code inspection + live API sweeps (Production
+Update: 2026-08-23 (second pass) — real SQL Server validation + dependency audits + CI. Original method: code inspection + live API sweeps (Production
 mode, in-memory DB) + 10-test Playwright suite against the running stack +
 116-test backend suite. No status below is assumed from UI presence alone.
 
@@ -8,10 +8,10 @@ mode, in-memory DB) + 10-test Playwright suite against the running stack +
 
 | Area | % | Evidence |
 |---|---|---|
-| **Overall** | **78%** | weighted summary of rows below |
+| **Overall** | **84%** | weighted summary of rows below |
 | Frontend | 85% | 3 apps build (`tsc`+vite); Playwright 10/10 incl. new Portfolio/Customer-Login/truthful-agent specs |
 | Backend | 85% | `dotnet build` warning-free; 116/116 tests; endpoint sweep green |
-| Database | 70% | schema + additive migrations exist; **runtime apply against real SQL Server unverified from this environment** |
+| Database | 95% | all 13 migrations APPLIED on RAJIB\SQLEXPRESS (verified via ef migrations list); API runtime proven on real SQL Server — health up, login OK, dashboard stats return live data, RAG seeding succeeded after LINQ translation fix; clean-DB rebuild test not run (destructive) |
 | APIs | 90% | full route sweep: public/customer/admin/MCP all respond correctly |
 | Authentication | 90% | role matrix verified live (anon→401, customer→403 admin, admin→403 super-admin surfaces); JWT fails closed <32-char secret |
 | Customer Journey | 85% | register→project→PRD dual-sign→build→demo→delivered→cash invoice→feedback→closed→portfolio publication proven end-to-end |
@@ -21,7 +21,7 @@ mode, in-memory DB) + 10-test Playwright suite against the running stack +
 | Voice | 40% | Web Speech implementation + states exist, honestly gated OFF by config; **never runtime-verified in a browser here** |
 | GitHub Integration | 65% | sync job runs, graceful without token, tokens encrypted at rest; real-token run unverified |
 | Notifications | 75% | in-app notifications verified live; email = console stub until SMTP configured; push not implemented |
-| Security | 80% | headers, CORS allowlist, rate limits (enforced — observed 429s), IDOR guards, private storage, no public DTO leaks |
+| Security | 85% | headers, CORS allowlist, rate limits (observed 429s), IDOR guards, private storage, zero public DTO leaks; npm audit 0 vulnerabilities ×3 apps; `dotnet list package --vulnerable` clean ×4 projects; fixed non-translatable enum.ToString() LINQ found only on real SQL Server path |
 | Testing | 70% | 116 unit/service + 10 E2E green; authenticated admin E2E + accessibility/performance suites missing |
 | PWA/Mobile | 75% | manifests + SW registration base-path aware; mobile overflow fixed & regression-tested; Lighthouse not run |
 
@@ -109,9 +109,10 @@ Landing **PASS** → Understand offer **PASS** (hero/capabilities/journey sectio
 
 ### Critical blockers
 
-1. **Database migration validation on real SQL Server** — 5 additive migrations never applied outside in-memory/CI (SQL Express unreachable from this environment). Must apply + smoke on Windows before any deployment.
-2. **SMTP provider decision + configuration** — confirmation/reset emails currently log to console only.
-3. **Secrets for deployment** — `Jwt:Secret`, OpenAI key, GitHub tokens must come from environment/secret store (fail-closed already enforced for JWT).
+1. ~~Database migration validation~~ **DONE 2026-08-23**: all migrations applied; API verified running on SQL Server Express with real data.
+2. **SMTP provider decision + configuration** — confirmation/reset emails currently log to console. Needs: provider account + `Email:*` env values.
+3. **Production secrets** — `Jwt:Secret`, OpenAI key, GitHub PATs must be supplied per-environment (fail-closed enforced for JWT).
+4. ~~Dependency vulnerabilities~~ **DONE**: 0 npm vulnerabilities across all three apps; no vulnerable NuGet packages (direct or transitive).
 
 ### Recommended next steps
 
