@@ -1,12 +1,13 @@
 name: CI/CD
 
-# Deploys on push/merge to `main` (Release Manager flow) + manual dispatch.
+# Auto-deploy on push/merge to `main` is DISABLED for now.
+# Manual dispatch only. Re-enable by restoring:
+#   push:
+#     branches: [main]
 # Pattern: RMEnterpriseCMS — rsync source to the VPS, build images there,
 # generate .env from GitHub secrets, health-check, auto-rollback.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
