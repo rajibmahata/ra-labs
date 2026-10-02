@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using RALabs.Application.Common;
 using RALabs.Application.DTOs;
 using RALabs.Domain.Entities;
@@ -13,6 +15,7 @@ public interface IContentService
     Task<ContentDto> UpsertAsync(string key, UpdateContentRequest request);
     Task DeleteAsync(string key, string locale);
     Task<List<LocaleDto>> GetLocalesAsync();
+    Task<byte[]> ExportAsync(string? locale);
 }
 
 public class ContentService : IContentService
@@ -114,5 +117,20 @@ public class ContentService : IContentService
         var locales = await _repo.GetLocalesAsync();
         return locales.Where(l => l.IsActive)
             .Select(l => new LocaleDto(l.Code, l.Label)).ToList();
+    }
+
+    public async Task<byte[]> ExportAsync(string? locale)
+    {
+        var items = await _repo.GetAllAsync(locale?.ToLowerInvariant());
+        var builder = new StringBuilder("key,locale,value,updatedAt\r\n");
+        foreach (var item in items.OrderBy(x => x.Locale).ThenBy(x => x.Key))
+        {
+            builder.AppendLine(string.Join(',',
+                CsvHelper.Escape(item.Key),
+                item.Locale,
+                CsvHelper.Escape(item.Value),
+                item.UpdatedAt.ToString("O", CultureInfo.InvariantCulture)));
+        }
+        return Encoding.UTF8.GetBytes(builder.ToString());
     }
 }

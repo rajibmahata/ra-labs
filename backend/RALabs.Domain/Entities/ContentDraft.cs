@@ -11,6 +11,7 @@ public class ContentDraft
     public string? SourceSnapshot { get; set; }
     public string Status { get; set; } = "pending";
     public string? ReviewNote { get; set; }
+    public Guid? ProjectDraftId { get; set; }
     public Guid? ApprovedProjectId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReviewedAt { get; set; }

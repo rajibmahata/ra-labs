@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reviews as reviewsApi, ApiClientError } from '../api/client';
-import { ConfirmDialog } from '../components/Modal';
+import { InlineConfirm } from '../components/InlineConfirm';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Pagination } from '../components/Pagination';
 import { useToast } from '../components/useToast';
 
 type Review = Awaited<ReturnType<typeof reviewsApi.list>>['data'][number];
@@ -15,9 +17,9 @@ export default function Reviews() {
   const [publishedFilter, setPublishedFilter] = useState<'all' | 'published' | 'pending'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ ids: string[]; approved: boolean } | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const fetchReviews = async () => {
     setLoading(true);
@@ -31,6 +33,7 @@ export default function Reviews() {
       });
       setItems(result.data);
       setTotalPages(result.pagination.totalPages);
+      setTotalCount(result.pagination.totalCount);
       setSelected(new Set());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load reviews');
@@ -55,7 +58,6 @@ export default function Reviews() {
 
   const moderate = async () => {
     if (!confirm) return;
-    setSaving(true);
     try {
       await Promise.all(confirm.ids.map((id) => reviewsApi.moderate(id, confirm.approved)));
       addToast(confirm.approved ? 'Review approved for publishing' : 'Review unpublished', 'success');
@@ -63,8 +65,6 @@ export default function Reviews() {
       await fetchReviews();
     } catch (e) {
       addToast(e instanceof ApiClientError ? e.message : 'Failed to update review status', 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -72,6 +72,23 @@ export default function Reviews() {
     event.preventDefault();
     setPage(1);
     void fetchReviews();
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await reviewsApi.exportCsv({
+        search: search.trim() || undefined,
+        published: publishedFilter === 'all' ? undefined : publishedFilter === 'published',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'reviews.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      addToast(e instanceof ApiClientError ? e.message : 'Failed to export CSV', 'error');
+    }
   };
 
   return (
@@ -83,6 +100,7 @@ export default function Reviews() {
           <p className="page-subtitle">Review, approve, and manage customer feedback before it appears publicly.</p>
         </div>
         <div className="form-inline">
+          <button className="btn btn--outline" onClick={handleExport}>Export CSV</button>
           <button className="btn btn--primary" disabled={selected.size === 0} onClick={() => setConfirm({ ids: [...selected], approved: true })}>Approve selected</button>
           <button className="btn btn--outline" disabled={selected.size === 0} onClick={() => setConfirm({ ids: [...selected], approved: false })}>Unpublish selected</button>
         </div>
@@ -92,7 +110,7 @@ export default function Reviews() {
         <div className="card-body form-inline">
           <input className="form-input" style={{ minWidth: '280px' }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, project, or review" aria-label="Search reviews" />
           <button className="btn btn--outline" type="submit">Search</button>
-          <select className="form-input" value={publishedFilter} onChange={(event) => { setPage(1); setPublishedFilter(event.target.value as typeof publishedFilter); }} aria-label="Review status">
+          <select className="form-select" value={publishedFilter} onChange={(event) => { setPage(1); setPublishedFilter(event.target.value as typeof publishedFilter); }} aria-label="Review status">
             <option value="all">All reviews</option>
             <option value="pending">Pending approval</option>
             <option value="published">Published</option>
@@ -123,7 +141,14 @@ export default function Reviews() {
                       <td>{'★'.repeat(item.rating)}<span style={{ color: 'var(--content-muted)' }}>{'★'.repeat(5 - item.rating)}</span></td>
                       <td style={{ maxWidth: '360px' }}>{item.comment}</td>
                       <td><span className={`badge ${item.isPublished ? 'badge--published' : 'badge--unpublished'}`}>{item.isPublished ? 'Published' : 'Pending'}</span></td>
-                      <td><button className="btn btn--outline btn--sm" onClick={() => setConfirm({ ids: [item.id], approved: !item.isPublished })}>{item.isPublished ? 'Unpublish' : 'Approve'}</button></td>
+                      <td>
+                        <InlineConfirm
+                          onConfirm={() => setConfirm({ ids: [item.id], approved: !item.isPublished })}
+                          buttonLabel={item.isPublished ? 'Unpublish' : 'Approve'}
+                          confirmLabel={item.isPublished ? 'Unpublish' : 'Approve'}
+                          className="btn btn--outline btn--sm"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -131,17 +156,22 @@ export default function Reviews() {
             </div>
           )}
         </div>
-        {totalPages > 1 && <div className="card-header" style={{ justifyContent: 'center' }}><div className="form-inline"><button className="btn btn--outline btn--sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button><span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--content-muted)' }}>Page {page} of {totalPages}</span><button className="btn btn--outline btn--sm" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>Next</button></div></div>}
+        {totalPages > 1 && <Pagination page={page} pageSize={20} totalCount={totalCount} onPageChange={setPage} />}
       </div>
 
       <ConfirmDialog
-        open={confirm !== null}
-        onClose={() => setConfirm(null)}
-        onConfirm={() => void moderate()}
-        title={confirm?.approved ? 'Approve review?' : 'Unpublish review?'}
-        message={confirm?.approved ? 'This review will become eligible for public display.' : 'This review will be removed from public display.'}
+        open={!!confirm}
+        title={
+          confirm?.approved
+            ? `Approve ${confirm?.ids.length ?? 0} review(s) for public display?`
+            : `Unpublish ${confirm?.ids.length ?? 0} review(s) from public display?`
+        }
+        description={confirm?.approved ? 'Approved reviews will be visible on the public site immediately.' : 'Unpublished reviews will be hidden from the public site.'}
         confirmLabel={confirm?.approved ? 'Approve' : 'Unpublish'}
-        loading={saving}
+        cancelLabel="Cancel"
+        danger={!confirm?.approved}
+        onConfirm={async () => { await moderate(); }}
+        onCancel={() => setConfirm(null)}
       />
     </div>
   );

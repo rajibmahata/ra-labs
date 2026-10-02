@@ -12,9 +12,9 @@ export default function Contact() {
             <div className="eyebrow">
               {t('contact.eyebrow', 'Get in touch')}
             </div>
-            <h2 id="contact-heading">
+            <h1 id="contact-heading">
               {t('contact.title', 'Tell us the problem. We will sketch the first version.')}
-            </h2>
+            </h1>
             <p>
               {t(
                 'contact.subtitle',
@@ -35,12 +35,12 @@ export default function Contact() {
               }}
             >
               <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
-                What happens next:
+                {t('contact.next.heading', 'What happens next:')}
               </div>
               <ol style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <li>We review your message, usually within one business day.</li>
-                <li>We schedule a quick call to understand your needs.</li>
-                <li>We send a rough sketch and an estimate — no commitment.</li>
+                <li>{t('contact.next.step1', 'We review your message, usually within one business day.')}</li>
+                <li>{t('contact.next.step2', 'We schedule a quick call to understand your needs.')}</li>
+                <li>{t('contact.next.step3', 'We send a rough sketch and an estimate — no commitment.')}</li>
               </ol>
             </div>
           </div>

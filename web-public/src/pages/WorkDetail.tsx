@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api, type ProjectDetail } from '../api/client';
+import { api, type ProjectDetail, type ProjectDetailResponse } from '../api/client';
 import { useI18n } from '../i18n';
 
 function formatMarkdown(md: string): string {
@@ -89,6 +89,7 @@ export default function WorkDetail() {
   const { t } = useI18n();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [teamMembers, setTeamMembers] = useState<ProjectDetailResponse['teamMembers']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,7 +104,8 @@ export default function WorkDetail() {
       .getProject(slug)
       .then((res) => {
         if (!cancelled) {
-          setProject(res.data);
+          setProject(res.data.project);
+          setTeamMembers(res.data.teamMembers);
           setLoading(false);
         }
       })
@@ -130,17 +132,17 @@ export default function WorkDetail() {
         {loading && (
           <div className="state-placeholder" aria-live="polite">
             <div className="spinner" />
-            <p>Loading project...</p>
+            <p>{t('work.detail.loading', 'Loading project...')}</p>
           </div>
         )}
 
         {/* State: error */}
         {error && !loading && (
           <div className="state-placeholder" role="alert">
-            <h3>Project not found</h3>
+            <h3>{t('work.detail.error', 'Project not found')}</h3>
             <p>{error}</p>
             <Link to="/work" className="cta ghost" style={{ marginTop: 16 }}>
-              Back to all work
+              {t('work.detail.back', 'Back to all work')}
             </Link>
           </div>
         )}
@@ -189,7 +191,18 @@ export default function WorkDetail() {
                   >
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                   </svg>
-                  View on GitHub
+                  {t('work.detail.github', 'View on GitHub')}
+                </a>
+              )}
+
+              {project.liveSiteUrl && (
+                <a
+                  href={project.liveSiteUrl}
+                  className="github-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t('work.detail.liveSite', 'Live site')} &nearr;
                 </a>
               )}
             </header>
@@ -200,6 +213,87 @@ export default function WorkDetail() {
                 alt={`${project.title} cover`}
                 className="work-detail-cover"
               />
+            )}
+
+            {(project.category || project.duration || project.completedAt || project.customerReference) && (
+              <dl className="work-detail-facts">
+                {project.category && (
+                  <div><dt>Category</dt><dd>{project.category}</dd></div>
+                )}
+                {project.duration && (
+                  <div><dt>Duration</dt><dd>{project.duration}</dd></div>
+                )}
+                {project.completedAt && (
+                  <div><dt>Completed</dt><dd>{new Date(project.completedAt).toLocaleDateString()}</dd></div>
+                )}
+                {project.customerReference && project.showCustomerReference && (
+                  <div><dt>Customer</dt><dd>{project.customerReference}</dd></div>
+                )}
+              </dl>
+            )}
+
+            {teamMembers.length > 0 && (
+              <div className="work-detail-section">
+                <h2>{t('work.detail.builtBy', 'Built by')}</h2>
+                <div className="team-inline">
+                  {teamMembers.map((member) => (
+                    <div key={member.id} className="team-inline-member">
+                      {member.avatarUrl && (
+                        <img src={member.avatarUrl} alt="" className="team-inline-avatar" loading="lazy" />
+                      )}
+                      <div>
+                        <strong>{member.name}</strong>
+                        <span>{member.role}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {project.businessPurpose && (
+              <div className="work-detail-section">
+                <h2>{t('work.detail.businessPurpose', 'Business purpose')}</h2>
+                <p>{project.businessPurpose}</p>
+              </div>
+            )}
+
+            {project.problemSolved && (
+              <div className="work-detail-section">
+                <h2>{t('work.detail.problem', 'The problem')}</h2>
+                <p>{project.problemSolved}</p>
+              </div>
+            )}
+
+            {project.solution && (
+              <div className="work-detail-section">
+                <h2>{t('work.detail.solution', 'The solution')}</h2>
+                <p>{project.solution}</p>
+              </div>
+            )}
+
+            {project.keyFeatures.length > 0 && (
+              <div className="work-detail-section">
+                <h2>{t('work.detail.keyFeatures', 'Key features')}</h2>
+                <ul className="feature-list">
+                  {project.keyFeatures.map((feature) => (
+                    <li key={feature}>{feature}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {project.screenshots.length > 0 && (
+              <div className="work-detail-section">
+                <h2>{t('work.detail.screenshots', 'Screenshots')}</h2>
+                <div className="screenshot-grid">
+                  {project.screenshots.map((src, i) => (
+                    <a key={`${src}-${i}`} href={src} target="_blank" rel="noopener noreferrer">
+                      <img src={src} alt={`${project.title} screenshot ${i + 1}`} loading="lazy" />
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
 
             {project.caseStudyBody && (
@@ -215,7 +309,7 @@ export default function WorkDetail() {
 
             {!project.caseStudyBody && (
               <div className="state-placeholder">
-                <p>No detailed case study available for this project yet.</p>
+                <p>{t('work.detail.noCaseStudy', 'No detailed case study available for this project yet.')}</p>
               </div>
             )}
           </article>

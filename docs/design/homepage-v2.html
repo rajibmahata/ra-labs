@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R&amp;A Labs — Homepage + AI agent v2 wireframe</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#F3F3F1;color:#2B2B2B;margin:0;}
+  .page-nav{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:12px 24px;
+    display:flex;gap:18px;overflow-x:auto;z-index:10;}
+  .page-nav a{color:#555;text-decoration:none;font-size:12.5px;white-space:nowrap;}
+  .page-nav a:hover{color:#111;}
+  .intro{padding:28px 24px 6px;max-width:1020px;margin:0 auto;}
+  .intro h1{font-size:20px;margin:0 0 6px;}
+  .intro p{font-size:13px;color:#777;margin:0;}
+  .section{padding:40px 24px;border-bottom:1px dashed #ccc;}
+  .section .frame{max-width:1020px;margin:0 auto;}
+  .section h2{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin:0 0 4px;}
+  .section .sub{font-size:12px;color:#aaa;margin:0 0 16px;}
+  .sketch{background:#fff;border:1px solid #ddd;border-radius:6px;padding:20px;}
+  .wire-box{border:1.5px dashed #9aa0a6;border-radius:4px;padding:12px;background:#fafafa;}
+  .line{height:8px;background:#dcdde0;border-radius:2px;margin:6px 0;}
+  .line.w80{width:80%;} .line.w60{width:60%;} .line.w40{width:40%;} .line.w30{width:30%;}
+  .btn-ph{display:inline-block;border:1px solid #9aa0a6;border-radius:4px;padding:6px 14px;font-size:11px;color:#777;background:#fff;margin-right:8px;}
+  .btn-ph.solid{background:#2f6d57;border-color:#2f6d57;color:#fff;}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .nav-row{display:flex;justify-content:space-between;align-items:center;border:1px dashed #9aa0a6;border-radius:4px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#888;}
+  .nav-row .links{display:flex;gap:14px;}
+  .flag{font-size:10px;border-radius:10px;padding:2px 8px;background:#fbe9e4;color:#c9694a;}
+  .flag.ok{background:#e7f3e5;color:#4a8a4d;}
+  .flag.blue{background:#e6effa;color:#4c6fb0;}
+  .flag.gold{background:#fcf2dd;color:#b07d2e;}
+
+  /* ——— agent panel sketch ——— */
+  .agent-panel{border:1.5px dashed #6f7d8a;border-radius:14px;background:#fff;overflow:hidden;display:flex;flex-direction:column;}
+  .ap-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px dashed #c9d2da;background:#f7fafc;}
+  .ap-head .title{font-size:12.5px;font-weight:600;color:#24323d;}
+  .ap-head .status{font-size:10.5px;color:#4a8a4d;display:flex;align-items:center;gap:5px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:#4a8a4d;display:inline-block;}
+  .ap-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:180px;}
+  .ap-msg{max-width:85%;border-radius:10px;padding:8px 10px;font-size:11.5px;line-height:1.5;}
+  .ap-msg.agent{background:#eef3f7;border:1px solid #d8e1e8;align-self:flex-start;border-bottom-left-radius:3px;}
+  .ap-msg.visitor{background:#2f6d57;color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+  .ap-msg .meta{font-size:9.5px;opacity:.7;margin-top:4px;}
+  .ap-msg .actions{display:flex;gap:8px;margin-top:6px;font-size:10px;color:#888;}
+  .typing{display:inline-flex;gap:3px;align-items:center;}
+  .typing i{width:5px;height:5px;border-radius:50%;background:#9aa7b1;animation:tp 1s infinite ease-in-out;}
+  .typing i:nth-child(2){animation-delay:.15s;}
+  .typing i:nth-child(3){animation-delay:.3s;}
+  @keyframes tp{0%,60%,100%{opacity:.3;}30%{opacity:1;}}
+  .ap-starters{display:flex;flex-wrap:wrap;gap:6px;}
+  .ap-starters span{border:1px dashed #9aa0a6;border-radius:999px;padding:4px 10px;font-size:10.5px;color:#777;background:#fff;}
+  .ap-composer{display:flex;gap:8px;align-items:flex-end;border-top:1px dashed #c9d2da;padding:10px 14px;}
+  .ap-composer .prompt{border:1px solid #c9d2da;border-radius:10px;flex:1;min-height:34px;background:#fff;padding:8px 10px;font-size:11px;color:#999;}
+  .ap-composer .send{background:#2f6d57;color:#fff;border-radius:10px;padding:8px 16px;font-size:11px;}
+
+  /* ——— draft → finalize states ——— */
+  .msg-state{border:1px dashed #9aa0a6;border-radius:6px;padding:10px 12px;font-size:11.5px;line-height:1.55;margin-bottom:8px;}
+  .msg-state .tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:#888;display:block;margin-bottom:4px;}
+  .msg-state.draft{background:#fdf8ee;border-color:#c9a24b;}
+  .msg-state.final{background:#fff;border-color:#9aa0a6;}
+  .msg-state.streaming{background:#f2f8f5;border-color:#4a8a4d;}
+  .msg-state .actions{margin-top:6px;display:flex;gap:8px;align-items:center;}
+  .msg-state .actions .btn-ph{margin-right:0;}
+
+  .callout{border-left:3px solid #c9a24b;background:#fdf8ee;padding:8px 12px;font-size:11px;color:#6b5a20;margin:10px 0;border-radius:0 4px 4px 0;}
+  .cap-item{border:1px solid #e2e3e5;border-radius:6px;padding:10px 12px;font-size:11.5px;background:#fff;}
+  .cap-item .t{font-weight:600;color:#333;font-size:12px;display:block;margin-bottom:2px;}
+  .cap-item .d{color:#888;font-size:11px;}
+  table.wire-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  table.wire-table th{text-align:left;color:#999;font-weight:500;padding:8px;border-bottom:1px solid #ddd;}
+  table.wire-table td{padding:8px;border-bottom:1px dashed #ddd;color:#555;vertical-align:top;}
+  .kbd{font-family:monospace;font-size:10.5px;border:1px solid #ccc;border-bottom-width:2px;border-radius:4px;padding:1px 6px;background:#fafafa;}
+</style>
+</head>
+<body>
+
+<div class="page-nav">
+  <a href="#home">Homepage v2 layout</a>
+  <a href="#hero">Hero + agent panel</a>
+  <a href="#draft-finalize">Draft → finalize states</a>
+  <a href="#starters">Conversation starters</a>
+  <a href="#capabilities">Capabilities</a>
+  <a href="#conversations">Conversation list</a>
+  <a href="#actions">Message actions</a>
+  <a href="#api-a11y">API + a11y + status</a>
+  <a href="#mobile">Mobile bottom sheet</a>
+</div>
+
+<div class="intro">
+  <h1>R&amp;A Labs — homepage + AI agent v2 wireframe</h1>
+  <p>Low-fidelity structural reference for the agent-first homepage. Visual styling follows the existing light theme (emerald / brass, Newsreader + Inter). The same agent panel is embedded in the homepage hero and reused on the full-page /agent screen.</p>
+</div>
+
+<!-- HOMEPAGE LAYOUT -->
+<section class="section" id="home">
+  <div class="frame">
+    <h2>Homepage v2 — regions top to bottom</h2>
+    <p class="sub">Agent-first ordering: hero with live agent panel, then capability/pipeline/privacy story, then portfolio, team, contact as secondary sections.</p>
+    <div class="sketch">
+      <div class="nav-row"><span>logo</span><span class="links"><span>ai agent</span><span>work</span><span>process</span><span>team</span><span>contact</span></span></div>
+
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w60" style="height:16px;"></div>
+        <div class="line w80" style="height:16px;"></div>
+        <div class="line w40"></div>
+        <div class="grid2" style="margin-top:12px;">
+          <div>
+            <div class="line w80"></div>
+            <div class="line w60"></div>
+            <div style="margin-top:12px;"><span class="btn-ph solid">start a conversation</span></div>
+            <div class="callout" style="margin-top:10px;">Desktop: agent panel docks inline at right. Mobile: floating trigger → bottom sheet.</div>
+          </div>
+          <div>
+            <!-- agent panel placeholder -->
+            <div class="agent-panel">
+              <div class="ap-head"><span class="title">R&amp;A Labs agent</span><span class="status"><span class="dot"></span>online · replies in seconds</span></div>
+              <div class="ap-body">
+                <div class="ap-msg agent">Hi! I can answer questions about our work and process, or collect your project brief step by step. <span class="meta">agent · just now</span></div>
+                <div class="ap-starters"><span>Create a project</span><span>Tell me about RA Labs</span><span>Explore projects</span><span>Contact us</span></div>
+              </div>
+              <div class="ap-composer"><div class="prompt">Ask the agent or describe your project…</div><div class="send">send</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w30"></div>
+        <div class="grid4" style="margin-top:10px;">
+          <div class="cap-item"><span class="t">Answers about work</span><span class="d">projects, services, process, team</span></div>
+          <div class="cap-item"><span class="t">Collects a project brief</span><span class="d">guided 7-step intake, saved for the team</span></div>
+          <div class="cap-item"><span class="t">RAG-grounded answers</span><span class="d">indexed portfolio + knowledge base</span></div>
+          <div class="cap-item"><span class="t">Private by default</span><span class="d">session-scoped, no tracking</span></div>
+        </div>
+      </div>
+
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w30"></div>
+        <div class="grid3" style="margin-top:10px;">
+          <div><div class="line w80"></div><div class="line w60"></div></div>
+          <div><div class="line w80"></div><div class="line w60"></div></div>
+          <div><div class="line w80"></div><div class="line w60"></div></div>
+        </div>
+      </div>
+
+      <div class="wire-box" style="margin-bottom:12px;">
+        <div class="line w30"></div>
+        <div class="grid2" style="margin-top:10px;">
+          <div><div class="line w60"></div><div class="line w40"></div></div>
+          <div><div class="line w60"></div><div class="line w40"></div></div>
+        </div>
+      </div>
+
+      <div class="wire-box"><div class="line w60"></div><span class="btn-ph solid" style="margin-top:8px;display:inline-block;">start a conversation</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HERO + AGENT PANEL -->
+<section class="section" id="hero">
+  <div class="frame">
+    <h2>Hero + interactive agent panel</h2>
+    <p class="sub">Left: headline + copy + CTA. Right: the agent panel — the centerpiece. Panel states: idle (starters), thinking, streaming, error.</p>
+    <div class="sketch">
+      <div class="grid2">
+        <div>
+          <div class="line w40" style="height:12px;"></div>
+          <div class="line w90" style="height:18px;"></div>
+          <div class="line w80" style="height:18px;"></div>
+          <div class="line w60"></div>
+          <div style="margin-top:12px;"><span class="btn-ph solid">ask the agent</span><span class="btn-ph">see the work</span></div>
+        </div>
+        <div class="agent-panel">
+          <div class="ap-head">
+            <span class="title">R&amp;A Labs agent <span class="flag blue">assistant</span></span>
+            <span class="status"><span class="dot"></span>online</span>
+          </div>
+          <div class="ap-body">
+            <div class="ap-msg agent">Hi! I'm the R&amp;A Labs assistant. Ask about our work, services and process — or tell me about your project and I'll collect a brief for the team. <span class="meta">assistant · just now</span></div>
+            <div class="ap-msg agent">
+              <span class="typing"><i></i><i></i><i></i></span>
+              <span class="meta" style="margin-top:2px;">assistant is responding…</span>
+            </div>
+            <div class="ap-starters"><span>Create a project</span><span>What do you build?</span><span>How do you work?</span><span>Show me examples</span></div>
+          </div>
+          <div class="ap-composer">
+            <div class="prompt">Type your message… <span class="flag gold">voice</span> <span class="flag">attach</span></div>
+            <div class="send">send</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout" style="margin-top:14px;">
+        Keyboard: <span class="kbd">Enter</span> send · <span class="kbd">Shift+Enter</span> newline · <span class="kbd">Ctrl/Cmd+Enter</span> send · <span class="kbd">↑</span> recall last message · <span class="kbd">Esc</span> close panel (mobile/embedded).
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DRAFT → FINALIZE -->
+<section class="section" id="draft-finalize">
+  <div class="frame">
+    <h2>One-turn messages: draft → finalize</h2>
+    <p class="sub">A composed message is a draft until sent. A streamed reply is marked as finalizing while chunks arrive. No multi-editing in v1 — finalize = send.</p>
+    <div class="sketch">
+      <div class="msg-state draft">
+        <span class="tag">draft · visitor</span>
+        We need a returns-management tool for our marketplace — about 3 months, mid budget.
+        <div class="actions"><span class="btn-ph solid">send</span><span class="btn-ph">discard</span></div>
+      </div>
+      <div class="msg-state streaming">
+        <span class="tag">streaming · agent</span>
+        Got it — a returns-management tool… <span class="typing"><i></i><i></i><i></i></span>
+        <div class="actions"><span class="flag ok">finalizing</span></div>
+      </div>
+      <div class="msg-state final">
+        <span class="tag">final · agent</span>
+        Great starting point. To collect the brief, could you tell me: (1) who the users are, (2) the core features, (3) the timeline?
+        <div class="actions"><span class="btn-ph">copy</span><span class="flag ok">finalized</span></div>
+      </div>
+      <div class="callout">Copy action copies the message text to the clipboard (navigator.clipboard), with "copied" confirmation state.</div>
+    </div>
+  </div>
+</section>
+
+<!-- STARTERS -->
+<section class="section" id="starters">
+  <div class="frame">
+    <h2>Conversation starters</h2>
+    <p class="sub">Shown when the thread is empty, and re-shown after an agent reply that carries no suggested actions.</p>
+    <div class="sketch">
+      <div class="ap-starters" style="max-width:640px;">
+        <span>Create a project</span>
+        <span>Tell me about RA Labs</span>
+        <span>Explore projects</span>
+        <span>How do you work?</span>
+        <span>Get a quote</span>
+        <span>Contact us</span>
+      </div>
+      <table class="wire-table" style="margin-top:14px;">
+        <tr><th>starter</th><th>server behavior</th></tr>
+        <tr><td>Create a project</td><td>starts guided 7-step intake flow</td></tr>
+        <tr><td>Explore projects</td><td>RAG answer + link to /work</td></tr>
+        <tr><td>Contact us</td><td>RAG answer + link to /contact</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- CAPABILITIES -->
+<section class="section" id="capabilities">
+  <div class="frame">
+    <h2>"What the agent can do" — capabilities</h2>
+    <p class="sub">Four cards under the hero; copy is i18n-keyed.</p>
+    <div class="sketch">
+      <div class="grid4">
+        <div class="cap-item"><span class="t">Answers about our work</span><span class="d">portfolio, services, process and team — grounded in indexed content.</span></div>
+        <div class="cap-item"><span class="t">Collects your project brief</span><span class="d">guided intake; the finished brief goes to the team and can follow you to the portal.</span></div>
+        <div class="cap-item"><span class="t">Grounded, not made up</span><span class="d">retrieval-augmented answers; the agent says so when it does not know.</span></div>
+        <div class="cap-item"><span class="t">Private by default</span><span class="d">conversation lives in a session-scoped thread; no ads, no tracking.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONVERSATION LIST -->
+<section class="section" id="conversations">
+  <div class="frame">
+    <h2>Conversation list / thread continuity</h2>
+    <p class="sub">Public agent keeps one session thread per browser session; the full-page /agent view shows the same thread. Not a multi-conversation manager in v1.</p>
+    <div class="sketch">
+      <table class="wire-table">
+        <tr><th>surface</th><th>thread scope</th><th>starters</th><th>suggested actions</th></tr>
+        <tr><td>Home hero panel</td><td>session-scoped thread (shared with /agent)</td><td>shown when empty</td><td>rendered as chips under agent bubble</td></tr>
+        <tr><td>/agent page</td><td>same session thread, full height</td><td>shown when empty</td><td>rendered as chips under agent bubble</td></tr>
+        <tr><td>session expiry</td><td>404 → thread recreated, storage cleared</td><td>—</td><td>—</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- MESSAGE ACTIONS -->
+<section class="section" id="actions">
+  <div class="frame">
+    <h2>Message actions</h2>
+    <p class="sub">Draft/finalize lifecycle + copy, per message.</p>
+    <div class="sketch">
+      <table class="wire-table">
+        <tr><th>message</th><th>actions</th><th>notes</th></tr>
+        <tr><td>visitor draft (composing)</td><td><span class="btn-ph solid">send</span> <span class="btn-ph">discard</span></td><td>Enter/Ctrl+Enter sends; Esc clears/abandons draft</td></tr>
+        <tr><td>visitor final</td><td><span class="btn-ph">copy</span></td><td>clipboard copy with confirmation</td></tr>
+        <tr><td>agent streaming</td><td>—</td><td>typing indicator; not interruptible in v1</td></tr>
+        <tr><td>agent final</td><td><span class="btn-ph">copy</span></td><td>also used as input for follow-up via starters/actions</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- API + A11Y + STATUS -->
+<section class="section" id="api-a11y">
+  <div class="frame">
+    <h2>API accessibility, typing indicator, assistant status</h2>
+    <p class="sub">The panel is usable with a keyboard alone; streamed content is announced via aria-live.</p>
+    <div class="sketch">
+      <table class="wire-table">
+        <tr><th>concern</th><th>spec</th></tr>
+        <tr><td>API endpoint</td><td><code>POST /api/v1/chat/{threadId}/messages/stream</code> (SSE) with fallback to <code>POST /api/v1/chat/{threadId}/messages</code>; <code>GET /api/v1/chat/{threadId}</code> for history</td></tr>
+        <tr><td>typing indicator</td><td>agent bubble with three animated dots + <span class="flag blue">"assistant is responding…"</span>; <code>aria-live="polite"</code> region</td></tr>
+        <tr><td>assistant status</td><td>header dot + label: <span class="flag ok">online</span> / <span class="flag">offline</span> (config/endpoint failure)</td></tr>
+        <tr><td>a11y</td><td>dialog role on mobile sheet, <span class="kbd">Esc</span> closes, focus returns to trigger; send button labelled; errors in <code>role="alert"</code></td></tr>
+        <tr><td>reduced motion</td><td>typing dots and transitions respect <code>prefers-reduced-motion</code></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- MOBILE -->
+<section class="section" id="mobile">
+  <div class="frame">
+    <h2>Mobile: floating trigger → bottom sheet</h2>
+    <p class="sub">Below 900px the hero panel collapses to a floating action button; the sheet slides up with the same panel content.</p>
+    <div class="sketch">
+      <div class="grid2">
+        <div>
+          <div class="wire-box" style="min-height:300px;position:relative;">
+            <div class="line w60" style="height:14px;"></div>
+            <div class="line w80"></div>
+            <div class="line w40"></div>
+            <div style="position:absolute;bottom:14px;right:14px;width:48px;height:48px;border-radius:50%;background:#2f6d57;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">💬</div>
+            <div style="position:absolute;bottom:72px;right:14px;font-size:10px;color:#888;">floating trigger</div>
+          </div>
+        </div>
+        <div>
+          <div class="wire-box" style="min-height:300px;position:relative;">
+            <div style="position:absolute;left:0;right:0;bottom:0;top:38%;border-radius:16px 16px 0 0;background:#fff;border:1.5px dashed #6f7d8a;padding:12px;">
+              <div style="width:36px;height:4px;border-radius:2px;background:#c9d2da;margin:0 auto 10px;"></div>
+              <div class="line w80"></div>
+              <div class="ap-starters" style="margin-top:8px;"><span>Create a project</span><span>Tell me about RA Labs</span></div>
+              <div class="ap-composer" style="border-top:none;padding:10px 0 0;margin-top:8px;"><div class="prompt">Type your message…</div><div class="send">send</div></div>
+            </div>
+            <div style="position:absolute;top:6px;left:0;right:0;text-align:center;font-size:10px;color:#888;">bottom sheet · drag handle · Esc closes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

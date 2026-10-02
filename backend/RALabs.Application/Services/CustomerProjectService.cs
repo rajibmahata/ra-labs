@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using RALabs.Application.Common;
 using RALabs.Application.DTOs;
 using RALabs.Application.Exceptions;
@@ -12,17 +14,19 @@ public class CustomerProjectService : ICustomerProjectService
 {
     private readonly ICustomerProjectRepository _repo;
     private readonly ICustomerRepository _customers;
-    private readonly IChatService _chat;
+    private readonly IChatRepository _chat;
     private readonly INotificationService? _notifications;
     private readonly IPrivateFileStorage? _fileStorage;
+    private readonly IProjectRepository? _projectRepository;
 
-    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatService chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null)
+    public CustomerProjectService(ICustomerProjectRepository repo, ICustomerRepository customers, IChatRepository chat, IPrivateFileStorage? fileStorage = null, INotificationService? notifications = null, IProjectRepository? projectRepository = null)
     {
         _repo = repo;
         _customers = customers;
         _chat = chat;
         _fileStorage = fileStorage;
         _notifications = notifications;
+        _projectRepository = projectRepository;
     }
 
     public async Task<CustomerProjectDto> CreateAsync(Guid customerId, CreateCustomerProjectRequest request)
@@ -37,13 +41,12 @@ public class CustomerProjectService : ICustomerProjectService
         Guard.MaxLength(request.ReferenceLinks, "referenceLinks", 3000);
         Guard.ThrowIfAny("project");
 
-        var thread = await _chat.CreateThreadAsync(ChatThreadType.CustomerProject, null);
+        var thread = await _chat.CreateThreadAsync(new ChatThread { Id = Guid.NewGuid(), Type = ChatThreadType.CustomerProject, CreatedAt = DateTime.UtcNow });
         var project = new CustomerProject
         {
             Id = Guid.NewGuid(),
             CustomerId = customerId,
-            Title = request.Title.Trim(),
-            Goal = request.Goal?.Trim(),
+            Title = request.Title.Trim(),            Goal = request.Goal?.Trim(),
             Audience = request.Audience?.Trim(),
             Requirements = request.Requirements?.Trim(),
             Timeline = request.Timeline?.Trim(),
@@ -267,6 +270,15 @@ public class CustomerProjectService : ICustomerProjectService
             existing.UpdatedAt = DateTime.UtcNow;
         }
         await _repo.SavePrdAsync(existing);
+
+        // ADR-005: intake → prd_draft once a ClientPrd record exists (admin drafted it).
+        if (project.Status == CustomerProjectStatus.Intake)
+        {
+            project.Status = CustomerProjectStatus.PrdDraft;
+            project.UpdatedAt = DateTime.UtcNow;
+            await _repo.UpdateAsync(project);
+        }
+
         return ToPrdDto(existing);
     }
 
@@ -485,6 +497,26 @@ public class CustomerProjectService : ICustomerProjectService
         };
     }
 
+    public async Task<byte[]> ExportFeedbacksAsync(string? search, bool? published)
+    {
+        var page = await GetFeedbacksForAdminAsync(1, int.MaxValue, search, published);
+        var builder = new StringBuilder("id,customerProjectId,customerName,projectTitle,rating,comment,consentToPublish,isPublished,createdAt\r\n");
+        foreach (var feedback in page.Items)
+        {
+            builder.AppendLine(string.Join(',',
+                feedback.Id,
+                feedback.CustomerProjectId,
+                CsvHelper.Escape(feedback.CustomerName),
+                CsvHelper.Escape(feedback.ProjectTitle),
+                feedback.Rating,
+                CsvHelper.Escape(feedback.Comment),
+                feedback.ConsentToPublish,
+                feedback.IsPublished,
+                feedback.CreatedAt.ToString("O", CultureInfo.InvariantCulture)));
+        }
+        return Encoding.UTF8.GetBytes(builder.ToString());
+    }
+
     public async Task<FeedbackDto> ModerateFeedbackAsync(Guid id, bool approved)
     {
         var project = await _repo.GetByIdIncludingAsync(id)
@@ -495,11 +527,50 @@ public class CustomerProjectService : ICustomerProjectService
         feedback.IsPublished = approved;
         await _repo.SaveFeedbackAsync(feedback);
 
-        // BR-005: feedback approved → auto-publish a public Project entry.
-        // (Publishing entry creation is handled by a publisher service hook; here we
-        //  return the feedback state and the public Project entry is created via the
-        //  project repository if it does not already exist.)
+        // BR-005: delivered/closed + approved feedback → auto-create the public
+        // portfolio entry (idempotent — only once per customer project).
+        if (approved && project.Status is CustomerProjectStatus.Delivered or CustomerProjectStatus.Closed)
+            await PublishPortfolioEntryAsync(project);
+
         return ToFeedbackDto(feedback);
+    }
+
+    private async Task PublishPortfolioEntryAsync(CustomerProject project)
+    {
+        if (_projectRepository is null || await _projectRepository.ExistsForCustomerProjectAsync(project.Id))
+            return;
+
+        var baseSlug = Guard.Slugify(project.Title);
+        var slug = baseSlug;
+        var suffix = 1;
+        while (await _projectRepository.SlugExistsAsync(slug))
+            slug = $"{baseSlug}-{suffix++}";
+
+        var demo = project.Demos.OrderByDescending(d => d.CreatedAt).FirstOrDefault();
+        var sections = new List<string>();
+        if (!string.IsNullOrWhiteSpace(project.Goal))
+            sections.Add($"## Goal\n\n{project.Goal}");
+        if (!string.IsNullOrWhiteSpace(project.Audience))
+            sections.Add($"## Audience\n\n{project.Audience}");
+        if (!string.IsNullOrWhiteSpace(project.Requirements))
+            sections.Add($"## Requirements\n\n{project.Requirements}");
+
+        await _projectRepository.AddAsync(new Project
+        {
+            Id = Guid.NewGuid(),
+            Title = project.Title,
+            Slug = slug,
+            Summary = string.IsNullOrWhiteSpace(project.Goal) ? project.Title : project.Goal.Trim(),
+            StackTags = new List<string>(),
+            Status = ProjectStatus.Live,
+            LiveSiteUrl = demo?.Type == "url" ? demo.UrlOrAsset : null,
+            CaseStudyBody = sections.Count > 0 ? string.Join("\n\n", sections) : null,
+            CompletedAt = project.UpdatedAt ?? DateTime.UtcNow,
+            CustomerProjectId = project.Id,
+            IsActive = true,
+            IsPublished = true,
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     private async Task<CustomerProjectDto> ToDtoAsync(CustomerProject p, Guid? knownThreadId)
@@ -507,7 +578,7 @@ public class CustomerProjectService : ICustomerProjectService
         var thread = knownThreadId ?? p.Threads.FirstOrDefault()?.Id ?? Guid.Empty;
         if (thread == Guid.Empty)
         {
-            var created = await _chat.CreateThreadAsync(ChatThreadType.CustomerProject, p.Id);
+            var created = await _chat.CreateThreadAsync(new ChatThread { Id = Guid.NewGuid(), Type = ChatThreadType.CustomerProject, CustomerProjectId = p.Id, CreatedAt = DateTime.UtcNow });
             thread = created.Id;
         }
         return new CustomerProjectDto(

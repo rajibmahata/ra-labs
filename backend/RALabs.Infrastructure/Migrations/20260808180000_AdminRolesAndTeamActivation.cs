@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using RALabs.Infrastructure.Data;
 
 #nullable disable
 
 namespace RALabs.Infrastructure.Migrations;
 
+[DbContext(typeof(RALabsDbContext))]
+[Migration("20260808180000_AdminRolesAndTeamActivation")]
 public partial class AdminRolesAndTeamActivation : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

@@ -10,6 +10,7 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
@@ -30,7 +31,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, rememberMe);
       const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/admin/';
       navigate(from, { replace: true });
     } catch (err) {
@@ -83,6 +84,13 @@ export default function Login() {
               disabled={loading}
             />
             {fieldErrors.password && <div className="form-error">{fieldErrors.password}</div>}
+          </div>
+
+          <div className="form-group">
+            <label className="form-checkbox">
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+              Remember me
+            </label>
           </div>
 
           <button type="submit" className="btn btn--primary" style={{ width: '100%' }} disabled={loading}>

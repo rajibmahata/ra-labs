@@ -353,6 +353,32 @@ Public team profiles with GitHub activity snapshots. Anonymous access for browsi
 
 ---
 
+#### `POST /api/v1/admin/team/import`
+
+**Auth:** admin
+
+**Purpose:** Bulk-import team members from a CSV multipart upload. Headers must be exactly `name,role,bio,slug,githubUsername,githubAccountUrl,email,linkedinUrl,avatarUrl,location,isPublished` (slug may be empty — auto-generated from name; invalid rows and rows with an existing slug/email are skipped and reported).
+
+**Request:** multipart form with a `file` field (`text/csv`), max 500 data rows.
+
+**Response `data`:**
+
+```json
+{ "created": 2, "skipped": 1, "errors": [ { "row": 3, "message": "A team member with slug 'rajib' already exists." } ] }
+```
+
+---
+
+#### `GET /api/v1/admin/team/export`
+
+**Auth:** admin
+
+**Purpose:** Download all team members as CSV (`id,name,slug,role,bio,githubUsername,githubAccountUrl,email,linkedinUrl,avatarUrl,location,isActive,isPublished,createdAt`).
+
+**Response:** CSV file (`text/csv`, `team.csv`)
+
+---
+
 #### `PUT /api/v1/admin/team/{id}`
 
 **Auth:** admin
@@ -462,6 +488,22 @@ Multi-language page content (`PageContent` keyed by `key` + `locale`). Public re
 **MCP tool:** `list_content`
 
 **Parameters (MCP):** `locale` (string, optional), `page` (int, optional), `pageSize` (int, optional)
+
+---
+
+#### `GET /api/v1/admin/content/export`
+
+**Auth:** admin
+
+**Purpose:** Download all content entries as CSV (`key,locale,value,updatedAt`), optionally filtered by locale.
+
+**Query parameters:**
+
+| Param | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `locale` | string | No | — | Filter by locale |
+
+**Response:** CSV file (`text/csv`, `content.csv`)
 
 ---
 
@@ -620,6 +662,39 @@ Visitor lead capture via contact form or chatbot. Rate-limited public submission
 **MCP tool:** `list_unpublished_leads`
 
 **Parameters (MCP):** `status` (string, optional), `source` (string, optional), `page` (int, optional), `pageSize` (int, optional)
+
+---
+
+#### `POST /api/v1/admin/leads/import`
+
+**Auth:** admin
+
+**Purpose:** Bulk-import leads from a CSV multipart upload. Headers must be exactly `name,contactInfo,message,source` (`source` = `form` or `chatbot`). Rows with invalid data or an already-existing `contactInfo` are skipped and reported.
+
+**Request:** multipart form with a `file` field (`text/csv`), max 500 data rows.
+
+**Response `data`:**
+
+```json
+{ "created": 2, "skipped": 1, "errors": [ { "row": 3, "message": "A lead with this contact info already exists." } ] }
+```
+
+---
+
+#### `GET /api/v1/admin/leads/export`
+
+**Auth:** admin
+
+**Purpose:** Download leads as CSV (`id,name,contactInfo,message,source,status,notes,createdAt`), honoring the same filters as the list endpoint.
+
+**Query parameters:**
+
+| Param | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `status` | string | No | — | Filter: `new`, `contacted`, `converted`, `closed` |
+| `source` | string | No | — | Filter: `form`, `chatbot` |
+
+**Response:** CSV file (`text/csv`, `leads.csv`)
 
 ---
 
@@ -1028,6 +1103,34 @@ The core of the client-delivery workflow. Customer-owned projects with admin ove
 | `customerId` | string | No | — | Filter by customer GUID |
 | `page` | int | No | 1 | |
 | `pageSize` | int | No | 20 | |
+
+---
+
+#### `GET /api/v1/admin/dashboard/stats`
+
+**Auth:** admin
+
+**Purpose:** Aggregate dashboard metrics in one call (accurate server-side counts, no page-size caps).
+
+**Response body (`data`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `customersTotal` / `customersActive` / `customersInactive` | int | Customer counts |
+| `customerProjectsTotal` | int | Total customer projects |
+| `customerProjectsByStatus` | object | Counts keyed by `intake`, `prd_draft`, `prd_signed`, `in_build`, `demo`, `delivered`, `closed` |
+| `leadsTotal` / `leadsNewTotal` / `leadsNew7d` | int | Lead counts (new7d = created in the last 7 days) |
+| `leadsByStatus` | object | Counts keyed by `new`, `contacted`, `converted`, `closed` |
+| `reviewsTotal` / `reviewsPublished` / `reviewsPending` | int | Feedback counts |
+| `teamTotal` / `teamActive` | int | Team member counts |
+| `portfolioTotal` / `portfolioPublished` | int | Project portfolio counts |
+| `draftsPending` | int | Content drafts in `pending` status |
+| `chatIntervention` | int | Chat threads needing manual intervention |
+| `notificationsUnread` | int | Unread admin notifications |
+| `githubSyncedAt` / `githubLastCommitAt` | string (ISO) \| null | Latest GitHub snapshot across the team |
+| `githubRepositories` | int | Synced GitHub repositories |
+| `knowledgeChunks` | int | RAG knowledge chunks |
+| `agentTasksPending` | int | Agent tasks pending or running |
 
 **Response `data`:** Array of project summary objects (same shape as customer GET list, plus `customerId` and `customerName`).
 
@@ -1440,6 +1543,23 @@ Post-delivery customer feedback that feeds back into the public portfolio.
 **MCP tool:** `get_feedback`
 
 **Parameters (MCP):** `projectId` (string, required)
+
+---
+
+#### `GET /api/v1/admin/reviews/export`
+
+**Auth:** admin
+
+**Purpose:** Download customer feedback as CSV (`id,customerProjectId,customerName,projectTitle,rating,comment,consentToPublish,isPublished,createdAt`), honoring the same filters as the admin reviews list.
+
+**Query parameters:**
+
+| Param | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `search` | string | No | — | Free-text search over customer/project/review |
+| `published` | bool | No | — | `true` = published only, `false` = pending only |
+
+**Response:** CSV file (`text/csv`, `reviews.csv`)
 
 ---
 

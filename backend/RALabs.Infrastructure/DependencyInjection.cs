@@ -53,6 +53,8 @@ public static class DependencyInjection
         services.AddScoped<ILeadRepository, LeadRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IChatRepository, ChatRepository>();
+        services.AddScoped<ISettingRepository, SettingRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IAgentTaskRepository, AgentTaskRepository>();
         services.AddScoped<IContentDraftRepository, ContentDraftRepository>();
         services.AddScoped<IGithubRepositoryRepository, GithubRepositoryRepository>();

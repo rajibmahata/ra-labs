@@ -84,7 +84,7 @@ public class ChatbotService : IChatbotService
             || greeting.Equals("bonjour", StringComparison.OrdinalIgnoreCase))
         {
             return new ChatbotReply(
-                "Hello! I'm the R&A Labs assistant. Ask me about our projects, team, or how we work — or tell me about your project and we'll get back to you.",
+                "Hello! I'm the R&A Labs AI agent. Ask me about our projects, team, or how we work — or tell me about your project and I'll collect a brief for the team.",
                 NeedsManualIntervention: false);
         }
 

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R&A Labs — AI Agent</title>
+<style>
+:root{
+  --bg:#030a10;--bg2:#07131d;--panel:#0a1722;--panel2:#0d1d29;
+  --line:#1b3342;--line2:#243d4d;--text:#f4f7f8;--muted:#91a1ad;
+  --green:#35e34b;--green2:#20c94b;--blue:#6388ff;--yellow:#ffc52e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 55% 12%,#092018 0,transparent 28%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
+
+.topbar{height:66px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 28px;gap:40px;background:rgba(3,10,16,.94);backdrop-filter:blur(18px);position:sticky;top:0;z-index:10}
+.logo{font:800 21px Georgia,serif;line-height:18px;min-width:150px}
+.logo em{color:#56d74e;font-style:italic}
+.logo small{display:block;font:8px Inter,sans-serif;letter-spacing:1.5px;color:#9aa9b1;margin-top:4px}
+.topnav{display:flex;align-items:center;gap:31px;flex:1;justify-content:center}
+.topnav a{font-size:12px;color:#d4dde1;padding:24px 0 21px}
+.topnav a.active{color:var(--green);border-bottom:2px solid var(--green)}
+.top-actions{display:flex;align-items:center;gap:10px}
+.capacity{border:1px solid var(--line);border-radius:22px;padding:9px 13px;font-size:10px;color:#d8e0e4}
+.capacity i{display:inline-block;width:7px;height:7px;background:#15d938;border-radius:50%;margin-right:7px}
+.theme{border:1px solid var(--line);background:var(--panel);color:#fff;border-radius:50%;width:36px;height:36px}
+.start{border:0;border-radius:8px;background:linear-gradient(135deg,#40e950,#16bd3d);padding:10px 17px;font-size:11px;font-weight:800;color:#061008;box-shadow:0 0 25px #20d94328}
+
+.layout{display:grid;grid-template-columns:228px minmax(560px,1fr) 360px;min-height:calc(100vh - 66px)}
+.sidebar{border-right:1px solid var(--line);padding:25px 12px;background:rgba(4,13,20,.65)}
+.side-title{display:flex;gap:9px;align-items:center;padding:6px 14px 23px;font-weight:800;font-size:13px}
+.side-dot{width:16px;height:16px;border:2px solid var(--green);border-radius:50%;box-shadow:0 0 14px #36e94b55}
+.group{font-size:9px;color:#74858f;letter-spacing:.08em;margin:16px 14px 7px}
+.side a{display:flex;align-items:center;gap:11px;padding:8px 10px;margin:2px 0;border-radius:7px;font-size:11px;color:#bdc8ce}
+.side a:hover{background:#10212d;color:#fff}
+.side a.selected{background:#10212d;color:var(--green);font-weight:700}
+.icon{width:15px;text-align:center;color:#a9b6be}
+.profile{position:fixed;bottom:14px;width:200px;display:flex;gap:10px;align-items:center}
+.avatar{width:36px;height:36px;border-radius:50%;background:#718cf0;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800}
+.profile b{font-size:11px}.profile small{display:block;color:#7f909b;font-size:9px;margin-top:3px}
+
+.content{padding:28px 18px 35px;min-width:0}
+.page-title h1{font-size:25px;margin:0 0 6px;letter-spacing:-.5px}
+.page-title p{font-size:12px;color:var(--muted);margin:0 0 20px}
+.chat{border:1px solid var(--line2);border-radius:15px;background:linear-gradient(145deg,#08131c,#071018);box-shadow:0 22px 60px #0008;overflow:hidden}
+.chat-head{height:75px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+.agent-id{display:flex;gap:11px;align-items:center}
+.agent-logo{width:39px;height:39px;border-radius:50%;border:2px solid #38e84b;color:#39df4c;display:grid;place-items:center;font-size:8px;font-weight:900;line-height:9px;box-shadow:0 0 18px #32e54822}
+.agent-name b{font-size:13px}.agent-name span{display:block;font-size:10px;color:#91a0aa;margin-top:4px}.agent-name span i{color:#25dc44;font-style:normal}
+.chat-tools{display:flex;gap:7px}.chat-tools button{width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:#e7edf0}
+.quick{display:flex;gap:7px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.quick button{flex:1;border:1px solid var(--line2);background:#0b1924;color:#e7edf0;border-radius:9px;padding:11px 9px;font-size:11px;font-weight:650}
+.quick button:hover{border-color:#376079;background:#102532}
+.messages{height:405px;padding:23px 19px;overflow:auto}
+.bubble{max-width:75%;padding:13px 15px;border-radius:13px;line-height:1.5;font-size:12px;margin-bottom:13px}
+.user{margin-left:auto;background:linear-gradient(135deg,#078044,#006b39);border-bottom-right-radius:4px}
+.bot{background:linear-gradient(135deg,#172531,#111e28);border:1px solid #263d4c;border-bottom-left-radius:4px;color:#eef3f5}
+.time{font-size:9px;color:#9cafb7;text-align:right;margin-top:7px}
+.suggestions{display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 0 50px}
+.suggestion{border:1px solid #3a5362;border-radius:20px;background:transparent;color:#f0f4f5;padding:8px 12px;font-size:10px}
+.composer{margin:0 12px 12px;border:1px solid #294454;border-radius:12px;background:#0d1b25;display:flex;align-items:center;padding:7px;gap:7px}
+.attach,.mic,.send{width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:#132430;color:#eef3f5}
+.mic{border-color:#2ddf47;color:#48e952}
+.send{background:#39d94a;color:#071108;border-color:#39d94a;font-weight:900}
+.composer input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;padding:0 5px;font-size:11px}
+.composer input::placeholder{color:#758792}
+.voice-note{text-align:center;color:#9aa9b1;font-size:10px;padding:0 0 13px}
+.trust{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0 17px}
+.trust span{border:1px solid var(--line);border-radius:18px;padding:7px 11px;color:#b9c5ca;font-size:9px;background:#07121a}
+.capabilities{border:1px solid var(--line);border-radius:14px;background:#08151f;padding:18px}
+.capabilities h2{font-size:17px;margin:0 0 5px}.capabilities>p{font-size:10px;color:var(--muted);margin:0 0 14px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.card{border:1px solid var(--line);background:#0b1924;border-radius:10px;padding:13px;min-height:123px}
+.card .ci{width:32px;height:32px;border-radius:8px;background:#202558;display:grid;place-items:center;margin-bottom:10px}
+.card:nth-child(2) .ci,.card:nth-child(5) .ci{background:#123b27;color:var(--green)}
+.card b{font-size:10px;display:block;margin-bottom:6px}.card p{font-size:9px;color:#8798a3;line-height:1.45;margin:0}
+
+.right{border-left:1px solid var(--line);padding:21px 15px;background:rgba(4,13,20,.52)}
+.panel{border:1px solid var(--line);border-radius:13px;background:#08151f;padding:14px;margin-bottom:15px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.panel-head b{font-size:12px}.panel-head a{font-size:9px;color:#75a1ff}
+.conversation{display:flex;align-items:center;gap:9px;padding:10px 4px;border-bottom:1px solid #142a36;font-size:10px}
+.conversation:last-child{border:0}.conversation.active{background:#0d202c;border-radius:8px;padding:10px}
+.conversation small{margin-left:auto;color:#8e9da5;white-space:nowrap}
+.agent-row{display:flex;align-items:center;gap:10px;padding:10px 3px;border-bottom:1px solid #142a36}.agent-row:last-child{border:0}
+.agent-icon{width:32px;height:32px;border-radius:8px;background:#263a7a;display:grid;place-items:center;font-size:14px}
+.agent-row:nth-child(4) .agent-icon{background:#145f5b}.agent-row:nth-child(5) .agent-icon{background:#50357b}
+.agent-row b{font-size:10px}.agent-row small{display:block;color:#7e8e98;font-size:9px;margin-top:3px}.online{margin-left:auto;color:#2fe04b;font-size:9px}
+.view-agents{margin-top:10px;border:1px solid #405261;border-radius:8px;background:#0c1923;color:#e7eef0;padding:8px 11px;font-size:10px}
+.knowledge{padding:10px 3px;border-bottom:1px solid #142a36;font-size:10px}.knowledge:last-child{border:0}.knowledge small{display:block;color:#788992;margin-top:4px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">R&A <em>Labs</em><small>AI · ENGINEERING STUDIO</small></div>
+  <nav class="topnav">
+    <a class="active" href="#">AI Agent</a><a href="#">Work</a><a href="#">Services</a><a href="#">Process</a><a href="#">Team</a><a href="#">Pricing</a><a href="#">Contact</a>
+  </nav>
+  <div class="top-actions"><div class="capacity"><i></i>Studio capacity: Available</div><button class="theme">☼</button><button class="start">Start a Project →</button></div>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <div class="side-title"><span class="side-dot"></span>AI Agent</div>
+  <div class="group">MAIN</div>
+  <nav class="side">
+    <a href="#"><span class="icon">⌂</span>Dashboard</a>
+    <a class="selected" href="#"><span class="icon">▱</span>Conversations</a>
+    <a href="#"><span class="icon">▣</span>Projects</a>
+    <a href="#"><span class="icon">▤</span>Knowledge Base</a>
+    <a href="#"><span class="icon">⌘</span>Tools</a>
+  </nav>
+  <div class="group">AGENTS</div>
+  <nav class="side">
+    <a class="selected" href="#"><span class="icon">✦</span>OpenCode Agents</a>
+    <a href="#"><span class="icon">+</span>Frontend Engineer</a><a href="#"><span class="icon">+</span>Backend Engineer</a>
+    <a href="#"><span class="icon">+</span>DevOps Engineer</a><a href="#"><span class="icon">+</span>UI/UX Designer</a>
+    <a href="#"><span class="icon">+</span>QA Engineer</a><a href="#"><span class="icon">+</span>Database Expert</a>
+    <a href="#"><span class="icon">+</span>AI/ML Engineer</a><a href="#"><span class="icon">+</span>Product Manager</a>
+  </nav>
+  <div class="group">ACCOUNT</div>
+  <nav class="side"><a href="#">♙ Profile</a><a href="#">⚙ Settings</a><a href="#">▣ Billing</a><a href="#">⌁ API Keys</a><a href="#">⇥ Logout</a></nav>
+  <div class="profile"><div class="avatar">RM</div><div><b>Rajib Mahata</b><small>Administrator</small></div></div>
+</aside>
+
+<main class="content">
+  <div class="page-title"><h1>RA Labs AI Agent</h1><p>Ask about our work, services and process — or let the agent collect your project brief.</p></div>
+  <section class="chat">
+    <div class="chat-head">
+      <div class="agent-id"><div class="agent-logo">R&A<br>Labs</div><div class="agent-name"><b>RA Labs AI Agent</b><span><i>●</i> Online · replies in seconds</span></div></div>
+      <div class="chat-tools"><button>◖</button><button>♧</button><button>⋮</button></div>
+    </div>
+    <div class="quick">
+      <button data-message="I want to start a project">🚀 &nbsp;Start a Project</button>
+      <button data-message="Tell me about your services">‹/› &nbsp;Our Services</button>
+      <button data-message="Show me your work">📁 &nbsp;Our Work</button>
+      <button data-message="Tell me about RA Labs">💡 &nbsp;Ask Anything</button>
+    </div>
+    <div class="messages" id="messages">
+      <div class="bubble user">I want to build a booking application for my clinic.<div class="time">11:20 AM ✓✓</div></div>
+      <div class="bubble bot">Great! I can help you turn that idea into a complete project.<br><br>To get started, could you please share a few details?<br><br>• Your name<br>• Email address<br>• Phone number<br>• A short description of what you need<div class="time">11:20 AM</div></div>
+      <div class="suggestions">
+        <button class="suggestion" data-message="My name is Rajib">My name is Rajib</button>
+        <button class="suggestion" data-message="My email is rajib@example.com">My email is rajib@example.com</button>
+        <button class="suggestion" data-message="+91 9876543210">+91 9876543210</button>
+      </div>
+    </div>
+    <div class="composer">
+      <button class="attach">⌕</button><button class="mic" id="mic">♩</button>
+      <input id="input" placeholder="Ask the agent or describe your project...">
+      <button class="send" id="send">➤</button>
+    </div>
+    <div class="voice-note">♢ You can type or use your voice to talk to the agent.</div>
+  </section>
+  <div class="trust"><span>◉ Secure & Private</span><span>◯ No data training</span><span>✦ Powered by OpenCode Agents</span></div>
+
+  <section class="capabilities">
+    <h2>How can I help you today?</h2><p>Our AI agents can assist you across your entire product development lifecycle.</p>
+    <div class="cards">
+      <div class="card"><div class="ci">♧</div><b>Ideation & Planning</b><p>Validate ideas, requirements and product direction.</p></div>
+      <div class="card"><div class="ci">▣</div><b>Design & Development</b><p>UI/UX, coding and system architecture.</p></div>
+      <div class="card"><div class="ci">♧</div><b>Testing & QA</b><p>Test cases, automation and quality checks.</p></div>
+      <div class="card"><div class="ci">♧</div><b>Deployment & DevOps</b><p>CI/CD, cloud, monitoring and scaling.</p></div>
+      <div class="card"><div class="ci">▣</div><b>Support & Growth</b><p>Maintenance, analytics and feature growth.</p></div>
+    </div>
+  </section>
+</main>
+
+<aside class="right">
+  <section class="panel"><div class="panel-head"><b>Your Conversations</b><a href="#">View all</a></div>
+    <div class="conversation active">🟢 Booking application for clinic <small>11:20 AM</small></div>
+    <div class="conversation">▱ E-commerce platform discussion <small>Yesterday</small></div>
+    <div class="conversation">▱ AI chatbot for website <small>2 days ago</small></div>
+    <div class="conversation">▱ Project collaboration workflow <small>3 days ago</small></div>
+  </section>
+  <section class="panel"><div class="panel-head"><b>OpenCode Agents</b><a href="#">Manage</a></div>
+    <div class="agent-row"><div class="agent-icon">◉</div><div><b>Frontend Engineer</b><small>OpenCode · v1.2.1</small></div><span class="online">● Online</span></div>
+    <div class="agent-row"><div class="agent-icon">◉</div><div><b>Backend Engineer</b><small>OpenCode · v1.2.1</small></div><span class="online">● Online</span></div>
+    <div class="agent-row"><div class="agent-icon">◉</div><div><b>DevOps Engineer</b><small>OpenCode · v1.2.1</small></div><span class="online">● Online</span></div>
+    <div class="agent-row"><div class="agent-icon">✦</div><div><b>UI/UX Designer</b><small>OpenCode · v1.2.1</small></div><span class="online">● Online</span></div>
+    <div class="agent-row"><div class="agent-icon">♧</div><div><b>QA Engineer</b><small>OpenCode · v1.2.1</small></div><span class="online">● Online</span></div>
+    <button class="view-agents">✦ &nbsp; View all agents</button>
+  </section>
+  <section class="panel"><div class="panel-head"><b>Knowledge Base</b><a href="#">View all</a></div>
+    <div class="knowledge">▤ &nbsp; Project Requirements Guide<small>Updated 2 days ago</small></div>
+    <div class="knowledge">▤ &nbsp; Our Process & Methodology<small>Updated 5 days ago</small></div>
+    <div class="knowledge">▤ &nbsp; Tech Stack Overview<small>Updated 1 week ago</small></div>
+  </section>
+</aside>
+</div>
+
+<script>
+const input=document.getElementById('input'), messages=document.getElementById('messages');
+function send(text){
+  text=(text||input.value).trim(); if(!text)return;
+  const user=document.createElement('div'); user.className='bubble user'; user.innerHTML=escapeHtml(text)+'<div class="time">Now ✓✓</div>'; messages.appendChild(user); input.value='';
+  messages.scrollTop=messages.scrollHeight;
+  setTimeout(()=>{
+    const bot=document.createElement('div'); bot.className='bubble bot';
+    bot.innerHTML='Thanks. I can help you with that. In the production application, the agent will use the approved R&A Labs knowledge base and API tools to guide the request and collect the required contact/project details.<div class="time">Now</div>';
+    messages.appendChild(bot); messages.scrollTop=messages.scrollHeight;
+  },450);
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+document.getElementById('send').onclick=()=>send();
+input.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+document.querySelectorAll('[data-message]').forEach(b=>b.onclick=()=>send(b.dataset.message));
+document.getElementById('mic').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Speech recognition is not supported by this browser.');return}
+  const r=new SR();r.lang='en-IN';r.interimResults=true;r.continuous=false;
+  r.onresult=e=>input.value=Array.from(e.results).map(x=>x[0].transcript).join('');
+  r.onend=()=>{if(input.value.trim())send()};r.start();
+};
+</script>
+</body>
+</html>

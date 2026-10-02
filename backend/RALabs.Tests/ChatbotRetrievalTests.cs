@@ -121,7 +121,13 @@ internal sealed class FakeKnowledgeChunkRepository : IKnowledgeChunkRepository
         _chunks.RemoveAll(c => c.SourceType.ToString() == sourceType && c.SourceId.StartsWith(sourcePrefix, StringComparison.Ordinal));
         return Task.CompletedTask;
     }
+    public Task DeleteByProjectAsync(Guid customerProjectId)
+    {
+        _chunks.RemoveAll(c => c.CustomerProjectId == customerProjectId);
+        return Task.CompletedTask;
+    }
     public Task<List<KnowledgeChunk>> GetPublicChunksAsync() => Task.FromResult(_chunks.Where(c => c.CustomerProjectId == null).ToList());
     public Task<List<KnowledgeChunk>> GetChunksByProjectAsync(Guid customerProjectId) =>
         Task.FromResult(_chunks.Where(c => c.CustomerProjectId == customerProjectId).ToList());
+    public Task<int> CountAsync() => Task.FromResult(_chunks.Count);
 }

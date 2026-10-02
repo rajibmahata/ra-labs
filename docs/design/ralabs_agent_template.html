@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#030b12">
+<title>R&A Labs — AI Engineering Studio</title>
+<style>
+:root{
+  --bg:#030b12;--bg2:#06121b;--panel:#0a1722;--panel2:#0e1d2a;
+  --text:#f5f7f7;--muted:#a9b6bf;--line:#1b3343;
+  --green:#69ef39;--green2:#26c94a;--blue:#3198ff;--purple:#8d63ff;
+  --shadow:0 30px 90px rgba(0,0,0,.45);
+}
+[data-theme=light]{
+  --bg:#f5f8f5;--bg2:#edf4ee;--panel:#fff;--panel2:#f2f7f3;
+  --text:#102018;--muted:#5e6b63;--line:#d7e2da;
+  --green:#3da52e;--green2:#278b32;--blue:#2479d9;--purple:#7251d7;
+  --shadow:0 24px 70px rgba(29,55,36,.12);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+ margin:0;background:
+ radial-gradient(circle at 55% 25%,rgba(45,190,75,.10),transparent 28%),
+ radial-gradient(circle at 75% 45%,rgba(0,130,255,.06),transparent 30%),
+ var(--bg);color:var(--text);
+ font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit}
+.container{max-width:1450px;margin:auto;padding:0 42px}
+header{
+ height:78px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+ background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(18px);
+ position:sticky;top:0;z-index:50;
+}
+.nav{display:flex;align-items:center;justify-content:space-between;width:100%}
+.logo{font-family:Georgia,serif;font-weight:800;font-size:28px;letter-spacing:-1.5px}
+.logo em{font-family:Georgia,serif;color:var(--green);font-style:italic}
+.logo small{display:block;font-family:Inter,sans-serif;font-size:10px;letter-spacing:1.5px;font-weight:500;color:var(--muted);margin-top:-3px}
+.menu{display:flex;gap:32px;margin-left:40px}
+.menu a{font-size:14px;color:var(--text);opacity:.88;padding:27px 0;position:relative}
+.menu a.active:after{content:"";position:absolute;left:0;right:0;bottom:18px;height:2px;background:var(--green)}
+.navright{display:flex;align-items:center;gap:12px}
+.status,.theme,.navbtn{
+ border:1px solid var(--line);background:rgba(10,23,34,.5);color:var(--text);
+ border-radius:999px;padding:10px 14px
+}
+[data-theme=light] .status,[data-theme=light] .theme{background:var(--panel)}
+.status{font-size:12px}.status i{display:inline-block;width:8px;height:8px;background:#0bd22e;border-radius:50%;margin-right:8px;box-shadow:0 0 10px #0bd22e}
+.theme{width:44px;height:40px;border-radius:50%;cursor:pointer}
+.navbtn,.cta{background:var(--green2);border-color:var(--green2);color:#061208;font-weight:800;cursor:pointer}
+.navbtn{padding:11px 18px;border-radius:10px}
+.hero{padding:58px 0 36px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(430px,.85fr);gap:30px;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:8px;color:var(--green);border:1px solid #23572b;background:rgba(24,110,39,.13);border-radius:999px;padding:7px 13px;font-size:12px;letter-spacing:.08em}
+.badge i{width:7px;height:7px;background:var(--green);border-radius:50%}
+h1{font-size:clamp(48px,5.1vw,74px);line-height:1.05;letter-spacing:-3px;margin:28px 0 22px;max-width:800px}
+h1 .g{color:var(--green)}
+.hero p{font-size:17px;line-height:1.65;color:var(--muted);max-width:650px}
+.actions{display:flex;gap:14px;margin:28px 0}
+.cta,.outline{padding:14px 25px;border-radius:9px;border:1px solid var(--line);font-weight:800}
+.outline{background:transparent;color:var(--text)}
+.benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;border-top:1px solid var(--line);margin-top:28px;padding-top:20px}
+.benefit{display:flex;gap:10px;align-items:flex-start;font-size:13px}.benefit .ico{color:var(--green);font-size:21px}.benefit span{color:var(--muted);display:block;margin-top:3px}
+.visual{height:500px;position:relative;display:flex;align-items:center;justify-content:center}
+.cubes{position:relative;width:390px;height:390px;filter:drop-shadow(0 0 35px rgba(57,239,78,.16))}
+.cube{position:absolute;width:112px;height:112px;background:linear-gradient(145deg,#1d2d37,#030a0e);border:1px solid #2e4c5b;transform:rotate(30deg) skewY(-8deg);box-shadow:inset 0 0 35px rgba(0,255,80,.06),0 25px 45px #0008}
+.cube.g{background:linear-gradient(145deg,#153b28,#06120c);border-color:#3d8d45;box-shadow:inset 0 0 40px rgba(68,255,80,.3),0 0 50px rgba(53,255,83,.18)}
+.c1{left:80px;top:60px}.c2{left:185px;top:125px}.c3{left:75px;top:190px}.c4{left:185px;top:250px}.c5{left:270px;top:70px}.c6{left:275px;top:220px}
+.gridline{position:absolute;width:460px;height:320px;border:1px solid rgba(44,216,86,.16);transform:perspective(500px) rotateX(62deg) rotateZ(-12deg);background:linear-gradient(rgba(52,225,80,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(52,225,80,.08) 1px,transparent 1px);background-size:45px 45px;mask-image:linear-gradient(to bottom,transparent,#000 25%,#000 75%,transparent)}
+.agent{
+ position:absolute;right:-10px;top:-15px;width:min(560px,100%);background:rgba(4,14,22,.94);
+ border:1px solid #274254;border-radius:18px;box-shadow:var(--shadow);overflow:hidden;z-index:5;
+}
+[data-theme=light] .agent{background:rgba(255,255,255,.96)}
+.agenthead{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.agentidentity{display:flex;gap:12px;align-items:center}.avatar{width:38px;height:38px;border-radius:50%;border:1px solid var(--green);display:grid;place-items:center;color:var(--green);font-weight:900;font-size:10px}
+.agentname{font-weight:800}.online{font-size:12px;color:var(--muted)}.online b{color:#0bd22e}
+.agenttools{display:flex;gap:8px}.round{width:36px;height:36px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);cursor:pointer}
+.quick{display:flex;gap:8px;padding:13px 18px;border-bottom:1px solid var(--line);overflow:auto}.quick button{white-space:nowrap;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:9px 12px;font-size:12px;cursor:pointer}
+.chat{height:310px;padding:22px 20px;overflow:auto;background:linear-gradient(180deg,transparent,rgba(15,40,55,.25))}
+.bubble{max-width:82%;padding:13px 15px;border-radius:14px;margin:0 0 14px;font-size:14px;line-height:1.5}.user{margin-left:auto;background:#08753e;color:#fff;border-bottom-right-radius:5px}.assistant{background:#172633;border:1px solid #243d4c;border-bottom-left-radius:5px}
+[data-theme=light] .assistant{background:#edf3ef;border-color:var(--line);color:var(--text)}
+.suggestions{display:flex;gap:8px;flex-wrap:wrap}.suggestion{border:1px solid #3b853f;background:transparent;color:var(--green);border-radius:999px;padding:8px 12px;font-size:12px;cursor:pointer}
+.composer{padding:13px 15px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}.attach,.mic,.send{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}.mic{border-color:var(--green);color:var(--green)}.send{background:var(--green2);color:#061208;border-color:var(--green2);font-weight:900}.composer input{flex:1;background:transparent;border:0;outline:0;color:var(--text);min-width:0}.composer input::placeholder{color:var(--muted)}.privacy{text-align:center;color:var(--green);font-size:11px;padding:0 0 13px}
+.section{margin-top:15px;background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:24px;padding:30px 28px 28px}
+.kicker{color:var(--green);font-size:12px;letter-spacing:.1em;font-weight:800}.section h2{font-size:30px;margin:6px 0 20px;letter-spacing:-1px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{padding:22px;background:linear-gradient(145deg,var(--panel2),rgba(7,18,27,.72));border:1px solid var(--line);border-radius:15px;min-height:150px}.card .ci{font-size:25px;margin-bottom:14px}.card h3{margin:0 0 7px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:13px}
+.metrics{margin-top:25px;display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:15px;overflow:hidden;background:var(--panel2)}.metric{padding:18px 22px;display:flex;gap:12px;align-items:center;border-right:1px solid var(--line)}.metric:last-child{border-right:0}.mi{width:48px;height:48px;border-radius:12px;background:rgba(64,219,72,.12);display:grid;place-items:center;font-size:22px}.metric b{display:block;font-size:22px}.metric span{font-size:12px;color:var(--muted)}
+footer{padding:45px 0;color:var(--muted);font-size:13px;display:flex;justify-content:space-between}
+@media(max-width:1100px){.menu{gap:17px;margin-left:10px}.hero{grid-template-columns:1fr}.visual{height:620px}.agent{right:0}.benefits{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:repeat(2,1fr)}.metrics{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){.container{padding:0 18px}.menu,.status{display:none}.navbtn{display:none}.hero{padding-top:38px}h1{font-size:48px;letter-spacing:-2px}.visual{height:570px}.agent{position:relative;top:0;width:100%}.cubes{opacity:.25;transform:scale(.75)}.benefits,.cards,.metrics{grid-template-columns:1fr}.metric{border-right:0;border-bottom:1px solid var(--line)}.metric:last-child{border-bottom:0}.actions{flex-direction:column}.actions a{text-align:center}.section{padding:24px 18px}footer{display:block}}
+</style>
+</head>
+<body>
+<header><div class="container nav">
+<a class="logo" href="#">R&A <em>Labs</em><small>AI · ENGINEERING STUDIO</small></a>
+<nav class="menu"><a class="active" href="#agent">AI Agent</a><a href="#work">Work</a><a href="#services">Services</a><a href="#process">Process</a><a href="#team">Team</a><a href="#pricing">Pricing</a><a href="#contact">Contact</a></nav>
+<div class="navright"><div class="status"><i></i>Studio capacity: Available</div><button class="theme" id="theme">☾</button><a class="navbtn" href="#agent">Start a Project →</a></div>
+</div></header>
+
+<main class="container">
+<section class="hero">
+<div>
+<div class="badge"><i></i> AI AGENT · ENGINEERING STUDIO</div>
+<h1>We build backend systems and SaaS products that <span class="g">scale, perform,</span> and ship.</h1>
+<p>A two-founder engineering studio with 12+ years of production experience across Fortune 500 healthcare, enterprise telecom, and AI-powered products.</p>
+<div class="actions"><a class="cta" href="#agent">Start a project →</a><a class="outline" href="#work">See our work</a></div>
+<div class="benefits">
+<div class="benefit"><div class="ico">⚙</div><div>AI-Powered<span>Development</span></div></div>
+<div class="benefit"><div class="ico">⬡</div><div>Secure &<span>Scalable</span></div></div>
+<div class="benefit"><div class="ico">◷</div><div>On-Time<span>Delivery</span></div></div>
+<div class="benefit"><div class="ico">♢</div><div>Long-term<span>Partnership</span></div></div>
+</div>
+</div>
+
+<div class="visual">
+<div class="gridline"></div><div class="cubes"><div class="cube c1"></div><div class="cube g c2"></div><div class="cube c3"></div><div class="cube g c4"></div><div class="cube c5"></div><div class="cube g c6"></div></div>
+<div class="agent" id="agent">
+<div class="agenthead"><div class="agentidentity"><div class="avatar">R&A<br>Labs</div><div><div class="agentname">RA Labs AI Agent</div><div class="online"><b>●</b> Online · replies in seconds</div></div></div><div class="agenttools"><button class="round" id="voiceToggle">♩</button><button class="round">◖</button><button class="round">—</button></div></div>
+<div class="quick"><button data-q="I want to start a project">🚀 Start a Project</button><button data-q="Tell me about your services">‹/› Our Services</button><button data-q="Show me your work">📁 Our Work</button><button data-q="Tell me about RA Labs">💡 Ask Anything</button></div>
+<div class="chat" id="chat"><div class="bubble user">I want to build a booking app for my clinic</div><div class="bubble assistant">Great! I can help you build that.<br><br>To get started, could you please share:<br>• Your name<br>• Email address<br>• Phone number<br>• A short description of what you need</div><div class="suggestions"><button class="suggestion" data-q="My name is Rajib">My name is Rajib</button><button class="suggestion" data-q="My email is rajib@example.com">My email is rajib@example.com</button><button class="suggestion" data-q="+91 9876543210">+91 9876543210</button></div></div>
+<div class="composer"><button class="attach">⌕</button><button class="mic" id="mic">🎙</button><input id="input" placeholder="Type your message..."><button class="send" id="send">➤</button></div><div class="privacy">♧ Your conversation stays private and secure.</div>
+</div>
+</div>
+</section>
+
+<section class="section" id="services"><div class="kicker">✦ THE AI ASSISTANT</div><h2>What the agent can do</h2>
+<div class="cards">
+<div class="card"><div class="ci">💬</div><h3>Answers about our work</h3><p>Portfolio, services, process, team — grounded in our indexed content and knowledge base.</p></div>
+<div class="card"><div class="ci">📄</div><h3>Collects your project brief</h3><p>A guided step-by-step intake to capture requirements, goals, features, and constraints.</p></div>
+<div class="card"><div class="ci">🧠</div><h3>Grounded, not invented</h3><p>Retrieval-augmented answers. No made-up facts. Just verified information.</p></div>
+<div class="card"><div class="ci">🛡</div><h3>Private by default</h3><p>Session-scoped threads. No tracking, no ads, no unnecessary data sharing.</p></div>
+</div>
+<div class="metrics">
+<div class="metric"><div class="mi">👥</div><div><b>50+</b><span>Projects Delivered</span></div></div>
+<div class="metric"><div class="mi">‹/›</div><div><b>12+</b><span>Years Experience</span></div></div>
+<div class="metric"><div class="mi">▦</div><div><b>5+</b><span>Industries Served</span></div></div>
+<div class="metric"><div class="mi">◎</div><div><b>Global</b><span>Clientele</span></div></div>
+<div class="metric"><div class="mi">◷</div><div><b>100%</b><span>Commitment</span></div></div>
+</div></section>
+
+<section class="section" id="work"><div class="kicker">SELECTED WORK</div><h2>Real products. Real outcomes.</h2><div class="cards"><div class="card"><h3>Live Customer Applications</h3><p>Show verified customer projects, live URLs, case studies, technology and outcomes.</p></div><div class="card"><h3>AI & SaaS Platforms</h3><p>Showcase the products and engineering systems built by the RA Labs team.</p></div><div class="card"><h3>Open Source</h3><p>Connect verified GitHub repositories and automatically keep project information current.</p></div><div class="card"><h3>Explore Our Work →</h3><p>Browse the complete portfolio and visit live projects.</p></div></div></section>
+
+<footer id="contact"><div><strong>R&A Labs</strong> · AI Engineering Studio</div><div>Build something meaningful. © 2026 RA Labs</div></footer>
+</main>
+<script>
+const root=document.documentElement,theme=document.getElementById('theme');
+const saved=localStorage.getItem('ralabs-theme');if(saved)root.dataset.theme=saved;
+theme.onclick=()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';localStorage.setItem('ralabs-theme',root.dataset.theme);theme.textContent=root.dataset.theme==='dark'?'☾':'☀'};
+const chat=document.getElementById('chat'),input=document.getElementById('input');
+function send(text){
+ text=(text||input.value).trim();if(!text)return;
+ const u=document.createElement('div');u.className='bubble user';u.textContent=text;chat.appendChild(u);input.value='';
+ setTimeout(()=>{const a=document.createElement('div');a.className='bubble assistant';a.innerHTML='I can help with that. In the production RA Labs Agent, this message will be handled by the Agent API, RAG knowledge and approved tools.';chat.appendChild(a);chat.scrollTop=chat.scrollHeight},350);
+}
+document.getElementById('send').onclick=()=>send();input.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>send(b.dataset.q)));
+document.getElementById('mic').onclick=()=>{
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){alert('Speech recognition is not supported by this browser.');return}
+ const r=new SR();r.lang='en-IN';r.interimResults=true;r.continuous=false;
+ const m=document.getElementById('mic');m.textContent='🔴';
+ r.onresult=e=>input.value=Array.from(e.results).map(x=>x[0].transcript).join('');
+ r.onend=()=>{m.textContent='🎙';if(input.value.trim())send()};
+ r.onerror=()=>m.textContent='🎙';r.start();
+};
+</script>
+</body></html>

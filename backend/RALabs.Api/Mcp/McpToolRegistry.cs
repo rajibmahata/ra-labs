@@ -85,7 +85,52 @@ public class McpToolRegistry
         // Admin customer-project tools
         new McpToolDef("list_customers", "List customer accounts (admin).", new()
         {
-            ["page"] = "int?", ["pageSize"] = "int?"
+            ["page"] = "int?", ["pageSize"] = "int?", ["search"] = "string?", ["isActive"] = "bool?"
+        }, "admin"),
+        new McpToolDef("get_customer", "Get a single customer account (admin).", new()
+        {
+            ["id"] = "string"
+        }, "admin"),
+        new McpToolDef("update_customer", "Update a customer's name/email/password (admin).", new()
+        {
+            ["id"] = "string", ["name"] = "string", ["email"] = "string", ["password"] = "string?"
+        }, "admin"),
+        new McpToolDef("set_customer_status", "Activate or deactivate a customer account (admin).", new()
+        {
+            ["id"] = "string", ["isActive"] = "bool"
+        }, "admin"),
+        new McpToolDef("delete_customer", "Delete a customer account and its project data (admin).", new()
+        {
+            ["id"] = "string"
+        }, "admin"),
+        new McpToolDef("delete_customers", "Bulk-delete customer accounts (admin).", new()
+        {
+            ["ids"] = "string[]"
+        }, "admin"),
+        new McpToolDef("import_customers", "Import customers from CSV text with headers name,email,password (admin).", new()
+        {
+            ["csv"] = "string"
+        }, "admin"),
+        new McpToolDef("export_customers", "Export customers as CSV text, honoring filters or explicit ids (admin).", new()
+        {
+            ["ids"] = "string[]?", ["search"] = "string?", ["isActive"] = "bool?"
+        }, "admin"),
+        new McpToolDef("get_dashboard_stats", "Aggregate admin dashboard metrics in one call (admin).", new(), "admin"),
+        new McpToolDef("list_notifications", "List admin notifications (admin).", new()
+        {
+            ["unread"] = "bool?", ["page"] = "int?", ["pageSize"] = "int?"
+        }, "admin"),
+        new McpToolDef("mark_notification_read", "Mark an admin notification as read (admin).", new()
+        {
+            ["id"] = "string"
+        }, "admin"),
+        new McpToolDef("list_reviews", "List customer feedback for moderation (admin).", new()
+        {
+            ["search"] = "string?", ["published"] = "bool?", ["page"] = "int?", ["pageSize"] = "int?"
+        }, "admin"),
+        new McpToolDef("moderate_review", "Approve or unpublish a customer review (admin).", new()
+        {
+            ["id"] = "string", ["approved"] = "bool"
         }, "admin"),
         new McpToolDef("list_all_customer_projects", "List all customer projects (admin).", new()
         {
@@ -174,9 +219,9 @@ public class McpToolRegistry
             ["threadId"] = "string", ["content"] = "string"
         }, "admin"),
         new McpToolDef("list_admins", "List admin accounts (admin).", new(), "admin"),
-        new McpToolDef("create_admin", "Create an admin account (admin).", new()
+        new McpToolDef("create_admin", "Create an admin account; only a super admin may grant the super_admin role (admin).", new()
         {
-            ["name"] = "string", ["email"] = "string", ["password"] = "string", ["teamMemberId"] = "string?"
+            ["name"] = "string", ["email"] = "string", ["password"] = "string", ["teamMemberId"] = "string?", ["role"] = "string?"
         }, "admin"),
         new McpToolDef("github_sync", "Run the GitHub sync for all team members (admin).", new(), "admin"),
         new McpToolDef("rag_ingest", "Ingest public content into the RAG knowledge base (admin).", new(), "admin"),
@@ -191,6 +236,10 @@ public class McpToolRegistry
         new McpToolDef("review_content_draft", "Approve or reject an AI-generated content draft (admin).", new()
         {
             ["id"] = "string", ["decision"] = "string", ["note"] = "string?"
+        }, "admin"),
+        new McpToolDef("generate_project_refresh", "Regenerate an existing project's draft from its own verified data (admin).", new()
+        {
+            ["projectId"] = "string"
         }, "admin"),
         new McpToolDef("rag_query", "Search permitted SQL-backed knowledge chunks for grounded context.", new()
         {
@@ -214,7 +263,9 @@ public class McpToolRegistry
         var drafts = scope.ServiceProvider.GetRequiredService<IAiDraftService>();
         var customerAuth = scope.ServiceProvider.GetRequiredService<ICustomerAuthService>();
         var customerProjects = scope.ServiceProvider.GetRequiredService<ICustomerProjectService>();
-        var customerRepo = scope.ServiceProvider.GetRequiredService<RALabs.Domain.Interfaces.ICustomerRepository>();
+        var customerManagement = scope.ServiceProvider.GetRequiredService<ICustomerManagementService>();
+        var notifications = scope.ServiceProvider.GetRequiredService<INotificationService>();
+        var dashboardStats = scope.ServiceProvider.GetRequiredService<IDashboardStatsService>();
 
         return tool switch
         {
@@ -257,7 +308,26 @@ public class McpToolRegistry
                 new SubmitFeedbackRequest(GetInt(args, "rating") ?? 5, RequireStr(args, "comment"), GetBool(args, "consentToPublish") ?? false))),
 
             // Admin customer-project tools
-            "list_customers" => EnsureAdmin(role, await customerRepo.GetAllAsync(GetInt(args, "page") ?? 1, GetInt(args, "pageSize") ?? 20)),
+            "list_customers" => EnsureAdmin(role, await customerManagement.ListAsync(
+                GetInt(args, "page"), GetInt(args, "pageSize"), GetStr(args, "search"), GetBool(args, "isActive"))),
+            "get_customer" => EnsureAdmin(role, await customerManagement.GetAsync(ParseGuid(RequireStr(args, "id")))),
+            "update_customer" => EnsureAdmin(role, await customerManagement.UpdateAsync(ParseGuid(RequireStr(args, "id")),
+                new UpdateCustomerByAdminRequest(RequireStr(args, "name"), RequireStr(args, "email"), GetStr(args, "password")))),
+            "set_customer_status" => EnsureAdmin(role, await customerManagement.SetStatusAsync(
+                ParseGuid(RequireStr(args, "id")), GetBool(args, "isActive") ?? throw new ArgumentException("Missing required parameter 'isActive'."))),
+            "delete_customer" => await DeleteCustomerAsync(role, args, customerManagement),
+            "delete_customers" => await DeleteCustomersAsync(role, args, customerManagement),
+            "import_customers" => EnsureAdmin(role, await ImportCustomersAsync(args, customerManagement)),
+            "export_customers" => EnsureAdmin(role, System.Text.Encoding.UTF8.GetString(await customerManagement.ExportAsync(
+                GetGuidList(args, "ids"), GetStr(args, "search"), GetBool(args, "isActive")))),
+            "get_dashboard_stats" => EnsureAdmin(role, await dashboardStats.GetAsync()),
+            "list_notifications" => EnsureAdmin(role, await notifications.ListAsync(
+                GetBool(args, "unread"), GetInt(args, "page"), GetInt(args, "pageSize"))),
+            "mark_notification_read" => await MarkNotificationReadAsync(role, args, notifications),
+            "list_reviews" => EnsureAdmin(role, await customerProjects.GetFeedbacksForAdminAsync(
+                GetInt(args, "page"), GetInt(args, "pageSize"), GetStr(args, "search"), GetBool(args, "published"))),
+            "moderate_review" => EnsureAdmin(role, await customerProjects.ModerateFeedbackAsync(
+                ParseGuid(RequireStr(args, "id")), GetBool(args, "approved") ?? throw new ArgumentException("Missing required parameter 'approved'."))),
             "list_all_customer_projects" => EnsureAdmin(role,
                 await customerProjects.GetAllForAdminAsync(GetInt(args, "page"), GetInt(args, "pageSize"), GetStr(args, "status"), GetStr(args, "search"), GetGuid(args, "customerId"))),
             "update_customer_project" => EnsureAdmin(role, await customerProjects.UpdateStatusAsync(ParseGuid(RequireStr(args, "id")),
@@ -276,11 +346,21 @@ public class McpToolRegistry
             "create_project" => EnsureAdmin(role, await prj.CreateAsync(new CreateProjectRequest(
                 RequireStr(args, "title"), GetStr(args, "slug"), RequireStr(args, "summary"),
                 GetList(args, "stackTags"), GetStr(args, "status"), GetStr(args, "githubUrl"),
-                GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"), GetInt(args, "sortOrder"), GetBool(args, "isPublished")))),
+                GetStr(args, "liveSiteUrl"), GetStr(args, "category"),
+                GetStr(args, "businessPurpose"), GetStr(args, "problemSolved"), GetStr(args, "solution"),
+                GetList(args, "keyFeatures"), GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"),
+                GetList(args, "screenshots"), GetStr(args, "duration"), GetGuidList(args, "teamMemberIds"),
+                GetDateTime(args, "completedAt"), GetStr(args, "customerReference"), GetBool(args, "showCustomerReference"),
+                GetInt(args, "sortOrder"), GetBool(args, "isFeatured"), GetBool(args, "isActive"), GetBool(args, "isPublished")))),
             "update_project" => EnsureAdmin(role, await prj.UpdateAsync(ParseGuid(RequireStr(args, "id")),
                 new UpdateProjectRequest(RequireStr(args, "title"), GetStr(args, "slug"), RequireStr(args, "summary"),
                     GetList(args, "stackTags"), GetStr(args, "status"), GetStr(args, "githubUrl"),
-                    GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"), GetInt(args, "sortOrder"), GetBool(args, "isPublished")))),
+                    GetStr(args, "liveSiteUrl"), GetStr(args, "category"),
+                    GetStr(args, "businessPurpose"), GetStr(args, "problemSolved"), GetStr(args, "solution"),
+                    GetList(args, "keyFeatures"), GetStr(args, "caseStudyBody"), GetStr(args, "coverImageUrl"),
+                    GetList(args, "screenshots"), GetStr(args, "duration"), GetGuidList(args, "teamMemberIds"),
+                    GetDateTime(args, "completedAt"), GetStr(args, "customerReference"), GetBool(args, "showCustomerReference"),
+                    GetInt(args, "sortOrder"), GetBool(args, "isFeatured"), GetBool(args, "isActive"), GetBool(args, "isPublished")))),
             "delete_project" => await DeleteProjectAsync(role, args, prj),
             "create_team_member" => EnsureAdmin(role, await team.CreateAsync(new CreateTeamRequest(
                 RequireStr(args, "name"), GetStr(args, "slug"), RequireStr(args, "role"), RequireStr(args, "bio"),
@@ -314,14 +394,16 @@ public class McpToolRegistry
             "list_admins" => EnsureAdmin(role, await auth.GetAdminsAsync()),
             "create_admin" => EnsureAdmin(role, await auth.CreateAdminAsync(new RALabs.Application.Services.CreateAdminRequest(
                 RequireStr(args, "name"), RequireStr(args, "email"), RequireStr(args, "password"),
-                GetGuid(args, "teamMemberId")), callerId!.Value)),
+                GetGuid(args, "teamMemberId"), GetStr(args, "role")), callerId!.Value)),
             "github_sync" => EnsureAdmin(role, await github.SyncAllAsync(CancellationToken.None)),
             "rag_ingest" => EnsureAdmin(role, await rag.IngestPublicContentAsync(CancellationToken.None)),
             "list_content_drafts" => EnsureAdmin(role, await drafts.ListAsync(GetStr(args, "status"), GetInt(args, "page") ?? 1, GetInt(args, "pageSize") ?? 20)),
             "generate_project_draft" => EnsureAdmin(role, await drafts.GenerateProjectDraftAsync(
                 RequireStr(args, "sourceUrl"), RequireStr(args, "sourceText"), CancellationToken.None)),
             "review_content_draft" => EnsureAdmin(role, await drafts.ReviewAsync(
-                ParseGuid(RequireStr(args, "id")), RequireStr(args, "decision").Trim().ToLowerInvariant(), GetStr(args, "note"), projectRepository)),
+                ParseGuid(RequireStr(args, "id")), RequireStr(args, "decision").Trim().ToLowerInvariant(), GetStr(args, "note"), projectRepository, rag)),
+            "generate_project_refresh" => EnsureAdmin(role, await drafts.GenerateProjectRefreshAsync(
+                ParseGuid(RequireStr(args, "projectId")), projectRepository, CancellationToken.None)),
             "rag_query" => await QueryRagAsync(rag, role, args),
             _ => throw new ArgumentException($"Unknown MCP tool: {tool}")
         };
@@ -349,14 +431,25 @@ public class McpToolRegistry
     private static List<string>? GetList(IDictionary<string, object?> args, string key)
         => args.TryGetValue(key, out var v) && v is IEnumerable<string> list ? list.ToList() : null;
 
+    private static List<Guid>? GetGuidList(IDictionary<string, object?> args, string key)
+    {
+        if (!args.TryGetValue(key, out var v) || v is not IEnumerable<string> list) return null;
+        var ids = list.Select(s => Guid.TryParse(s, out var g) ? g : (Guid?)null).Where(g => g.HasValue).Select(g => g!.Value).ToList();
+        return ids.Count > 0 ? ids : null;
+    }
+
+    private static DateTime? GetDateTime(IDictionary<string, object?> args, string key)
+        => args.TryGetValue(key, out var v) && v is not null && DateTime.TryParse(v.ToString(), out var d) ? d : null;
+
     private static Guid? GetGuid(IDictionary<string, object?> args, string key)
         => args.TryGetValue(key, out var v) && v is not null && Guid.TryParse(v.ToString(), out var g) ? g : null;
 
     private static Guid ParseGuid(string s)
         => Guid.TryParse(s, out var g) ? g : throw new ArgumentException($"Invalid GUID: {s}");
 
+    // Role hierarchy: super_admin satisfies "admin" (GAP-023).
     private static T EnsureAdmin<T>(string? role, T result)
-        => role == "admin" ? result : throw new ForbiddenMcpException("This MCP tool requires the admin role.");
+        => role is "admin" or "super_admin" ? result : throw new ForbiddenMcpException("This MCP tool requires the admin role.");
 
     private static T EnsureRole<T>(string? role, string required, T result)
         => role == required ? result : throw new ForbiddenMcpException($"This MCP tool requires the '{required}' role.");
@@ -377,6 +470,35 @@ public class McpToolRegistry
         EnsureAdmin(role, (object?)null);
         await prj.DeleteAsync(ParseGuid(RequireStr(args, "id")));
         return null;
+    }
+
+    private static async Task<object?> DeleteCustomerAsync(string? role, IDictionary<string, object?> args, ICustomerManagementService customers)
+    {
+        EnsureAdmin(role, (object?)null);
+        await customers.DeleteAsync(ParseGuid(RequireStr(args, "id")));
+        return null;
+    }
+
+    private static async Task<object?> DeleteCustomersAsync(string? role, IDictionary<string, object?> args, ICustomerManagementService customers)
+    {
+        EnsureAdmin(role, (object?)null);
+        var ids = GetGuidList(args, "ids") ?? throw new ArgumentException("Missing required parameter 'ids'.");
+        await customers.DeleteManyAsync(ids);
+        return null;
+    }
+
+    private static async Task<object?> MarkNotificationReadAsync(string? role, IDictionary<string, object?> args, INotificationService notifications)
+    {
+        EnsureAdmin(role, (object?)null);
+        await notifications.MarkReadAsync(ParseGuid(RequireStr(args, "id")));
+        return null;
+    }
+
+    private static async Task<CustomerImportResultDto> ImportCustomersAsync(IDictionary<string, object?> args, ICustomerManagementService customers)
+    {
+        var csv = RequireStr(args, "csv");
+        await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(csv), writable: false);
+        return await customers.ImportAsync(stream);
     }
 
     private static async Task<object?> DeleteTeamMemberAsync(string? role, IDictionary<string, object?> args, ITeamService team)

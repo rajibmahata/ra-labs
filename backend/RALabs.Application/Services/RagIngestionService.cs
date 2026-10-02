@@ -7,6 +7,7 @@ namespace RALabs.Application.Services;
 public interface IRagIngestionService
 {
     Task<int> IngestPublicContentAsync(CancellationToken ct);
+    Task SyncProjectAsync(Guid projectId, CancellationToken ct);
     Task<List<RagQueryResult>> QueryAsync(string query, Guid? customerProjectId, CancellationToken ct);
 }
 
@@ -86,23 +87,8 @@ public class RagIngestionService : IRagIngestionService
 
         foreach (var p in published)
         {
-            var text = $"{p.Title}. {p.Summary}." + (string.IsNullOrWhiteSpace(p.CaseStudyBody)
-                ? ""
-                : " " + string.Join(" ", p.CaseStudyBody.Split('\n').Take(8)));
-            await _chunks.DeleteBySourceAsync(nameof(KnowledgeSourceType.PublicContent), $"project:{p.Id}");
-            if (!string.IsNullOrWhiteSpace(text) && text.Length > 20)
-            {
-                await _chunks.AddAsync(new KnowledgeChunk
-                {
-                    Id = Guid.NewGuid(),
-                    SourceType = KnowledgeSourceType.PublicContent,
-                    SourceId = $"project:{p.Id}",
-                    CustomerProjectId = null,
-                    ChunkText = text,
-                    CreatedAt = DateTime.UtcNow
-                });
-                count++;
-            }
+            await SyncProjectAsync(p.Id, ct);
+            count++;
         }
 
         var members = await _team.GetPublishedAsync();
@@ -148,6 +134,43 @@ public class RagIngestionService : IRagIngestionService
         }
 
         return count;
+    }
+
+    /// <summary>
+    /// Incremental per-project chunk sync. Only active + published + non-deleted
+    /// projects are retrievable through public RAG; everything else is removed.
+    /// </summary>
+    public async Task SyncProjectAsync(Guid projectId, CancellationToken ct)
+    {
+        var sourceId = $"project:{projectId}";
+        await _chunks.DeleteBySourceAsync(nameof(KnowledgeSourceType.PublicContent), sourceId);
+        var project = await _projects.GetByIdAsync(projectId);
+        if (project is null || project.IsDeleted || !project.IsPublished || !project.IsActive)
+            return;
+
+        var parts = new List<string> { project.Title, project.Summary };
+        if (!string.IsNullOrWhiteSpace(project.Category)) parts.Add($"Category: {project.Category}");
+        if (project.StackTags.Count > 0) parts.Add($"Technologies: {string.Join(", ", project.StackTags)}");
+        if (!string.IsNullOrWhiteSpace(project.BusinessPurpose)) parts.Add($"Business purpose: {project.BusinessPurpose}");
+        if (!string.IsNullOrWhiteSpace(project.ProblemSolved)) parts.Add($"Problem solved: {project.ProblemSolved}");
+        if (!string.IsNullOrWhiteSpace(project.Solution)) parts.Add($"Solution: {project.Solution}");
+        if (project.KeyFeatures.Count > 0) parts.Add($"Key features: {string.Join("; ", project.KeyFeatures)}");
+        if (!string.IsNullOrWhiteSpace(project.CaseStudyBody))
+            parts.Add(string.Join(" ", project.CaseStudyBody.Split('\n').Take(8)));
+        if (project.ShowCustomerReference && !string.IsNullOrWhiteSpace(project.CustomerReference))
+            parts.Add($"Customer reference: {project.CustomerReference}");
+
+        var text = string.Join(". ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        if (text.Length <= 20) return;
+        await _chunks.AddAsync(new KnowledgeChunk
+        {
+            Id = Guid.NewGuid(),
+            SourceType = KnowledgeSourceType.PublicContent,
+            SourceId = sourceId,
+            CustomerProjectId = null,
+            ChunkText = text,
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     public async Task<List<RagQueryResult>> QueryAsync(string query, Guid? customerProjectId, CancellationToken ct)

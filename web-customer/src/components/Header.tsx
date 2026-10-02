@@ -24,6 +24,12 @@ export default function Header() {
             Dashboard
           </NavLink>
           <NavLink
+            to="/agent"
+            className={({ isActive }) => (isActive ? 'active' : '')}
+          >
+            AI Agent
+          </NavLink>
+          <NavLink
             to="/account"
             className={({ isActive }) => (isActive ? 'active' : '')}
           >

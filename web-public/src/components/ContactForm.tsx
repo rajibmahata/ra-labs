@@ -33,23 +33,23 @@ export default function ContactForm({ inline, onSuccess }: Props) {
     const e: FormErrors = {};
 
     if (!name.trim()) {
-      e.name = 'Name is required.';
+      e.name = t('contact.error.nameRequired', 'Name is required.');
     } else if (name.length > 100) {
-      e.name = 'Name must be 100 characters or fewer.';
+      e.name = t('contact.error.nameLength', 'Name must be 100 characters or fewer.');
     }
 
     if (!contactInfo.trim()) {
-      e.contactInfo = 'Email or phone is required.';
+      e.contactInfo = t('contact.error.contactRequired', 'Email or phone is required.');
     } else if (contactInfo.length > 200) {
-      e.contactInfo = 'Contact info must be 200 characters or fewer.';
+      e.contactInfo = t('contact.error.contactLength', 'Contact info must be 200 characters or fewer.');
     } else if (!EMAIL_OR_PHONE_RE.test(contactInfo.trim())) {
-      e.contactInfo = 'Please enter a valid email or phone number.';
+      e.contactInfo = t('contact.error.contactInvalid', 'Please enter a valid email or phone number.');
     }
 
     if (!message.trim()) {
-      e.message = 'Message is required.';
+      e.message = t('contact.error.messageRequired', 'Message is required.');
     } else if (message.length > 2000) {
-      e.message = 'Message must be 2000 characters or fewer.';
+      e.message = t('contact.error.messageLength', 'Message must be 2000 characters or fewer.');
     }
 
     return e;
@@ -86,14 +86,14 @@ export default function ContactForm({ inline, onSuccess }: Props) {
       if (err instanceof ApiClientError) {
         if (err.code === 'RATE_LIMITED') {
           setServerError(
-            'You have submitted too many messages. Please wait a moment and try again.'
+            t('contact.error.rateLimited', 'You have submitted too many messages. Please wait a moment and try again.')
           );
         } else {
           setServerError(err.message);
         }
       } else {
         setServerError(
-          'Something went wrong. Please try again or email us directly.'
+          t('contact.error.generic', 'Something went wrong. Please try again or email us directly.')
         );
       }
     } finally {

@@ -71,7 +71,7 @@ export default function ProjectCard({ project, index = 0 }: Props) {
 
         <div className="meta">
           <span>{formatBuildTime(project)}</span>
-          <span>github &nearr;</span>
+          <span>{project.liveSiteUrl ? 'live site &nearr;' : 'github &nearr;'}</span>
         </div>
       </div>
     </Link>

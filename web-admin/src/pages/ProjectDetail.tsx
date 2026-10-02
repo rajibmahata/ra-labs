@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { customerProjects as cpApi, ApiClientError } from '../api/client';
 import { useToast } from '../components/useToast';
@@ -45,6 +45,24 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<CustomerProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState<'overview' | 'docs' | 'prd' | 'demos' | 'invoices' | 'feedback'>('overview');
+
+  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, tabs: readonly string[]) => {
+    const idx = tabs.indexOf(activeTab);
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = (idx + 1) % tabs.length;
+      setActiveTab(tabs[next] as typeof activeTab);
+      (e.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = (idx - 1 + tabs.length) % tabs.length;
+      setActiveTab(tabs[prev] as typeof activeTab);
+      (e.currentTarget.parentElement?.children[prev] as HTMLElement)?.focus();
+    }
+  };
 
   // Admin notes
   const [adminNotes, setAdminNotes] = useState('');
@@ -381,6 +399,38 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* ================================================================
+          TABS
+          ================================================================ */}
+      <div className="content-tabs" role="tablist" aria-label="Project sections">
+        {([
+          ['overview', 'Overview', 0],
+          ['docs', 'Docs', documents.length],
+          ['prd', 'PRD', prd ? 1 : 0],
+          ['demos', 'Demos', demo ? 1 : 0],
+          ['invoices', 'Invoices', invoices.length],
+          ['feedback', 'Feedback', feedback ? 1 : 0],
+        ] as const).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            id={`tab-${key}`}
+            role="tab"
+            aria-selected={activeTab === key}
+            tabIndex={activeTab === key ? 0 : -1}
+            className={`content-tab${activeTab === key ? ' content-tab--active' : ''}`}
+            onClick={() => setActiveTab(key)}
+            onKeyDown={(e) => handleTabKeyDown(e, ['overview', 'docs', 'prd', 'demos', 'invoices', 'feedback'])}
+          >
+            {label}
+            {count > 0 && <span className="content-tab-count">{count}</span>}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel" id="tabpanel-overview" aria-labelledby="tab-overview" hidden={activeTab !== 'overview'}>
+      {activeTab === 'overview' && (
+        <>
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Customer Brief</h2>
@@ -463,10 +513,12 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+        </>
+      )}
+      </div>
 
-      {/* ================================================================
-          DOCUMENTS
-          ================================================================ */}
+      <div role="tabpanel" id="tabpanel-docs" aria-labelledby="tab-docs" hidden={activeTab !== 'docs'}>
+      {activeTab === 'docs' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Documents</h2>
@@ -517,10 +569,11 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+      )}
+      </div>
 
-      {/* ================================================================
-          PRD EDITOR + SIGN STATUS
-          ================================================================ */}
+      <div role="tabpanel" id="tabpanel-prd" aria-labelledby="tab-prd" hidden={activeTab !== 'prd'}>
+      {activeTab === 'prd' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">PRD (Product Requirements Document)</h2>
@@ -618,10 +671,11 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+      )}
+      </div>
 
-      {/* ================================================================
-          DEMO
-          ================================================================ */}
+      <div role="tabpanel" id="tabpanel-demos" aria-labelledby="tab-demos" hidden={activeTab !== 'demos'}>
+      {activeTab === 'demos' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Demo</h2>
@@ -693,10 +747,11 @@ export default function ProjectDetail() {
           </form>
         </div>
       </div>
+      )}
+      </div>
 
-      {/* ================================================================
-          INVOICES
-          ================================================================ */}
+      <div role="tabpanel" id="tabpanel-invoices" aria-labelledby="tab-invoices" hidden={activeTab !== 'invoices'}>
+      {activeTab === 'invoices' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Invoices</h2>
@@ -799,10 +854,11 @@ export default function ProjectDetail() {
           </form>
         </div>
       </div>
+      )}
+      </div>
 
-      {/* ================================================================
-          FEEDBACK
-          ================================================================ */}
+      <div role="tabpanel" id="tabpanel-feedback" aria-labelledby="tab-feedback" hidden={activeTab !== 'feedback'}>
+      {activeTab === 'feedback' && (
       <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card-header">
           <h2 className="card-title">Customer Feedback</h2>
@@ -861,6 +917,8 @@ export default function ProjectDetail() {
             </>
           )}
         </div>
+      </div>
+      )}
       </div>
     </div>
   );

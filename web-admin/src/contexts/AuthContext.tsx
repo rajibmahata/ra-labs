@@ -6,7 +6,7 @@ interface AuthContextValue {
   user: AdminUser | null;
   teamProfile: TeamMember | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
   logout: () => void;
   refreshTeamProfile: () => Promise<void>;
 }
@@ -47,10 +47,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     init();
   }, [loadTeamProfile]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  useEffect(() => {
+    const handler = () => {
+      setUser(null);
+      setTeamProfile(null);
+    };
+    window.addEventListener('auth:expired', handler);
+    return () => window.removeEventListener('auth:expired', handler);
+  }, []);
+
+  const login = useCallback(async (email: string, password: string, remember = true) => {
     const res = await authApi.login(email, password);
     const { accessToken, expiresAt, user: userData } = res.data;
-    setAuth(accessToken, userData, expiresAt);
+    setAuth(accessToken, userData, expiresAt, remember);
     setUser(userData as AdminUser);
     await loadTeamProfile();
   }, [loadTeamProfile]);

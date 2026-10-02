@@ -1,11 +1,12 @@
 {
   "name": "R&A Labs Admin",
   "short_name": "R&A Admin",
+  "description": "R&A Labs Administration Dashboard",
   "start_url": "/admin/",
   "scope": "/admin/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#0f172a",
+  "background_color": "#0b1427",
+  "theme_color": "#0b1427",
   "icons": [
     {
       "src": "/admin/icons/icon-192.svg",

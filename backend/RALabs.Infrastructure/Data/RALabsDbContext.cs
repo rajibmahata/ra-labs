@@ -29,6 +29,8 @@ public class RALabsDbContext : DbContext
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<ContentDraft> ContentDrafts => Set<ContentDraft>();
     public DbSet<GithubRepository> GithubRepositories => Set<GithubRepository>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -58,7 +60,18 @@ public class RALabsDbContext : DbContext
             e.Property(x => x.StackTags).HasColumnType("nvarchar(max)");
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.GithubUrl).HasMaxLength(500);
+            e.Property(x => x.LiveSiteUrl).HasMaxLength(500);
+            e.Property(x => x.Category).HasMaxLength(100);
+            e.Property(x => x.BusinessPurpose).HasColumnType("nvarchar(max)");
+            e.Property(x => x.ProblemSolved).HasColumnType("nvarchar(max)");
+            e.Property(x => x.Solution).HasColumnType("nvarchar(max)");
+            e.Property(x => x.KeyFeatures).HasColumnType("nvarchar(max)");
+            e.Property(x => x.CaseStudyBody).HasColumnType("nvarchar(max)");
             e.Property(x => x.CoverImageUrl).HasMaxLength(500);
+            e.Property(x => x.Screenshots).HasColumnType("nvarchar(max)");
+            e.Property(x => x.Duration).HasMaxLength(100);
+            e.Property(x => x.TeamMemberIds).HasColumnType("nvarchar(max)");
+            e.Property(x => x.CustomerReference).HasMaxLength(200);
         });
 
         b.Entity<ContentDraft>(e =>
@@ -81,6 +94,26 @@ public class RALabsDbContext : DbContext
             e.Property(x => x.HtmlUrl).HasMaxLength(500).IsRequired();
             e.Property(x => x.PrimaryLanguage).HasMaxLength(100);
             e.HasIndex(x => x.FullName).IsUnique();
+        });
+
+        b.Entity<SystemSetting>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Key).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Value).HasMaxLength(2000).IsRequired();
+            e.HasIndex(x => x.Key).IsUnique();
+        });
+
+        b.Entity<AuditLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ActorName).HasMaxLength(200);
+            e.Property(x => x.Action).HasMaxLength(100).IsRequired();
+            e.Property(x => x.EntityType).HasMaxLength(100);
+            e.Property(x => x.EntityId).HasMaxLength(100);
+            e.Property(x => x.Details).HasMaxLength(4000);
+            e.Property(x => x.IpAddress).HasMaxLength(64);
+            e.HasIndex(x => new { x.CreatedAt });
         });
 
         // TeamMember

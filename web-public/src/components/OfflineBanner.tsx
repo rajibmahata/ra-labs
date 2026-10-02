@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useI18n } from '../i18n';
 
 export default function OfflineBanner() {
+  const { t } = useI18n();
   const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -24,7 +26,7 @@ export default function OfflineBanner() {
       role="alert"
       aria-live="polite"
     >
-      You are currently offline. Some features may be unavailable.
+      {t('offline.message', 'You are currently offline. Some features may be unavailable.')}
     </div>
   );
 }
